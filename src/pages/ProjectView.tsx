@@ -11,11 +11,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StatusBadge } from "@/components/StatusBadge";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Monitor, Terminal, Copy, Users, ArrowLeft } from "lucide-react";
+import { useProjectRole } from "@/hooks/useProjectRole";
 import type { Tables } from "@/integrations/supabase/types";
 
 export default function ProjectView() {
   const { projectId } = useParams<{ projectId: string }>();
   const { user } = useAuth();
+  const { isOwner } = useProjectRole(projectId);
   const navigate = useNavigate();
   const { toast } = useToast();
   const [project, setProject] = useState<Tables<"projects"> | null>(null);
@@ -122,6 +124,7 @@ export default function ProjectView() {
           </TabsList>
 
           <TabsContent value="devices" className="space-y-4">
+            {isOwner && (
             <div className="flex justify-end">
               <Dialog open={addDeviceOpen} onOpenChange={setAddDeviceOpen}>
                 <DialogTrigger asChild>
@@ -136,6 +139,7 @@ export default function ProjectView() {
                 </DialogContent>
               </Dialog>
             </div>
+            )}
 
             {devices.length === 0 ? (
               <Card className="border-dashed">
