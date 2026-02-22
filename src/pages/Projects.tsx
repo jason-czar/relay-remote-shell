@@ -98,10 +98,12 @@ export default function Projects() {
                     <p className="text-xs text-muted-foreground mt-1">
                       Created {new Date(project.created_at).toLocaleDateString()}
                     </p>
-                  </div>
-                  <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={(e) => { e.stopPropagation(); deleteProject(project.id); }}>
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                   </div>
+                   {project.owner_id === user?.id && (
+                   <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={(e) => { e.stopPropagation(); deleteProject(project.id); }}>
+                     <Trash2 className="h-4 w-4" />
+                   </Button>
+                   )}
                 </CardHeader>
                 <CardContent>
                   <div className="flex items-center gap-1 text-sm text-primary">
