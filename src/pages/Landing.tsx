@@ -26,12 +26,12 @@ export default function Landing() {
       </nav>
 
       {/* Hero */}
-      <section className="max-w-6xl mx-auto px-6 pt-24 pb-20 text-center">
+      <section className="max-w-6xl mx-auto px-4 sm:px-6 pt-16 sm:pt-24 pb-16 sm:pb-20 text-center">
         <div className="inline-flex items-center gap-2 rounded-full border border-border bg-muted px-4 py-1.5 text-sm text-muted-foreground mb-8">
           <Zap className="h-3.5 w-3.5 text-primary" />
           Secure remote terminal access
         </div>
-        <h1 className="text-5xl sm:text-6xl font-bold tracking-tight leading-tight max-w-3xl mx-auto">
+        <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight leading-tight max-w-3xl mx-auto">
           Access any machine,
           <br />
           <span className="text-primary">from anywhere.</span>
@@ -40,7 +40,7 @@ export default function Landing() {
           Relay Terminal Cloud gives your team instant, browser-based terminal sessions
           to remote servers, workstations, and IoT devices — no VPN or SSH config needed.
         </p>
-        <div className="flex items-center justify-center gap-4 mt-10">
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-10">
           <Button size="lg" onClick={() => navigate("/auth")} className="gap-2 text-base px-8">
             Start for Free <ArrowRight className="h-4 w-4" />
           </Button>
@@ -50,7 +50,7 @@ export default function Landing() {
         </div>
 
         {/* Terminal mock */}
-        <div className="mt-16 max-w-2xl mx-auto rounded-xl border border-border bg-card overflow-hidden shadow-2xl shadow-primary/5">
+        <div className="hidden sm:block mt-16 max-w-2xl mx-auto rounded-xl border border-border bg-card overflow-hidden shadow-2xl shadow-primary/5">
           <div className="flex items-center gap-2 px-4 py-3 border-b border-border bg-muted/50">
             <div className="h-3 w-3 rounded-full bg-destructive/60" />
             <div className="h-3 w-3 rounded-full" style={{ backgroundColor: "hsl(var(--status-connecting) / 0.6)" }} />

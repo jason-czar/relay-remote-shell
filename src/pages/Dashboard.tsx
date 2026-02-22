@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Monitor, Wifi, Activity, Plus, Terminal, ArrowRight } from "lucide-react";
+import { DashboardSkeleton } from "@/components/LoadingSkeletons";
 import type { Tables } from "@/integrations/supabase/types";
 
 export default function Dashboard() {
@@ -64,6 +65,9 @@ export default function Dashboard() {
 
   return (
     <AppLayout>
+      {loading ? (
+        <DashboardSkeleton />
+      ) : (
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
@@ -197,6 +201,7 @@ export default function Dashboard() {
           </div>
         )}
       </div>
+      )}
     </AppLayout>
   );
 }

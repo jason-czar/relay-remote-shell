@@ -47,8 +47,14 @@ Deno.serve(async (req) => {
   try {
     const { device_id } = await req.json();
 
-    if (!device_id || typeof device_id !== "string") {
-      return json({ error: "device_id is required" }, 400);
+    if (!device_id || typeof device_id !== "string" || device_id.length > 36) {
+      return json({ error: "Valid device_id is required" }, 400);
+    }
+
+    // Basic UUID format check
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(device_id)) {
+      return json({ error: "Invalid device_id format" }, 400);
     }
 
     // Verify device exists and user has access

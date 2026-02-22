@@ -41,8 +41,9 @@ Deno.serve(async (req) => {
   try {
     const { session_id } = await req.json();
 
-    if (!session_id || typeof session_id !== "string") {
-      return json({ error: "session_id is required" }, 400);
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!session_id || typeof session_id !== "string" || !uuidRegex.test(session_id)) {
+      return json({ error: "Valid session_id is required" }, 400);
     }
 
     // Update session - RLS ensures user can only update own sessions

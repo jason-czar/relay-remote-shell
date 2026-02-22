@@ -25,8 +25,12 @@ Deno.serve(async (req) => {
   try {
     const { pairing_code, name } = await req.json();
 
-    if (!pairing_code || typeof pairing_code !== "string") {
-      return json({ error: "pairing_code is required" }, 400);
+    if (!pairing_code || typeof pairing_code !== "string" || pairing_code.length > 20) {
+      return json({ error: "Valid pairing_code is required" }, 400);
+    }
+
+    if (name && (typeof name !== "string" || name.length > 100)) {
+      return json({ error: "Device name must be under 100 characters" }, 400);
     }
 
     const supabase = createClient(
