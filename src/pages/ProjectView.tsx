@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/StatusBadge";
 import { useToast } from "@/hooks/use-toast";
+import { ProjectViewSkeleton } from "@/components/LoadingSkeletons";
 import { Plus, Monitor, Terminal, Copy, Users, ArrowLeft, Mail, UserMinus, Clock, Pencil, Trash2, RefreshCw, MoreVertical } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useProjectRole } from "@/hooks/useProjectRole";
@@ -32,6 +33,7 @@ export default function ProjectView() {
   const [addDeviceOpen, setAddDeviceOpen] = useState(false);
   const [renameDeviceId, setRenameDeviceId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
+  const [deleteDeviceId, setDeleteDeviceId] = useState<string | null>(null);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteLoading, setInviteLoading] = useState(false);
@@ -199,9 +201,7 @@ export default function ProjectView() {
   if (!project) {
     return (
       <AppLayout>
-        <div className="flex items-center justify-center h-64">
-          <p className="text-muted-foreground">Loading project...</p>
-        </div>
+        <ProjectViewSkeleton />
       </AppLayout>
     );
   }
@@ -298,7 +298,7 @@ export default function ProjectView() {
                               <DropdownMenuItem onClick={() => regeneratePairingCode(device.id)}>
                                 <RefreshCw className="h-4 w-4 mr-2" /> Regenerate Pairing Code
                               </DropdownMenuItem>
-                              <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => deleteDevice(device.id)}>
+                              <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => setDeleteDeviceId(device.id)}>
                                 <Trash2 className="h-4 w-4 mr-2" /> Delete Device
                               </DropdownMenuItem>
                             </DropdownMenuContent>
@@ -487,6 +487,20 @@ export default function ProjectView() {
             </form>
           </DialogContent>
         </Dialog>
+
+        {/* Delete Device Confirmation */}
+        <AlertDialog open={deleteDeviceId !== null} onOpenChange={(open) => { if (!open) setDeleteDeviceId(null); }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete device?</AlertDialogTitle>
+              <AlertDialogDescription>This will permanently remove this device and all its session history. This cannot be undone.</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={() => { if (deleteDeviceId) { deleteDevice(deleteDeviceId); setDeleteDeviceId(null); } }}>Delete</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </AppLayout>
   );

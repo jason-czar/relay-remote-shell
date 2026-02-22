@@ -7,8 +7,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, FolderOpen, ArrowRight, Trash2 } from "lucide-react";
+import { ProjectsSkeleton } from "@/components/LoadingSkeletons";
 import type { Tables } from "@/integrations/supabase/types";
 
 export default function Projects() {
@@ -19,10 +21,12 @@ export default function Projects() {
   const [newName, setNewName] = useState("");
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
 
   const loadProjects = async () => {
     const { data } = await supabase.from("projects").select("*").order("created_at", { ascending: false });
     setProjects(data ?? []);
+    setInitialLoading(false);
   };
 
   useEffect(() => {
@@ -56,6 +60,9 @@ export default function Projects() {
 
   return (
     <AppLayout>
+      {initialLoading ? (
+        <ProjectsSkeleton />
+      ) : (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
@@ -100,9 +107,23 @@ export default function Projects() {
                     </p>
                    </div>
                    {project.owner_id === user?.id && (
-                   <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={(e) => { e.stopPropagation(); deleteProject(project.id); }}>
-                     <Trash2 className="h-4 w-4" />
-                   </Button>
+                     <AlertDialog>
+                       <AlertDialogTrigger asChild>
+                         <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={(e) => e.stopPropagation()}>
+                           <Trash2 className="h-4 w-4" />
+                         </Button>
+                       </AlertDialogTrigger>
+                       <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                         <AlertDialogHeader>
+                           <AlertDialogTitle>Delete project?</AlertDialogTitle>
+                           <AlertDialogDescription>This will permanently delete "{project.name}" and all its devices and sessions. This action cannot be undone.</AlertDialogDescription>
+                         </AlertDialogHeader>
+                         <AlertDialogFooter>
+                           <AlertDialogCancel>Cancel</AlertDialogCancel>
+                           <AlertDialogAction onClick={() => deleteProject(project.id)}>Delete</AlertDialogAction>
+                         </AlertDialogFooter>
+                       </AlertDialogContent>
+                     </AlertDialog>
                    )}
                 </CardHeader>
                 <CardContent>
@@ -115,6 +136,7 @@ export default function Projects() {
           </div>
         )}
       </div>
+      )}
     </AppLayout>
   );
 }
