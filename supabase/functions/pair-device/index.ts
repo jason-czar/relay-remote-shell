@@ -70,8 +70,11 @@ Deno.serve(async (req) => {
       return json({ error: "Failed to pair device" }, 500);
     }
 
-    // Construct relay URL (placeholder — replace with your actual relay)
-    const relayUrl = `wss://${Deno.env.get("SUPABASE_URL")?.replace("https://", "")}/connect`;
+    // Use configured relay URL
+    const relayUrl = Deno.env.get("RELAY_URL");
+    if (!relayUrl) {
+      return json({ error: "Relay server not configured" }, 500);
+    }
 
     return json({
       device_id: device.id,
