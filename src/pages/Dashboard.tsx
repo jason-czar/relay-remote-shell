@@ -161,17 +161,35 @@ export default function Dashboard() {
                   <p className="text-sm text-muted-foreground">No sessions yet</p>
                 ) : (
                   <div className="space-y-3">
-                    {sessions.slice(0, 5).map((session) => (
-                      <div key={session.id} className="flex items-center justify-between rounded-lg border border-border p-3">
-                        <div>
-                          <p className="text-sm font-medium font-mono">{session.id.slice(0, 8)}...</p>
-                          <p className="text-xs text-muted-foreground">
-                            {new Date(session.started_at).toLocaleString()}
-                          </p>
+                    {sessions.slice(0, 5).map((session) => {
+                      const device = devices.find((d) => d.id === session.device_id);
+                      const duration = session.ended_at
+                        ? Math.round((new Date(session.ended_at).getTime() - new Date(session.started_at).getTime()) / 1000)
+                        : Math.round((Date.now() - new Date(session.started_at).getTime()) / 1000);
+                      const durationStr = duration >= 3600
+                        ? `${Math.floor(duration / 3600)}h ${Math.floor((duration % 3600) / 60)}m`
+                        : duration >= 60
+                          ? `${Math.floor(duration / 60)}m ${duration % 60}s`
+                          : `${duration}s`;
+                      return (
+                        <div key={session.id} className="flex items-center justify-between rounded-lg border border-border p-3">
+                          <div>
+                            <p className="text-sm font-medium">{device?.name ?? session.id.slice(0, 8)}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {new Date(session.started_at).toLocaleString()} · {durationStr}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <StatusBadge status={session.status} />
+                            {session.status === "active" && device && (
+                              <Button size="sm" variant="ghost" className="gap-1 h-7" onClick={() => navigate(`/terminal/${device.id}`)}>
+                                <Terminal className="h-3 w-3" /> Rejoin
+                              </Button>
+                            )}
+                          </div>
                         </div>
-                        <StatusBadge status={session.status} />
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </CardContent>
