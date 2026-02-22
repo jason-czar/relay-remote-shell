@@ -152,30 +152,41 @@ export default function TerminalSession() {
     };
   }, [deviceId, user]);
 
-  const connectWebSocket = (term: Terminal, dev: Tables<"devices"> | null, sessionId: string) => {
-    // The relay URL would be configured — using a placeholder that shows the stub
-    const relayUrl = `wss://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/connect`;
+  const connectWebSocket = async (term: Terminal, dev: Tables<"devices"> | null, sessionId: string) => {
+    // Relay URL — set VITE_RELAY_URL in .env when you deploy the relay server
+    const relayUrl = import.meta.env.VITE_RELAY_URL;
+
+    if (!relayUrl) {
+      term.writeln(`\x1b[33m⚠ No relay URL configured (set VITE_RELAY_URL)\x1b[0m`);
+      fallbackToStub(term, dev, sessionId);
+      return;
+    }
+
+    // Get JWT for relay auth
+    const { data: { session: authSession } } = await supabase.auth.getSession();
+    const jwt = authSession?.access_token;
+    if (!jwt) {
+      term.writeln(`\x1b[31m✗ No auth session\x1b[0m`);
+      setConnectionStatus("offline");
+      return;
+    }
 
     term.writeln(`\x1b[33m⟳ Connecting to relay...\x1b[0m`);
     setConnectionStatus("connecting");
 
     try {
-      const ws = new WebSocket(relayUrl);
+      // Browser connects to /session endpoint
+      const ws = new WebSocket(`${relayUrl}/session`);
       wsRef.current = ws;
 
       ws.onopen = () => {
-        // In a real setup, the browser would authenticate to the relay
-        // and the relay would forward session_start to the connector
-        term.writeln(`\x1b[32m✓ Connected to relay\x1b[0m`);
-        setConnectionStatus("online");
-
-        // Send session_start to relay
+        // Authenticate with relay using Supabase JWT
         ws.send(JSON.stringify({
-          type: "session_start",
+          type: "auth",
           data: {
+            token: jwt,
             session_id: sessionId,
-            cols: term.cols,
-            rows: term.rows,
+            device_id: dev?.id ?? deviceId,
           },
         }));
       };
@@ -183,7 +194,15 @@ export default function TerminalSession() {
       ws.onmessage = (event) => {
         try {
           const msg: RelayMessage = JSON.parse(event.data);
-          if (msg.type === "stdout" && msg.data) {
+          if (msg.type === "auth_ok") {
+            term.writeln(`\x1b[32m✓ Authenticated with relay\x1b[0m`);
+            setConnectionStatus("online");
+            // Now send session_start to trigger PTY on connector
+            ws.send(JSON.stringify({
+              type: "session_start",
+              data: { session_id: sessionId, cols: term.cols, rows: term.rows },
+            }));
+          } else if (msg.type === "stdout" && msg.data) {
             const { data_b64 } = msg.data as { session_id: string; data_b64: string };
             const bytes = Uint8Array.from(atob(data_b64), (c) => c.charCodeAt(0));
             term.write(bytes);
