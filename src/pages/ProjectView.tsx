@@ -7,10 +7,12 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/StatusBadge";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Monitor, Terminal, Copy, Users, ArrowLeft } from "lucide-react";
+import { Plus, Monitor, Terminal, Copy, Users, ArrowLeft, Mail, UserMinus, Clock } from "lucide-react";
 import { useProjectRole } from "@/hooks/useProjectRole";
 import type { Tables } from "@/integrations/supabase/types";
 
@@ -24,25 +26,28 @@ export default function ProjectView() {
   const [devices, setDevices] = useState<Tables<"devices">[]>([]);
   const [sessions, setSessions] = useState<Tables<"sessions">[]>([]);
   const [members, setMembers] = useState<Tables<"project_members">[]>([]);
+  const [pendingInvites, setPendingInvites] = useState<any[]>([]);
   const [newDeviceName, setNewDeviceName] = useState("");
   const [addDeviceOpen, setAddDeviceOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteLoading, setInviteLoading] = useState(false);
 
   const load = async () => {
     if (!projectId) return;
-    const [p, d, s, m] = await Promise.all([
+    const [p, d, s, m, inv] = await Promise.all([
       supabase.from("projects").select("*").eq("id", projectId).single(),
       supabase.from("devices").select("*").eq("project_id", projectId).order("created_at", { ascending: false }),
       supabase.from("sessions").select("*").order("started_at", { ascending: false }).limit(20),
       supabase.from("project_members").select("*").eq("project_id", projectId),
+      supabase.from("invitations").select("*").eq("project_id", projectId).eq("status", "pending").order("created_at", { ascending: false }),
     ]);
     setProject(p.data);
     setDevices(d.data ?? []);
-    // Filter sessions to ones belonging to this project's devices
     const deviceIds = new Set((d.data ?? []).map((dev) => dev.id));
     setSessions((s.data ?? []).filter((ses) => deviceIds.has(ses.device_id)));
     setMembers(m.data ?? []);
+    setPendingInvites(inv.data ?? []);
   };
 
   useEffect(() => {
@@ -78,6 +83,59 @@ export default function ProjectView() {
       toast({ title: "Device added", description: `Pairing code: ${pairingCode}` });
       setNewDeviceName("");
       setAddDeviceOpen(false);
+      load();
+    }
+  };
+
+  const inviteMember = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!projectId || !inviteEmail.trim()) return;
+    setInviteLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/invite-member`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session?.access_token}`,
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: JSON.stringify({ project_id: projectId, email: inviteEmail.trim() }),
+        }
+      );
+      const result = await res.json();
+      if (!res.ok) {
+        toast({ title: "Error", description: result.error, variant: "destructive" });
+      } else {
+        toast({ title: result.status === "added" ? "Member added" : "Invitation sent", description: result.message });
+        setInviteEmail("");
+        setInviteOpen(false);
+        load();
+      }
+    } catch {
+      toast({ title: "Error", description: "Failed to send invitation", variant: "destructive" });
+    }
+    setInviteLoading(false);
+  };
+
+  const removeMember = async (memberId: string) => {
+    const { error } = await supabase.from("project_members").delete().eq("id", memberId);
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Member removed" });
+      load();
+    }
+  };
+
+  const cancelInvite = async (inviteId: string) => {
+    const { error } = await supabase.from("invitations").delete().eq("id", inviteId);
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Invitation cancelled" });
       load();
     }
   };
@@ -210,6 +268,26 @@ export default function ProjectView() {
           </TabsContent>
 
           <TabsContent value="team" className="space-y-4">
+            {isOwner && (
+              <div className="flex justify-end">
+                <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
+                  <DialogTrigger asChild>
+                    <Button className="gap-2"><Mail className="h-4 w-4" /> Invite Member</Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader><DialogTitle>Invite Team Member</DialogTitle></DialogHeader>
+                    <form onSubmit={inviteMember} className="space-y-4">
+                      <Input type="email" placeholder="Email address" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} required />
+                      <p className="text-xs text-muted-foreground">If the user already has an account, they'll be added immediately. Otherwise, they'll be added when they sign up.</p>
+                      <Button type="submit" className="w-full" disabled={inviteLoading}>
+                        {inviteLoading ? "Sending..." : "Send Invitation"}
+                      </Button>
+                    </form>
+                  </DialogContent>
+                </Dialog>
+              </div>
+            )}
+
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">Team Members</CardTitle>
@@ -223,14 +301,66 @@ export default function ProjectView() {
                         <Users className="h-4 w-4 text-muted-foreground" />
                         <div>
                           <p className="text-sm font-medium font-mono">{m.user_id.slice(0, 8)}...</p>
-                          <p className="text-xs text-muted-foreground capitalize">{m.role}</p>
+                          <Badge variant={m.role === "owner" ? "default" : "secondary"} className="text-xs capitalize mt-0.5">
+                            {m.role}
+                          </Badge>
                         </div>
                       </div>
+                      {isOwner && m.role !== "owner" && m.user_id !== user?.id && (
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-destructive">
+                              <UserMinus className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Remove member?</AlertDialogTitle>
+                              <AlertDialogDescription>This will revoke their access to this project.</AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => removeMember(m.id)}>Remove</AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      )}
                     </div>
                   ))}
                 </div>
               </CardContent>
             </Card>
+
+            {pendingInvites.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Pending Invitations</CardTitle>
+                  <CardDescription>{pendingInvites.length} pending</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {pendingInvites.map((inv) => (
+                      <div key={inv.id} className="flex items-center justify-between rounded-lg border border-dashed border-border p-3">
+                        <div className="flex items-center gap-3">
+                          <Clock className="h-4 w-4 text-muted-foreground" />
+                          <div>
+                            <p className="text-sm font-medium">{inv.email}</p>
+                            <p className="text-xs text-muted-foreground">
+                              Invited {new Date(inv.created_at).toLocaleDateString()}
+                            </p>
+                          </div>
+                        </div>
+                        {isOwner && (
+                          <Button size="sm" variant="ghost" className="text-muted-foreground hover:text-destructive" onClick={() => cancelInvite(inv.id)}>
+                            Cancel
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
         </Tabs>
       </div>
