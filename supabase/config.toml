@@ -1,1 +1,10 @@
 project_id = "psmglvwvoygaadjajvoq"
+
+[functions.pair-device]
+verify_jwt = false
+
+[functions.start-session]
+verify_jwt = false
+
+[functions.end-session]
+verify_jwt = false
