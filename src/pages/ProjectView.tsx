@@ -12,7 +12,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/StatusBadge";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Monitor, Terminal, Copy, Users, ArrowLeft, Mail, UserMinus, Clock } from "lucide-react";
+import { Plus, Monitor, Terminal, Copy, Users, ArrowLeft, Mail, UserMinus, Clock, Pencil, Trash2, RefreshCw, MoreVertical } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useProjectRole } from "@/hooks/useProjectRole";
 import type { Tables } from "@/integrations/supabase/types";
 
@@ -29,6 +30,8 @@ export default function ProjectView() {
   const [pendingInvites, setPendingInvites] = useState<any[]>([]);
   const [newDeviceName, setNewDeviceName] = useState("");
   const [addDeviceOpen, setAddDeviceOpen] = useState(false);
+  const [renameDeviceId, setRenameDeviceId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteLoading, setInviteLoading] = useState(false);
@@ -54,12 +57,20 @@ export default function ProjectView() {
     if (user && projectId) load();
   }, [user, projectId]);
 
-  // Realtime for devices
+  // Realtime for devices — update in-place without full reload
   useEffect(() => {
     if (!projectId) return;
     const channel = supabase
       .channel(`project-devices-${projectId}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "devices", filter: `project_id=eq.${projectId}` }, () => load())
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "devices", filter: `project_id=eq.${projectId}` }, (payload) => {
+        setDevices((prev) => [payload.new as Tables<"devices">, ...prev]);
+      })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "devices", filter: `project_id=eq.${projectId}` }, (payload) => {
+        setDevices((prev) => prev.map((d) => d.id === (payload.new as Tables<"devices">).id ? (payload.new as Tables<"devices">) : d));
+      })
+      .on("postgres_changes", { event: "DELETE", schema: "public", table: "devices", filter: `project_id=eq.${projectId}` }, (payload) => {
+        setDevices((prev) => prev.filter((d) => d.id !== (payload.old as any).id));
+      })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [projectId]);
@@ -84,6 +95,38 @@ export default function ProjectView() {
       setNewDeviceName("");
       setAddDeviceOpen(false);
       load();
+    }
+  };
+
+  const renameDevice = async (deviceId: string) => {
+    if (!renameValue.trim()) return;
+    const { error } = await supabase.from("devices").update({ name: renameValue.trim() }).eq("id", deviceId);
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Device renamed" });
+      setRenameDeviceId(null);
+      setRenameValue("");
+      load();
+    }
+  };
+
+  const deleteDevice = async (deviceId: string) => {
+    const { error } = await supabase.from("devices").delete().eq("id", deviceId);
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Device deleted" });
+    }
+  };
+
+  const regeneratePairingCode = async (deviceId: string) => {
+    const newCode = generatePairingCode();
+    const { error } = await supabase.from("devices").update({ pairing_code: newCode, paired: false, device_token: null }).eq("id", deviceId);
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Pairing code regenerated", description: `New code: ${newCode}` });
     }
   };
 
@@ -227,11 +270,31 @@ export default function ProjectView() {
                           </div>
                         </div>
                       </div>
-                      <div className="flex gap-2">
+                      <div className="flex items-center gap-2">
                         {device.status === "online" && (
                           <Button size="sm" className="gap-1" onClick={() => navigate(`/terminal/${device.id}`)}>
                             <Terminal className="h-3 w-3" /> Connect
                           </Button>
+                        )}
+                        {isOwner && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button size="icon" variant="ghost" className="h-8 w-8">
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => { setRenameDeviceId(device.id); setRenameValue(device.name); }}>
+                                <Pencil className="h-4 w-4 mr-2" /> Rename
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => regeneratePairingCode(device.id)}>
+                                <RefreshCw className="h-4 w-4 mr-2" /> Regenerate Pairing Code
+                              </DropdownMenuItem>
+                              <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => deleteDevice(device.id)}>
+                                <Trash2 className="h-4 w-4 mr-2" /> Delete Device
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         )}
                       </div>
                     </CardContent>
@@ -363,6 +426,17 @@ export default function ProjectView() {
             )}
           </TabsContent>
         </Tabs>
+
+        {/* Rename Device Dialog */}
+        <Dialog open={renameDeviceId !== null} onOpenChange={(open) => { if (!open) setRenameDeviceId(null); }}>
+          <DialogContent>
+            <DialogHeader><DialogTitle>Rename Device</DialogTitle></DialogHeader>
+            <form onSubmit={(e) => { e.preventDefault(); if (renameDeviceId) renameDevice(renameDeviceId); }} className="space-y-4">
+              <Input value={renameValue} onChange={(e) => setRenameValue(e.target.value)} placeholder="Device name" required />
+              <Button type="submit" className="w-full">Save</Button>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
     </AppLayout>
   );
