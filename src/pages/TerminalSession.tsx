@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,8 @@ interface RelayMessage {
 
 export default function TerminalSession() {
   const { deviceId } = useParams<{ deviceId: string }>();
+  const [searchParams] = useSearchParams();
+  const resumeSessionId = searchParams.get("session");
   const { user } = useAuth();
   const navigate = useNavigate();
   const terminalContainerRef = useRef<HTMLDivElement>(null);
@@ -116,31 +118,53 @@ export default function TerminalSession() {
     });
     resizeObserver.observe(terminalContainerRef.current);
 
-    // Load device and start session
+    // Load device and start/resume session
     const init = async () => {
       const { data: dev } = await supabase.from("devices").select("*").eq("id", deviceId).single();
       setDevice(dev);
 
-      // Start session via edge function
-      const { data: sesData, error: sesErr } = await supabase.functions.invoke("start-session", {
-        body: { device_id: deviceId },
-      });
+      let sessionId = resumeSessionId;
 
-      if (sesErr || !sesData?.session_id) {
-        term.writeln("\x1b[31m✗ Failed to create session\x1b[0m");
-        setConnectionStatus("offline");
-        return;
+      // If no explicit session to resume, check for existing active session on this device
+      if (!sessionId) {
+        const { data: activeSessions } = await supabase
+          .from("sessions")
+          .select("id")
+          .eq("device_id", deviceId)
+          .eq("user_id", user!.id)
+          .eq("status", "active")
+          .order("started_at", { ascending: false })
+          .limit(1);
+
+        if (activeSessions && activeSessions.length > 0) {
+          sessionId = activeSessions[0].id;
+          term.writeln(`\x1b[33m⟳ Resuming active session ${sessionId.slice(0, 8)}...\x1b[0m`);
+        }
       }
 
-      sessionIdRef.current = sesData.session_id;
+      // If still no session, create a new one
+      if (!sessionId) {
+        const { data: sesData, error: sesErr } = await supabase.functions.invoke("start-session", {
+          body: { device_id: deviceId },
+        });
+
+        if (sesErr || !sesData?.session_id) {
+          term.writeln("\x1b[31m✗ Failed to create session\x1b[0m");
+          setConnectionStatus("offline");
+          return;
+        }
+        sessionId = sesData.session_id;
+      }
+
+      sessionIdRef.current = sessionId;
 
       term.writeln(`\x1b[2m── Relay Terminal Cloud ──\x1b[0m`);
       term.writeln(`\x1b[2mDevice:\x1b[0m ${dev?.name ?? deviceId}`);
-      term.writeln(`\x1b[2mSession:\x1b[0m ${sesData.session_id.slice(0, 8)}`);
+      term.writeln(`\x1b[2mSession:\x1b[0m ${sessionId!.slice(0, 8)}`);
       term.writeln("");
 
       // Try connecting to WebSocket relay
-      connectWebSocket(term, dev, sesData.session_id);
+      connectWebSocket(term, dev, sessionId!);
     };
 
     init();

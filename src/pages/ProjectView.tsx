@@ -35,6 +35,14 @@ export default function ProjectView() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteLoading, setInviteLoading] = useState(false);
+  const [sessionDeviceFilter, setSessionDeviceFilter] = useState("all");
+  const [sessionStatusFilter, setSessionStatusFilter] = useState("all");
+
+  const filteredSessions = sessions.filter((s) => {
+    if (sessionDeviceFilter !== "all" && s.device_id !== sessionDeviceFilter) return false;
+    if (sessionStatusFilter !== "all" && s.status !== sessionStatusFilter) return false;
+    return true;
+  });
 
   const load = async () => {
     if (!projectId) return;
@@ -305,7 +313,29 @@ export default function ProjectView() {
           </TabsContent>
 
           <TabsContent value="sessions" className="space-y-4">
-            {sessions.length === 0 ? (
+            <div className="flex flex-wrap items-center gap-3">
+              <select
+                className="rounded-md border border-border bg-background px-3 py-1.5 text-sm"
+                value={sessionDeviceFilter}
+                onChange={(e) => setSessionDeviceFilter(e.target.value)}
+              >
+                <option value="all">All devices</option>
+                {devices.map((d) => (
+                  <option key={d.id} value={d.id}>{d.name}</option>
+                ))}
+              </select>
+              <select
+                className="rounded-md border border-border bg-background px-3 py-1.5 text-sm"
+                value={sessionStatusFilter}
+                onChange={(e) => setSessionStatusFilter(e.target.value)}
+              >
+                <option value="all">All statuses</option>
+                <option value="active">Active</option>
+                <option value="ended">Ended</option>
+              </select>
+            </div>
+
+            {filteredSessions.length === 0 ? (
               <Card className="border-dashed">
                 <CardContent className="flex flex-col items-center py-12">
                   <Terminal className="h-12 w-12 text-muted-foreground mb-4" />
@@ -315,17 +345,37 @@ export default function ProjectView() {
               </Card>
             ) : (
               <div className="space-y-3">
-                {sessions.map((s) => (
-                  <Card key={s.id}>
-                    <CardContent className="flex items-center justify-between p-4">
-                      <div>
-                        <p className="text-sm font-mono">{s.id.slice(0, 8)}</p>
-                        <p className="text-xs text-muted-foreground">{new Date(s.started_at).toLocaleString()}</p>
-                      </div>
-                      <StatusBadge status={s.status} />
-                    </CardContent>
-                  </Card>
-                ))}
+                {filteredSessions.map((s) => {
+                  const dev = devices.find((d) => d.id === s.device_id);
+                  const duration = s.ended_at
+                    ? Math.round((new Date(s.ended_at).getTime() - new Date(s.started_at).getTime()) / 1000)
+                    : Math.round((Date.now() - new Date(s.started_at).getTime()) / 1000);
+                  const durationStr = duration >= 3600
+                    ? `${Math.floor(duration / 3600)}h ${Math.floor((duration % 3600) / 60)}m`
+                    : duration >= 60
+                      ? `${Math.floor(duration / 60)}m ${duration % 60}s`
+                      : `${duration}s`;
+                  return (
+                    <Card key={s.id}>
+                      <CardContent className="flex items-center justify-between p-4">
+                        <div>
+                          <p className="text-sm font-medium">{dev?.name ?? s.device_id.slice(0, 8)}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {new Date(s.started_at).toLocaleString()} · {durationStr}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <StatusBadge status={s.status} />
+                          {s.status === "active" && dev && (
+                            <Button size="sm" variant="outline" className="gap-1 h-7" onClick={() => navigate(`/terminal/${dev.id}?session=${s.id}`)}>
+                              <Terminal className="h-3 w-3" /> Rejoin
+                            </Button>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
               </div>
             )}
           </TabsContent>
