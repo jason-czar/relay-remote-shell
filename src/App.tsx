@@ -7,6 +7,7 @@ import { ThemeProvider } from "next-themes";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
+import Landing from "./pages/Landing";
 import Dashboard from "./pages/Dashboard";
 import Projects from "./pages/Projects";
 import ProjectView from "./pages/ProjectView";
@@ -39,7 +40,7 @@ const App = () => (
           <Sonner />
           <BrowserRouter>
             <Routes>
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              <Route path="/" element={<AuthRoute><Landing /></AuthRoute>} />
               <Route path="/auth" element={<AuthRoute><Auth /></AuthRoute>} />
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
