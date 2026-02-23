@@ -651,6 +651,50 @@ fi
     });
   }
 
+  // PowerShell smart installer for Windows
+  if (url.searchParams.get("install") === "ps") {
+    const baseUrl = `${SUPABASE_URL}/storage/v1/object/public/connector-binaries`;
+    const psScript = `
+Write-Host "📦 Relay Terminal Connector — Smart Installer" -ForegroundColor Cyan
+Write-Host ""
+
+$arch = if ([System.Environment]::Is64BitOperatingSystem) { "amd64" } else { "386" }
+$binary = "relay-connector-windows-$arch.exe"
+$url = "${baseUrl}/$binary"
+$destDir = "relay-connector"
+$dest = Join-Path $destDir "relay-connector.exe"
+
+Write-Host "  Detected: windows/$arch"
+Write-Host "  Downloading: $binary"
+Write-Host ""
+
+New-Item -ItemType Directory -Force -Path $destDir | Out-Null
+
+try {
+    Invoke-WebRequest -Uri $url -OutFile $dest -UseBasicParsing -ErrorAction Stop
+    Write-Host "✅ Installed successfully!" -ForegroundColor Green
+    Write-Host ""
+    Write-Host "  Location: .\\\\$dest"
+    Write-Host ""
+    Write-Host "Next steps:"
+    Write-Host '  1. Pair:    cd relay-connector; .\\\\relay-connector.exe --pair <PAIRING_CODE> --api <API_URL> --name "MyDevice"'
+    Write-Host "  2. Connect: cd relay-connector; .\\\\relay-connector.exe"
+} catch {
+    Write-Host "❌ Download failed. Binary may not be available for windows/$arch." -ForegroundColor Red
+    Write-Host "   Download manually from the web UI or build from source with Go 1.22+."
+    exit 1
+}
+`;
+
+    return new Response(psScript.trim(), {
+      headers: {
+        "Content-Type": "text/plain",
+        "Content-Disposition": 'attachment; filename="install-connector.ps1"',
+        "Access-Control-Allow-Origin": "*",
+      },
+    });
+  }
+
   // Default: return shell install script (build from source)
   const script = `#!/bin/bash
 set -e

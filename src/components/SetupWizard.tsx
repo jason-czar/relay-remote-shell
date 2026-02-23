@@ -4,9 +4,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { StatusBadge } from "@/components/StatusBadge";
 import { useToast } from "@/hooks/use-toast";
-import { Check, Copy, Monitor, Terminal, Download, ChevronRight, Loader2, Apple, MonitorSmartphone } from "lucide-react";
+import { Check, Copy, Monitor, Terminal, Download, ChevronRight, Loader2 } from "lucide-react";
 import type { Tables } from "@/integrations/supabase/types";
 
 interface BinaryInfo {
@@ -199,25 +200,49 @@ export function SetupWizard({ projectId, onComplete, onSkip, existingDevice }: S
             </div>
 
             <div className="space-y-4">
-              {/* Primary: smart one-liner */}
+              {/* Primary: smart one-liners with OS tabs */}
               <div>
-                <p className="text-sm font-medium mb-2">Quick install (macOS / Linux)</p>
+                <p className="text-sm font-medium mb-2">Quick install</p>
                 <p className="text-xs text-muted-foreground mb-3">
-                  Auto-detects your OS &amp; architecture. Downloads a pre-built binary — no dependencies needed.
+                  Auto-detects your architecture. Downloads a pre-built binary — no dependencies needed.
                 </p>
-                <div className="relative">
-                  <pre className="bg-muted rounded-lg p-4 pr-12 text-sm font-mono overflow-x-auto">
-                    <code>{`curl -fsSL "${SUPABASE_URL}/functions/v1/download-connector?install=1" | bash`}</code>
-                  </pre>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="absolute top-2 right-2 h-8 w-8"
-                    onClick={() => copyToClipboard(`curl -fsSL "${SUPABASE_URL}/functions/v1/download-connector?install=1" | bash`, "Install command")}
-                  >
-                    {copied === "Install command" ? <Check className="h-3.5 w-3.5 text-primary" /> : <Copy className="h-3.5 w-3.5" />}
-                  </Button>
-                </div>
+                <Tabs defaultValue="unix" className="w-full">
+                  <TabsList className="w-full grid grid-cols-2">
+                    <TabsTrigger value="unix">macOS / Linux</TabsTrigger>
+                    <TabsTrigger value="windows">Windows</TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="unix">
+                    <div className="relative">
+                      <pre className="bg-muted rounded-lg p-4 pr-12 text-sm font-mono overflow-x-auto">
+                        <code>{`curl -fsSL "${SUPABASE_URL}/functions/v1/download-connector?install=1" | bash`}</code>
+                      </pre>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="absolute top-2 right-2 h-8 w-8"
+                        onClick={() => copyToClipboard(`curl -fsSL "${SUPABASE_URL}/functions/v1/download-connector?install=1" | bash`, "Install command")}
+                      >
+                        {copied === "Install command" ? <Check className="h-3.5 w-3.5 text-primary" /> : <Copy className="h-3.5 w-3.5" />}
+                      </Button>
+                    </div>
+                  </TabsContent>
+                  <TabsContent value="windows">
+                    <div className="relative">
+                      <pre className="bg-muted rounded-lg p-4 pr-12 text-sm font-mono overflow-x-auto whitespace-pre-wrap break-all">
+                        <code>{`irm "${SUPABASE_URL}/functions/v1/download-connector?install=ps" | iex`}</code>
+                      </pre>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="absolute top-2 right-2 h-8 w-8"
+                        onClick={() => copyToClipboard(`irm "${SUPABASE_URL}/functions/v1/download-connector?install=ps" | iex`, "Install command (PS)")}
+                      >
+                        {copied === "Install command (PS)" ? <Check className="h-3.5 w-3.5 text-primary" /> : <Copy className="h-3.5 w-3.5" />}
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">Run in PowerShell as Administrator</p>
+                  </TabsContent>
+                </Tabs>
               </div>
 
               <div className="flex items-center gap-3">
