@@ -2,7 +2,7 @@ app = "relay-terminal-cloud"
 primary_region = "iad"
 
 [build]
-  builder = "heroku/builder:22"
+  dockerfile = "Dockerfile"
 
 [env]
   PORT = "8080"
