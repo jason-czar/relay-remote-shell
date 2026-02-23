@@ -278,7 +278,7 @@ export function SetupWizard({ projectId, onComplete, onSkip, existingDevice }: S
                     ))}
                   </div>
                   <p className="text-xs text-muted-foreground mt-2">
-                    After downloading, make it executable: <code className="bg-muted px-1 rounded">chmod +x relay-connector-*</code>
+                    💡 Use the one-liner above instead — it handles permissions automatically.
                   </p>
                 </div>
               ) : (
