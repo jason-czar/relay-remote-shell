@@ -288,9 +288,21 @@ export default function ProjectView() {
                           <div className="flex items-center gap-3 mt-1">
                             <StatusBadge status={device.status} />
                             {device.pairing_code && !device.paired && (
-                              <button onClick={() => copyPairingCode(device.pairing_code!)} className="inline-flex items-center gap-1 text-xs font-mono bg-muted px-2 py-0.5 rounded hover:bg-accent transition-colors">
-                                <Copy className="h-3 w-3" /> {device.pairing_code}
-                              </button>
+                              <>
+                                <button onClick={() => copyPairingCode(device.pairing_code!)} className="inline-flex items-center gap-1 text-xs font-mono bg-muted px-2 py-0.5 rounded hover:bg-accent transition-colors">
+                                  <Copy className="h-3 w-3" /> {device.pairing_code}
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    const cmd = `./relay-connector pair --api ${import.meta.env.VITE_SUPABASE_URL}/functions/v1 --code ${device.pairing_code}`;
+                                    navigator.clipboard.writeText(cmd);
+                                    toast({ title: "Copied!", description: "Full pairing command copied to clipboard" });
+                                  }}
+                                  className="inline-flex items-center gap-1 text-xs bg-primary/10 text-primary px-2 py-0.5 rounded hover:bg-primary/20 transition-colors"
+                                >
+                                  <Copy className="h-3 w-3" /> Copy pair command
+                                </button>
+                              </>
                             )}
                             {device.paired && <span className="text-xs text-primary">Paired</span>}
                           </div>
