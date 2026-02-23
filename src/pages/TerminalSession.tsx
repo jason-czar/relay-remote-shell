@@ -28,13 +28,20 @@ export default function TerminalSession() {
   const fitRef = useRef<FitAddon | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const sessionIdRef = useRef<string | null>(null);
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reconnectDelayRef = useRef(1000);
+  const intentionalCloseRef = useRef(false);
   const [device, setDevice] = useState<Tables<"devices"> | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<"connecting" | "online" | "offline">("connecting");
 
   // Clean up terminal + websocket
   const cleanup = useCallback(() => {
+    intentionalCloseRef.current = true;
+    if (reconnectTimerRef.current) {
+      clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
+    }
     if (wsRef.current) {
-      // Send session_end before closing
       if (sessionIdRef.current && wsRef.current.readyState === WebSocket.OPEN) {
         wsRef.current.send(JSON.stringify({
           type: "session_end",
@@ -177,7 +184,6 @@ export default function TerminalSession() {
   }, [deviceId, user]);
 
   const connectWebSocket = async (term: Terminal, dev: Tables<"devices"> | null, sessionId: string) => {
-    // Relay URL — deployed on Fly.io
     const relayUrl = import.meta.env.VITE_RELAY_URL || "wss://relay-terminal-cloud.fly.dev";
 
     if (!relayUrl) {
@@ -186,7 +192,7 @@ export default function TerminalSession() {
       return;
     }
 
-    // Get JWT for relay auth
+    // Get fresh JWT for relay auth
     const { data: { session: authSession } } = await supabase.auth.getSession();
     const jwt = authSession?.access_token;
     if (!jwt) {
@@ -197,14 +203,13 @@ export default function TerminalSession() {
 
     term.writeln(`\x1b[33m⟳ Connecting to relay...\x1b[0m`);
     setConnectionStatus("connecting");
+    intentionalCloseRef.current = false;
 
     try {
-      // Browser connects to /session endpoint
       const ws = new WebSocket(`${relayUrl}/session`);
       wsRef.current = ws;
 
       ws.onopen = () => {
-        // Authenticate with relay using Supabase JWT
         ws.send(JSON.stringify({
           type: "auth",
           data: {
@@ -221,7 +226,8 @@ export default function TerminalSession() {
           if (msg.type === "auth_ok") {
             term.writeln(`\x1b[32m✓ Authenticated with relay\x1b[0m`);
             setConnectionStatus("online");
-            // Now send session_start to trigger PTY on connector
+            // Reset backoff on successful auth
+            reconnectDelayRef.current = 1000;
             ws.send(JSON.stringify({
               type: "session_start",
               data: { session_id: sessionId, cols: term.cols, rows: term.rows },
@@ -232,6 +238,7 @@ export default function TerminalSession() {
             term.write(bytes);
           } else if (msg.type === "session_end") {
             term.writeln("\r\n\x1b[31m● Session ended by remote\x1b[0m");
+            intentionalCloseRef.current = true; // Don't reconnect on remote end
             setConnectionStatus("offline");
           } else if (msg.type === "error") {
             const { message } = (msg.data ?? {}) as { message?: string };
@@ -243,14 +250,27 @@ export default function TerminalSession() {
       };
 
       ws.onerror = () => {
-        // Expected to fail until relay is deployed — show stub mode
-        fallbackToStub(term, dev, sessionId);
+        // Will trigger onclose — reconnect logic lives there
       };
 
       ws.onclose = () => {
-        if (connectionStatus !== "offline") {
+        if (intentionalCloseRef.current) {
           setConnectionStatus("offline");
+          return;
         }
+        // Auto-reconnect with exponential backoff
+        const delay = reconnectDelayRef.current;
+        const delaySec = Math.round(delay / 1000);
+        term.writeln(`\r\n\x1b[33m⚠ Connection lost. Reconnecting in ${delaySec}s...\x1b[0m`);
+        setConnectionStatus("connecting");
+
+        reconnectTimerRef.current = setTimeout(() => {
+          reconnectTimerRef.current = null;
+          connectWebSocket(term, dev, sessionId);
+        }, delay);
+
+        // Exponential backoff: 1s → 2s → 4s → 8s → 16s → 30s max
+        reconnectDelayRef.current = Math.min(delay * 2, 30000);
       };
 
       // Send stdin from xterm to relay
