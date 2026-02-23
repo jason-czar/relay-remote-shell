@@ -1,6 +1,7 @@
-import { Terminal, LayoutDashboard, FolderOpen, Settings, LogOut, Plus } from "lucide-react";
+import { Terminal, LayoutDashboard, FolderOpen, Settings, LogOut, Sun, Moon } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
+import { useTheme } from "next-themes";
 import { useNavigate } from "react-router-dom";
 import {
   Sidebar,
@@ -26,11 +27,16 @@ export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const { signOut, user } = useAuth();
+  const { theme, setTheme } = useTheme();
   const navigate = useNavigate();
 
   const handleSignOut = async () => {
     await signOut();
     navigate("/auth");
+  };
+
+  const toggleTheme = () => {
+    setTheme(theme === "dark" ? "light" : "dark");
   };
 
   return (
@@ -61,6 +67,12 @@ export function AppSidebar() {
       </SidebarContent>
       <SidebarFooter>
         <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton onClick={toggleTheme} tooltip={theme === "dark" ? "Light Mode" : "Dark Mode"}>
+              {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+              <span>{theme === "dark" ? "Light Mode" : "Dark Mode"}</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton onClick={handleSignOut} tooltip="Sign Out">
               <LogOut className="h-4 w-4" />

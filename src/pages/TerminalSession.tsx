@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/StatusBadge";
-import { ArrowLeft, RotateCcw, X } from "lucide-react";
+import { ArrowLeft, RotateCcw, X, Clipboard, ClipboardPaste, Wifi } from "lucide-react";
 import type { Tables } from "@/integrations/supabase/types";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
@@ -33,10 +33,17 @@ export default function TerminalSession() {
   const intentionalCloseRef = useRef(false);
   const [device, setDevice] = useState<Tables<"devices"> | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<"connecting" | "online" | "offline">("connecting");
+  const [latency, setLatency] = useState<number | null>(null);
+  const pingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pingSentAtRef = useRef<number>(0);
 
   // Clean up terminal + websocket
   const cleanup = useCallback(() => {
     intentionalCloseRef.current = true;
+    if (pingTimerRef.current) {
+      clearInterval(pingTimerRef.current);
+      pingTimerRef.current = null;
+    }
     if (reconnectTimerRef.current) {
       clearTimeout(reconnectTimerRef.current);
       reconnectTimerRef.current = null;
@@ -156,7 +163,15 @@ export default function TerminalSession() {
         });
 
         if (sesErr || !sesData?.session_id) {
-          term.writeln("\x1b[31m✗ Failed to create session\x1b[0m");
+          const errMsg = sesData?.error || sesErr?.message || "Unknown error";
+          term.writeln(`\x1b[31m✗ Failed to create session: ${errMsg}\x1b[0m`);
+          if (errMsg.includes("supabaseKey") || errMsg.includes("config")) {
+            term.writeln(`\x1b[33m  → Backend configuration issue. Contact your admin.\x1b[0m`);
+          } else if (errMsg.includes("not found") || errMsg.includes("device")) {
+            term.writeln(`\x1b[33m  → Device may have been removed. Go back and try again.\x1b[0m`);
+          } else {
+            term.writeln(`\x1b[33m  → Check that the device is online and try reconnecting.\x1b[0m`);
+          }
           setConnectionStatus("offline");
           return;
         }
@@ -226,19 +241,29 @@ export default function TerminalSession() {
           if (msg.type === "auth_ok") {
             term.writeln(`\x1b[32m✓ Authenticated with relay\x1b[0m`);
             setConnectionStatus("online");
-            // Reset backoff on successful auth
             reconnectDelayRef.current = 1000;
             ws.send(JSON.stringify({
               type: "session_start",
               data: { session_id: sessionId, cols: term.cols, rows: term.rows },
             }));
+            // Start ping interval for latency measurement
+            if (pingTimerRef.current) clearInterval(pingTimerRef.current);
+            pingTimerRef.current = setInterval(() => {
+              if (ws.readyState === WebSocket.OPEN) {
+                pingSentAtRef.current = performance.now();
+                ws.send(JSON.stringify({ type: "ping" }));
+              }
+            }, 5000);
+          } else if (msg.type === "pong") {
+            const rtt = Math.round(performance.now() - pingSentAtRef.current);
+            setLatency(rtt);
           } else if (msg.type === "stdout" && msg.data) {
             const { data_b64 } = msg.data as { session_id: string; data_b64: string };
             const bytes = Uint8Array.from(atob(data_b64), (c) => c.charCodeAt(0));
             term.write(bytes);
           } else if (msg.type === "session_end") {
             term.writeln("\r\n\x1b[31m● Session ended by remote\x1b[0m");
-            intentionalCloseRef.current = true; // Don't reconnect on remote end
+            intentionalCloseRef.current = true;
             setConnectionStatus("offline");
           } else if (msg.type === "error") {
             const { message } = (msg.data ?? {}) as { message?: string };
@@ -321,7 +346,6 @@ export default function TerminalSession() {
   const handleReconnect = () => {
     cleanup();
     if (terminalContainerRef.current && deviceId && user) {
-      // Re-mount by forcing a re-render — simplest approach
       window.location.reload();
     }
   };
@@ -332,27 +356,70 @@ export default function TerminalSession() {
     navigate(-1);
   };
 
+  const handleCopy = async () => {
+    const sel = termRef.current?.getSelection();
+    if (sel) {
+      await navigator.clipboard.writeText(sel);
+    }
+  };
+
+  const handlePaste = async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text && wsRef.current?.readyState === WebSocket.OPEN && sessionIdRef.current) {
+        const b64 = btoa(text);
+        wsRef.current.send(JSON.stringify({
+          type: "stdin",
+          data: { session_id: sessionIdRef.current, data_b64: b64 },
+        }));
+      }
+    } catch {
+      // Clipboard access denied
+    }
+  };
+
+  const latencyColor = latency === null ? "text-muted-foreground" : latency < 100 ? "text-status-online" : latency < 300 ? "text-status-connecting" : "text-destructive";
+
   return (
     <div className="flex flex-col h-screen bg-terminal-bg">
-      <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-card shrink-0">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { handleDisconnect(); }}>
+      <div className="flex items-center justify-between px-2 sm:px-4 py-2 border-b border-border bg-card shrink-0">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => { handleDisconnect(); }}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
-          <div>
-            <p className="text-sm font-medium">{device?.name ?? "Connecting..."}</p>
-            <StatusBadge status={connectionStatus} />
+          <div className="min-w-0">
+            <p className="text-sm font-medium truncate">{device?.name ?? "Connecting..."}</p>
+            <div className="flex items-center gap-2">
+              <StatusBadge status={connectionStatus} />
+              {connectionStatus === "online" && latency !== null && (
+                <span className={`text-xs font-mono flex items-center gap-1 ${latencyColor}`}>
+                  <Wifi className="h-3 w-3" /> {latency}ms
+                </span>
+              )}
+            </div>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-mono text-muted-foreground">
+        <div className="flex items-center gap-1 sm:gap-2">
+          <span className="text-xs font-mono text-muted-foreground hidden sm:inline">
             {sessionIdRef.current?.slice(0, 8) ?? ""}
           </span>
-          <Button variant="ghost" size="sm" className="gap-1 text-xs" onClick={handleReconnect}>
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleCopy} title="Copy selection">
+            <Clipboard className="h-3.5 w-3.5" />
+          </Button>
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handlePaste} title="Paste from clipboard">
+            <ClipboardPaste className="h-3.5 w-3.5" />
+          </Button>
+          <Button variant="ghost" size="sm" className="gap-1 text-xs hidden sm:flex" onClick={handleReconnect}>
             <RotateCcw className="h-3 w-3" /> Reconnect
           </Button>
-          <Button variant="ghost" size="sm" className="gap-1 text-xs text-destructive hover:text-destructive" onClick={handleDisconnect}>
+          <Button variant="ghost" size="icon" className="h-8 w-8 sm:hidden" onClick={handleReconnect} title="Reconnect">
+            <RotateCcw className="h-3.5 w-3.5" />
+          </Button>
+          <Button variant="ghost" size="sm" className="gap-1 text-xs text-destructive hover:text-destructive hidden sm:flex" onClick={handleDisconnect}>
             <X className="h-3 w-3" /> Disconnect
+          </Button>
+          <Button variant="ghost" size="icon" className="h-8 w-8 sm:hidden text-destructive hover:text-destructive" onClick={handleDisconnect} title="Disconnect">
+            <X className="h-3.5 w-3.5" />
           </Button>
         </div>
       </div>
