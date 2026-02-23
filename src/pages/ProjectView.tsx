@@ -257,11 +257,11 @@ export default function ProjectView() {
             </div>
             )}
 
-            {devices.length === 0 && showWizard ? (
+            {showWizard ? (
               <SetupWizard
                 projectId={projectId!}
                 onComplete={() => { setShowWizard(false); load(); }}
-                onSkip={() => setShowWizard(false)}
+                onSkip={() => { setShowWizard(false); load(); }}
               />
             ) : devices.length === 0 ? (
               <Card className="border-dashed">
