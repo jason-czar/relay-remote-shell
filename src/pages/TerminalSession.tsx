@@ -177,8 +177,8 @@ export default function TerminalSession() {
   }, [deviceId, user]);
 
   const connectWebSocket = async (term: Terminal, dev: Tables<"devices"> | null, sessionId: string) => {
-    // Relay URL — set VITE_RELAY_URL in .env when you deploy the relay server
-    const relayUrl = import.meta.env.VITE_RELAY_URL;
+    // Relay URL — deployed on Fly.io
+    const relayUrl = import.meta.env.VITE_RELAY_URL || "wss://relay-terminal-cloud.fly.dev";
 
     if (!relayUrl) {
       term.writeln(`\x1b[33m⚠ No relay URL configured (set VITE_RELAY_URL)\x1b[0m`);
