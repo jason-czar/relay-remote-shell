@@ -177,25 +177,48 @@ export function SetupWizard({ projectId, onComplete, onSkip }: SetupWizardProps)
               </div>
             </div>
 
-            <div className="space-y-3">
-              <p className="text-sm font-medium">1. Build the connector (requires Go 1.22+)</p>
-              <div className="relative">
-                <pre className="bg-muted rounded-lg p-4 pr-12 text-sm font-mono overflow-x-auto">
-                  <code>{`git clone <your-repo-url>\ncd connector\ngo build -o relay-connector .`}</code>
-                </pre>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="absolute top-2 right-2 h-8 w-8"
-                  onClick={() => copyToClipboard("cd connector && go build -o relay-connector .", "Build command")}
-                >
-                  {copied === "Build command" ? <Check className="h-3.5 w-3.5 text-primary" /> : <Copy className="h-3.5 w-3.5" />}
-                </Button>
+            <div className="space-y-4">
+              <div>
+                <p className="text-sm font-medium mb-2">Option 1: Quick install (macOS / Linux)</p>
+                <div className="relative">
+                  <pre className="bg-muted rounded-lg p-4 pr-12 text-sm font-mono overflow-x-auto">
+                    <code>{`curl -fsSL ${SUPABASE_URL}/functions/v1/download-connector | bash`}</code>
+                  </pre>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="absolute top-2 right-2 h-8 w-8"
+                    onClick={() => copyToClipboard(`curl -fsSL ${SUPABASE_URL}/functions/v1/download-connector | bash`, "Install command")}
+                  >
+                    {copied === "Install command" ? <Check className="h-3.5 w-3.5 text-primary" /> : <Copy className="h-3.5 w-3.5" />}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Downloads source, builds automatically if Go 1.22+ is installed.
+                </p>
               </div>
 
-              <p className="text-sm text-muted-foreground">
-                Or download a pre-built binary from the releases page if available.
-              </p>
+              <div className="flex items-center gap-3">
+                <div className="h-px flex-1 bg-border" />
+                <span className="text-xs text-muted-foreground">or</span>
+                <div className="h-px flex-1 bg-border" />
+              </div>
+
+              <div>
+                <p className="text-sm font-medium mb-2">Option 2: Download install script</p>
+                <Button
+                  variant="outline"
+                  className="gap-2"
+                  onClick={() => {
+                    const link = document.createElement("a");
+                    link.href = `${SUPABASE_URL}/functions/v1/download-connector`;
+                    link.download = "install-connector.sh";
+                    link.click();
+                  }}
+                >
+                  <Download className="h-4 w-4" /> Download install-connector.sh
+                </Button>
+              </div>
             </div>
 
             <div className="flex justify-between">
