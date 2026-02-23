@@ -70,9 +70,9 @@ export function SetupWizard({ projectId, onComplete, onSkip, existingDevice }: S
     return () => { supabase.removeChannel(channel); };
   }, [step, device]);
 
-  // Also poll for online status on step 4
+  // Poll for online status on step 4 and 5
   useEffect(() => {
-    if (step !== 4 || !device) return;
+    if ((step !== 4 && step !== 5) || !device) return;
     const channel = supabase
       .channel(`wizard-device-status-${device.id}`)
       .on("postgres_changes", {
@@ -127,6 +127,7 @@ export function SetupWizard({ projectId, onComplete, onSkip, existingDevice }: S
     { num: 2, label: "Install Connector" },
     { num: 3, label: "Pair Device" },
     { num: 4, label: "Connect" },
+    { num: 5, label: "Done" },
   ];
 
   return (
@@ -397,6 +398,50 @@ export function SetupWizard({ projectId, onComplete, onSkip, existingDevice }: S
               </div>
             </div>
 
+            <div className="rounded-lg border border-dashed border-border bg-muted/30 p-4 flex items-center gap-3">
+              {device.status === "online" ? (
+                <>
+                  <Check className="h-5 w-5 text-primary shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-primary">Device is online!</p>
+                    <p className="text-xs text-muted-foreground">Your connector is running and connected</p>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <Loader2 className="h-5 w-5 text-muted-foreground animate-spin shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium">Waiting for connector to come online...</p>
+                    <p className="text-xs text-muted-foreground">Run the command above — status will update automatically</p>
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="flex justify-between">
+              <Button variant="ghost" onClick={() => setStep(3)}>Back</Button>
+              <Button onClick={() => setStep(5)} disabled={device.status !== "online"} className="gap-2">
+                Next <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Step 5: Done */}
+      {step === 5 && device && (
+        <Card>
+          <CardContent className="pt-6 space-y-5">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Check className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <h3 className="font-semibold">You're all set!</h3>
+                <p className="text-sm text-muted-foreground">Your device is connected and ready to use</p>
+              </div>
+            </div>
+
             <div className="rounded-lg border border-border bg-muted/30 p-4 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <Monitor className="h-5 w-5 text-muted-foreground" />
@@ -412,16 +457,10 @@ export function SetupWizard({ projectId, onComplete, onSkip, existingDevice }: S
               )}
             </div>
 
-            {device.status !== "online" && (
-              <p className="text-xs text-muted-foreground text-center">
-                Run <code className="bg-muted px-1 rounded">./relay-connector connect</code> on your machine — status will update automatically
-              </p>
-            )}
-
             <div className="flex justify-between">
-              <Button variant="ghost" onClick={() => setStep(3)}>Back</Button>
-              <Button onClick={onComplete} variant={device.status === "online" ? "default" : "outline"}>
-                {device.status === "online" ? "Done — Go to Project" : "Skip — Go to Project"}
+              <Button variant="ghost" onClick={() => setStep(4)}>Back</Button>
+              <Button onClick={onComplete}>
+                Done — Go to Project
               </Button>
             </div>
           </CardContent>
