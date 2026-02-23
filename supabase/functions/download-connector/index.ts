@@ -574,6 +574,83 @@ serve(async (req) => {
     });
   }
 
+  // Smart install script: auto-detects OS/arch, downloads binary or falls back to source
+  if (url.searchParams.get("install") === "1") {
+    const baseUrl = `${SUPABASE_URL}/storage/v1/object/public/connector-binaries`;
+    const smartScript = `#!/bin/bash
+set -e
+
+echo "📦 Relay Terminal Connector — Smart Installer"
+echo ""
+
+# Detect OS
+OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
+case "$OS" in
+  linux)  PLATFORM="linux" ;;
+  darwin) PLATFORM="darwin" ;;
+  mingw*|msys*|cygwin*) PLATFORM="windows" ;;
+  *) echo "❌ Unsupported OS: $OS"; exit 1 ;;
+esac
+
+# Detect architecture
+ARCH="$(uname -m)"
+case "$ARCH" in
+  x86_64|amd64)  ARCH="amd64" ;;
+  arm64|aarch64)  ARCH="arm64" ;;
+  *) echo "❌ Unsupported architecture: $ARCH"; exit 1 ;;
+esac
+
+EXT=""
+if [ "$PLATFORM" = "windows" ]; then EXT=".exe"; fi
+
+BINARY="relay-connector-\${PLATFORM}-\${ARCH}\${EXT}"
+URL="${baseUrl}/\${BINARY}"
+DEST_DIR="relay-connector"
+DEST="\${DEST_DIR}/relay-connector\${EXT}"
+
+echo "  Detected: \${PLATFORM}/\${ARCH}"
+echo "  Downloading: \${BINARY}"
+echo ""
+
+mkdir -p "$DEST_DIR"
+
+# Try downloading pre-built binary
+HTTP_CODE=$(curl -sL -w "%{http_code}" -o "$DEST" "$URL")
+
+if [ "$HTTP_CODE" = "200" ]; then
+  chmod +x "$DEST"
+  echo "✅ Installed successfully!"
+  echo ""
+  echo "  Location: ./$DEST"
+  echo ""
+  echo "Next steps:"
+  echo "  1. Pair:    cd $DEST_DIR && ./relay-connector\${EXT} --pair <PAIRING_CODE> --api <API_URL> --name \\"MyDevice\\""
+  echo "  2. Connect: cd $DEST_DIR && ./relay-connector\${EXT}"
+else
+  rm -f "$DEST"
+  echo "⚠️  No pre-built binary for \${PLATFORM}/\${ARCH}."
+  echo ""
+  echo "Falling back to building from source (requires Go 1.22+)..."
+  echo ""
+
+  if ! command -v go &> /dev/null; then
+    echo "❌ Go is not installed. Install it from https://go.dev/dl/ and retry."
+    exit 1
+  fi
+
+  curl -fsSL "${SUPABASE_URL}/functions/v1/download-connector" | bash
+fi
+`;
+
+    return new Response(smartScript, {
+      headers: {
+        "Content-Type": "application/x-shellscript",
+        "Content-Disposition": 'attachment; filename="install-connector.sh"',
+        "Access-Control-Allow-Origin": "*",
+      },
+    });
+  }
+
   // Default: return shell install script (build from source)
   const script = `#!/bin/bash
 set -e
