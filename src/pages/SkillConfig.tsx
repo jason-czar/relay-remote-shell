@@ -11,7 +11,7 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import {
   Wifi, WifiOff, Shield, Activity, Copy, Check, ChevronDown, ChevronRight,
-  RefreshCw, RotateCcw, Loader2, Globe, Server, Zap, ArrowLeft, Settings2, Eye, EyeOff
+  RefreshCw, RotateCcw, Loader2, Globe, Server, Zap, ArrowLeft, Settings2, Eye, EyeOff, Terminal
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -91,23 +91,54 @@ export default function SkillConfig() {
     setStatus("connecting");
     const start = Date.now();
 
-    // Simulate handshake
-    await new Promise(r => setTimeout(r, 800 + Math.random() * 700));
-    const ms = Date.now() - start;
+    // Normalize to wss://
+    let wsUrl = config.relayUrl.replace(/\/+$/, "");
+    wsUrl = wsUrl.replace(/^https:\/\//, "wss://");
+    wsUrl = wsUrl.replace(/^http:\/\//, "ws://");
 
-    if (config.authToken.length < 8) {
-      setStatus("disconnected");
-      setLatency(null);
-      setTesting(false);
-      toast({ title: "Connection failed", description: "Auth token is required before connecting.", variant: "destructive" });
-      return;
-    }
+    return new Promise<void>((resolve) => {
+      const timeout = setTimeout(() => {
+        ws.close();
+        setStatus("disconnected");
+        setLatency(null);
+        setTesting(false);
+        toast({ title: "Connection timeout", description: "Relay server did not respond within 5 seconds.", variant: "destructive" });
+        resolve();
+      }, 5000);
 
-    setLatency(ms);
-    setStatus("connected");
-    setLastHeartbeat(new Date().toLocaleTimeString());
-    setTesting(false);
-    toast({ title: "Connected", description: `Handshake successful (${ms}ms)` });
+      let ws: WebSocket;
+      try {
+        ws = new WebSocket(`${wsUrl}/connect`);
+      } catch {
+        clearTimeout(timeout);
+        setStatus("disconnected");
+        setTesting(false);
+        toast({ title: "Connection failed", description: "Could not create WebSocket connection.", variant: "destructive" });
+        resolve();
+        return;
+      }
+
+      ws.onopen = () => {
+        const ms = Date.now() - start;
+        clearTimeout(timeout);
+        setLatency(ms);
+        setStatus("connected");
+        setLastHeartbeat(new Date().toLocaleTimeString());
+        setTesting(false);
+        toast({ title: "Relay reachable", description: `WebSocket connected in ${ms}ms. Server is online.` });
+        ws.close(1000);
+        resolve();
+      };
+
+      ws.onerror = () => {
+        clearTimeout(timeout);
+        setStatus("disconnected");
+        setLatency(null);
+        setTesting(false);
+        toast({ title: "Connection failed", description: "Could not reach the relay server. Check the URL and try again.", variant: "destructive" });
+        resolve();
+      };
+    });
   };
 
   const saveConfig = async () => {
@@ -120,12 +151,10 @@ export default function SkillConfig() {
       return;
     }
     setSaving(true);
-    await testConnection();
     localStorage.setItem("openclaw-relay-config", JSON.stringify(config));
+    await testConnection();
     setSaving(false);
-    if (status === "connected") {
-      toast({ title: "Node connected successfully", description: "Configuration saved and relay handshake verified." });
-    }
+    toast({ title: "Configuration saved", description: "Settings saved locally. Copy the config below into your OpenClaw instance." });
   };
 
   const generateToken = () => {
@@ -133,6 +162,20 @@ export default function SkillConfig() {
       .map(b => b.toString(16).padStart(2, "0")).join("");
     update("authToken", token);
     toast({ title: "Token generated", description: "A new auth token has been generated." });
+  };
+
+  const [configCopied, setConfigCopied] = useState(false);
+  const skillConfig = JSON.stringify({
+    relay_url: config.relayUrl || "wss://relay-terminal-cloud.fly.dev",
+    node_id: config.nodeId,
+    auth_token: config.authToken || "<generate a token above>",
+  }, null, 2);
+
+  const copySkillConfig = () => {
+    navigator.clipboard.writeText(skillConfig);
+    setConfigCopied(true);
+    setTimeout(() => setConfigCopied(false), 2000);
+    toast({ title: "Config copied", description: "Paste this into your OpenClaw skill config." });
   };
 
   // Simulated uptime ticker
@@ -430,6 +473,39 @@ export default function SkillConfig() {
             </CollapsibleContent>
           </Card>
         </Collapsible>
+
+        {/* Use in OpenClaw */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Terminal className="h-4 w-4 text-primary" />
+              Use in OpenClaw
+            </CardTitle>
+            <CardDescription>Copy this config into your local OpenClaw skill settings</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="rounded-lg bg-muted p-4 font-mono text-sm text-foreground relative">
+              <pre className="whitespace-pre-wrap break-all">{skillConfig}</pre>
+              <Button
+                variant="ghost" size="icon"
+                className="absolute top-2 right-2"
+                onClick={copySkillConfig}
+              >
+                {configCopied ? <Check className="h-4 w-4 text-primary" /> : <Copy className="h-4 w-4" />}
+              </Button>
+            </div>
+
+            <div className="rounded-lg border border-border bg-card p-4 space-y-3">
+              <p className="text-sm font-medium text-foreground">How to connect</p>
+              <ol className="text-sm text-muted-foreground space-y-2 list-decimal list-inside">
+                <li>Install the <code className="bg-muted px-1.5 py-0.5 rounded text-xs">remote-relay</code> skill in your OpenClaw instance</li>
+                <li>Paste the config above into your skill configuration</li>
+                <li>Start OpenClaw — it will connect to the relay automatically</li>
+                <li>Use this page to monitor connection status</li>
+              </ol>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Save */}
         <div className="flex justify-end pb-8">
