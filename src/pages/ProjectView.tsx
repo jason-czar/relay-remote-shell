@@ -306,7 +306,7 @@ export default function ProjectView() {
                                 </button>
                                 <button
                                   onClick={() => {
-                                    const cmd = `./relay-connector --pair ${device.pairing_code} --api ${import.meta.env.VITE_SUPABASE_URL}/functions/v1 --name "${device.name || "MyDevice"}"`;
+                                    const cmd = `cd relay-connector && ./relay-connector --pair ${device.pairing_code} --api ${import.meta.env.VITE_SUPABASE_URL}/functions/v1 --name "${device.name || "MyDevice"}"`;
                                     navigator.clipboard.writeText(cmd);
                                     toast({ title: "Copied!", description: "Full pairing command copied to clipboard" });
                                   }}
