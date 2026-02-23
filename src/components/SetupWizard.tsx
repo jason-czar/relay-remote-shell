@@ -6,8 +6,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { StatusBadge } from "@/components/StatusBadge";
 import { useToast } from "@/hooks/use-toast";
-import { Check, Copy, Monitor, Terminal, Download, ChevronRight, Loader2 } from "lucide-react";
+import { Check, Copy, Monitor, Terminal, Download, ChevronRight, Loader2, Apple, MonitorSmartphone } from "lucide-react";
 import type { Tables } from "@/integrations/supabase/types";
+
+interface BinaryInfo {
+  platform: string;
+  arch: string;
+  label: string;
+  url: string;
+}
 
 interface SetupWizardProps {
   projectId: string;
@@ -26,6 +33,19 @@ export function SetupWizard({ projectId, onComplete, onSkip, existingDevice }: S
   const [creating, setCreating] = useState(false);
   const [device, setDevice] = useState<Tables<"devices"> | null>(existingDevice || null);
   const [copied, setCopied] = useState<string | null>(null);
+  const [availableBinaries, setAvailableBinaries] = useState<BinaryInfo[]>([]);
+  const [loadingBinaries, setLoadingBinaries] = useState(false);
+
+  // Fetch available pre-built binaries when reaching step 2
+  useEffect(() => {
+    if (step !== 2) return;
+    setLoadingBinaries(true);
+    fetch(`${SUPABASE_URL}/functions/v1/download-connector?list=1`)
+      .then(r => r.json())
+      .then(data => setAvailableBinaries(data.available || []))
+      .catch(() => setAvailableBinaries([]))
+      .finally(() => setLoadingBinaries(false));
+  }, [step]);
 
   // Poll for device pairing status when on step 3
   useEffect(() => {
@@ -179,19 +199,62 @@ export function SetupWizard({ projectId, onComplete, onSkip, existingDevice }: S
             </div>
 
             <div className="space-y-4">
-            <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-1.5">
-                <p className="text-sm font-medium">⚠️ Requires Go 1.22+</p>
-                <p className="text-xs text-muted-foreground">
-                  The connector is built from source. If you don't have Go installed, get it from{" "}
-                  <a href="https://go.dev/dl/" target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-2">
-                    go.dev/dl
-                  </a>{" "}
-                  first, then continue below.
-                </p>
-              </div>
+              {/* Pre-built binaries (primary option) */}
+              {loadingBinaries ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground py-4 justify-center">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Checking available downloads...
+                </div>
+              ) : availableBinaries.length > 0 ? (
+                <div>
+                  <p className="text-sm font-medium mb-2">Option 1: Download pre-built binary</p>
+                  <p className="text-xs text-muted-foreground mb-3">No dependencies required — just download and run.</p>
+                  <div className="grid gap-2">
+                    {availableBinaries.map((bin) => (
+                      <a
+                        key={`${bin.platform}-${bin.arch}`}
+                        href={bin.url}
+                        download
+                        className="flex items-center justify-between rounded-lg border border-border bg-muted/30 px-4 py-3 hover:bg-muted/60 transition-colors group"
+                      >
+                        <div className="flex items-center gap-3">
+                          <Download className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                          <span className="text-sm font-medium">{bin.label}</span>
+                        </div>
+                        <span className="text-xs text-muted-foreground">
+                          {bin.platform}/{bin.arch}
+                        </span>
+                      </a>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    After downloading, make it executable: <code className="bg-muted px-1 rounded">chmod +x relay-connector-*</code>
+                  </p>
+                </div>
+              ) : null}
 
+              {availableBinaries.length > 0 && (
+                <div className="flex items-center gap-3">
+                  <div className="h-px flex-1 bg-border" />
+                  <span className="text-xs text-muted-foreground">or build from source</span>
+                  <div className="h-px flex-1 bg-border" />
+                </div>
+              )}
+
+              {/* Build from source */}
               <div>
-                <p className="text-sm font-medium mb-2">Option 1: Quick install (macOS / Linux)</p>
+                <p className="text-sm font-medium mb-2">
+                  {availableBinaries.length > 0 ? "Option 2: Build from source" : "Option 1: Quick install (macOS / Linux)"}
+                </p>
+                <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-1.5 mb-3">
+                  <p className="text-xs font-medium">⚠️ Requires Go 1.22+</p>
+                  <p className="text-xs text-muted-foreground">
+                    If you don't have Go installed, get it from{" "}
+                    <a href="https://go.dev/dl/" target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-2">
+                      go.dev/dl
+                    </a>
+                    {availableBinaries.length > 0 ? ", or use a pre-built binary above." : " first."}
+                  </p>
+                </div>
                 <div className="relative">
                   <pre className="bg-muted rounded-lg p-4 pr-12 text-sm font-mono overflow-x-auto">
                     <code>{`curl -fsSL ${SUPABASE_URL}/functions/v1/download-connector | bash`}</code>
@@ -208,28 +271,6 @@ export function SetupWizard({ projectId, onComplete, onSkip, existingDevice }: S
                 <p className="text-xs text-muted-foreground mt-1">
                   Downloads source and builds automatically.
                 </p>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <div className="h-px flex-1 bg-border" />
-                <span className="text-xs text-muted-foreground">or</span>
-                <div className="h-px flex-1 bg-border" />
-              </div>
-
-              <div>
-                <p className="text-sm font-medium mb-2">Option 2: Download install script</p>
-                <Button
-                  variant="outline"
-                  className="gap-2"
-                  onClick={() => {
-                    const link = document.createElement("a");
-                    link.href = `${SUPABASE_URL}/functions/v1/download-connector`;
-                    link.download = "install-connector.sh";
-                    link.click();
-                  }}
-                >
-                  <Download className="h-4 w-4" /> Download install-connector.sh
-                </Button>
               </div>
             </div>
 

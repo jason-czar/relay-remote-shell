@@ -497,6 +497,8 @@ func (c *RelayClient) sendMessage(msgType string, data json.RawMessage) {
 }
 `;
 
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
+
 serve(async (req) => {
   // Handle CORS
   if (req.method === "OPTIONS") {
@@ -509,7 +511,70 @@ serve(async (req) => {
     });
   }
 
-  // Generate a shell install script that creates the connector directory
+  const url = new URL(req.url);
+  const platform = url.searchParams.get("platform"); // linux, darwin, windows
+  const arch = url.searchParams.get("arch"); // amd64, arm64
+
+  // If platform/arch specified, serve pre-built binary from storage
+  if (platform && arch) {
+    const ext = platform === "windows" ? ".exe" : "";
+    const fileName = `relay-connector-${platform}-${arch}${ext}`;
+    const storagePath = `${SUPABASE_URL}/storage/v1/object/public/connector-binaries/${fileName}`;
+
+    // Check if binary exists by doing a HEAD request
+    const check = await fetch(storagePath, { method: "HEAD" });
+    if (check.ok) {
+      return new Response(null, {
+        status: 302,
+        headers: {
+          "Location": storagePath,
+          "Access-Control-Allow-Origin": "*",
+        },
+      });
+    }
+
+    return new Response(
+      JSON.stringify({ error: `Binary not available for ${platform}/${arch}. Use the build-from-source option instead.` }),
+      {
+        status: 404,
+        headers: {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        },
+      }
+    );
+  }
+
+  // If ?list=1, return available binaries
+  if (url.searchParams.get("list") === "1") {
+    const platforms = [
+      { platform: "linux", arch: "amd64", label: "Linux (x86_64)" },
+      { platform: "linux", arch: "arm64", label: "Linux (ARM64)" },
+      { platform: "darwin", arch: "amd64", label: "macOS (Intel)" },
+      { platform: "darwin", arch: "arm64", label: "macOS (Apple Silicon)" },
+      { platform: "windows", arch: "amd64", label: "Windows (x86_64)" },
+    ];
+
+    const available = [];
+    for (const p of platforms) {
+      const ext = p.platform === "windows" ? ".exe" : "";
+      const fileName = `relay-connector-${p.platform}-${p.arch}${ext}`;
+      const storagePath = `${SUPABASE_URL}/storage/v1/object/public/connector-binaries/${fileName}`;
+      const check = await fetch(storagePath, { method: "HEAD" });
+      if (check.ok) {
+        available.push({ ...p, url: storagePath });
+      }
+    }
+
+    return new Response(JSON.stringify({ available }), {
+      headers: {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+      },
+    });
+  }
+
+  // Default: return shell install script (build from source)
   const script = `#!/bin/bash
 set -e
 
