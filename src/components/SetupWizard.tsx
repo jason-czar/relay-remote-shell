@@ -95,7 +95,7 @@ export function SetupWizard({ projectId, onComplete, onSkip }: SetupWizardProps)
   };
 
   const pairCommand = device?.pairing_code
-    ? `go build -o relay-connector .\n./relay-connector --pair ${device.pairing_code} --api ${SUPABASE_URL}/functions/v1 --name "${device.name || "MyDevice"}"`
+    ? `./relay-connector --pair ${device.pairing_code} --api ${SUPABASE_URL}/functions/v1 --name "${device.name || "MyDevice"}"`
     : "";
 
   const connectCommand = `./relay-connector connect`;
