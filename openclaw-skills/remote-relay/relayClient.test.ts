@@ -116,7 +116,7 @@ describe("RelayClient message dispatch", () => {
     const statusResp = responses.find(r => r.data?.type === "status");
     expect(statusResp).toBeDefined();
     expect(statusResp?.data.node_id).toBe("node-1");
-    expect(statusResp?.data.running_tasks).toBe(2);
+    expect(statusResp?.data.active_tasks).toBe(2);
 
     client.disconnect();
   });
