@@ -183,19 +183,19 @@ export function SetupWizard({ projectId, onComplete, onSkip, existingDevice }: S
                 <p className="text-sm font-medium mb-2">Option 1: Quick install (macOS / Linux)</p>
                 <div className="relative">
                   <pre className="bg-muted rounded-lg p-4 pr-12 text-sm font-mono overflow-x-auto">
-                    <code>{`curl -fsSL ${SUPABASE_URL}/functions/v1/download-connector -o relay-connector.zip && unzip relay-connector.zip && cd relay-connector && go build -o relay-connector .`}</code>
+                    <code>{`curl -fsSL ${SUPABASE_URL}/functions/v1/download-connector | bash`}</code>
                   </pre>
                   <Button
                     size="icon"
                     variant="ghost"
                     className="absolute top-2 right-2 h-8 w-8"
-                    onClick={() => copyToClipboard(`curl -fsSL ${SUPABASE_URL}/functions/v1/download-connector -o relay-connector.zip && unzip relay-connector.zip && cd relay-connector && go build -o relay-connector .`, "Install command")}
+                    onClick={() => copyToClipboard(`curl -fsSL ${SUPABASE_URL}/functions/v1/download-connector | bash`, "Install command")}
                   >
                     {copied === "Install command" ? <Check className="h-3.5 w-3.5 text-primary" /> : <Copy className="h-3.5 w-3.5" />}
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Downloads, unzips, and builds the connector. Requires Go 1.22+.
+                  Downloads source and builds automatically if Go 1.22+ is installed.
                 </p>
               </div>
 
@@ -212,7 +212,7 @@ export function SetupWizard({ projectId, onComplete, onSkip, existingDevice }: S
                   className="gap-2"
                   onClick={() => {
                     const link = document.createElement("a");
-                    link.href = `${SUPABASE_URL}/functions/v1/download-connector`;
+                    link.href = `${SUPABASE_URL}/functions/v1/download-connector?format=zip`;
                     link.download = "relay-connector.zip";
                     link.click();
                   }}

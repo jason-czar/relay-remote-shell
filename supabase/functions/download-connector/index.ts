@@ -515,22 +515,81 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const url = new URL(req.url);
+  const format = url.searchParams.get("format");
+
   try {
-    const zip = new JSZip();
-    const folder = zip.folder("relay-connector");
+    // ?format=zip → return zip file
+    if (format === "zip") {
+      const zip = new JSZip();
+      const folder = zip.folder("relay-connector");
 
-    folder.addFile("main.go", MAIN_GO.trim());
-    folder.addFile("client.go", CLIENT_GO.trim());
-    folder.addFile("go.mod", GO_MOD.trim());
-    folder.addFile("go.sum", GO_SUM.trim());
+      folder.addFile("main.go", MAIN_GO.trim());
+      folder.addFile("client.go", CLIENT_GO.trim());
+      folder.addFile("go.mod", GO_MOD.trim());
+      folder.addFile("go.sum", GO_SUM.trim());
 
-    const zipData = await zip.generateAsync({ type: "uint8array" });
+      const zipData = await zip.generateAsync({ type: "uint8array" });
 
-    return new Response(zipData, {
+      return new Response(zipData, {
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "application/zip",
+          "Content-Disposition": 'attachment; filename="relay-connector.zip"',
+        },
+      });
+    }
+
+    // Default: return shell script for curl | bash
+    const script = `#!/bin/bash
+set -e
+
+echo "📦 Downloading Relay Terminal Connector..."
+echo ""
+
+DEST="relay-connector"
+mkdir -p "$DEST"
+cd "$DEST"
+
+cat > go.mod << 'GOMODEOF'
+${GO_MOD.trim()}
+GOMODEOF
+
+cat > go.sum << 'GOSUMEOF'
+${GO_SUM.trim()}
+GOSUMEOF
+
+cat > main.go << 'MAINEOF'
+${MAIN_GO.trim()}
+MAINEOF
+
+cat > client.go << 'CLIENTEOF'
+${CLIENT_GO.trim()}
+CLIENTEOF
+
+echo "✓ Source files created in ./$DEST/"
+echo ""
+
+if command -v go &> /dev/null; then
+  echo "🔨 Building connector..."
+  go mod tidy
+  go build -o relay-connector .
+  echo "✓ Built successfully!"
+  echo ""
+  echo "Next steps:"
+  echo "  cd $DEST"
+  echo "  ./relay-connector --pair <CODE> --api <API_URL> --name \\"MyDevice\\""
+else
+  echo "⚠  Go is not installed. Install Go 1.22+ then run:"
+  echo "   cd $DEST && go mod tidy && go build -o relay-connector ."
+fi
+`;
+
+    return new Response(script, {
       headers: {
         ...corsHeaders,
-        "Content-Type": "application/zip",
-        "Content-Disposition": 'attachment; filename="relay-connector.zip"',
+        "Content-Type": "application/x-shellscript",
+        "Content-Disposition": 'attachment; filename="install-connector.sh"',
       },
     });
   } catch (error) {
