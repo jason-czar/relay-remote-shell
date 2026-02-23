@@ -199,22 +199,48 @@ export function SetupWizard({ projectId, onComplete, onSkip, existingDevice }: S
             </div>
 
             <div className="space-y-4">
-              {/* Pre-built binaries (primary option) */}
+              {/* Primary: smart one-liner */}
+              <div>
+                <p className="text-sm font-medium mb-2">Quick install (macOS / Linux)</p>
+                <p className="text-xs text-muted-foreground mb-3">
+                  Auto-detects your OS &amp; architecture. Downloads a pre-built binary — no dependencies needed.
+                </p>
+                <div className="relative">
+                  <pre className="bg-muted rounded-lg p-4 pr-12 text-sm font-mono overflow-x-auto">
+                    <code>{`curl -fsSL "${SUPABASE_URL}/functions/v1/download-connector?install=1" | bash`}</code>
+                  </pre>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="absolute top-2 right-2 h-8 w-8"
+                    onClick={() => copyToClipboard(`curl -fsSL "${SUPABASE_URL}/functions/v1/download-connector?install=1" | bash`, "Install command")}
+                  >
+                    {copied === "Install command" ? <Check className="h-3.5 w-3.5 text-primary" /> : <Copy className="h-3.5 w-3.5" />}
+                  </Button>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <div className="h-px flex-1 bg-border" />
+                <span className="text-xs text-muted-foreground">or choose manually</span>
+                <div className="h-px flex-1 bg-border" />
+              </div>
+
+              {/* Manual binary downloads */}
               {loadingBinaries ? (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground py-4 justify-center">
-                  <Loader2 className="h-4 w-4 animate-spin" /> Checking available downloads...
+                <div className="flex items-center gap-2 text-sm text-muted-foreground py-2 justify-center">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Loading downloads...
                 </div>
               ) : availableBinaries.length > 0 ? (
                 <div>
-                  <p className="text-sm font-medium mb-2">Option 1: Download pre-built binary</p>
-                  <p className="text-xs text-muted-foreground mb-3">No dependencies required — just download and run.</p>
+                  <p className="text-sm font-medium mb-2">Direct downloads</p>
                   <div className="grid gap-2">
                     {availableBinaries.map((bin) => (
                       <a
                         key={`${bin.platform}-${bin.arch}`}
                         href={bin.url}
                         download
-                        className="flex items-center justify-between rounded-lg border border-border bg-muted/30 px-4 py-3 hover:bg-muted/60 transition-colors group"
+                        className="flex items-center justify-between rounded-lg border border-border bg-muted/30 px-4 py-2.5 hover:bg-muted/60 transition-colors group"
                       >
                         <div className="flex items-center gap-3">
                           <Download className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
@@ -230,48 +256,11 @@ export function SetupWizard({ projectId, onComplete, onSkip, existingDevice }: S
                     After downloading, make it executable: <code className="bg-muted px-1 rounded">chmod +x relay-connector-*</code>
                   </p>
                 </div>
-              ) : null}
-
-              {availableBinaries.length > 0 && (
-                <div className="flex items-center gap-3">
-                  <div className="h-px flex-1 bg-border" />
-                  <span className="text-xs text-muted-foreground">or build from source</span>
-                  <div className="h-px flex-1 bg-border" />
-                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground text-center py-2">
+                  No direct downloads available. The one-liner above will fall back to building from source (requires Go 1.22+).
+                </p>
               )}
-
-              {/* Build from source */}
-              <div>
-                <p className="text-sm font-medium mb-2">
-                  {availableBinaries.length > 0 ? "Option 2: Build from source" : "Option 1: Quick install (macOS / Linux)"}
-                </p>
-                <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-1.5 mb-3">
-                  <p className="text-xs font-medium">⚠️ Requires Go 1.22+</p>
-                  <p className="text-xs text-muted-foreground">
-                    If you don't have Go installed, get it from{" "}
-                    <a href="https://go.dev/dl/" target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-2">
-                      go.dev/dl
-                    </a>
-                    {availableBinaries.length > 0 ? ", or use a pre-built binary above." : " first."}
-                  </p>
-                </div>
-                <div className="relative">
-                  <pre className="bg-muted rounded-lg p-4 pr-12 text-sm font-mono overflow-x-auto">
-                    <code>{`curl -fsSL ${SUPABASE_URL}/functions/v1/download-connector | bash`}</code>
-                  </pre>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="absolute top-2 right-2 h-8 w-8"
-                    onClick={() => copyToClipboard(`curl -fsSL ${SUPABASE_URL}/functions/v1/download-connector | bash`, "Install command")}
-                  >
-                    {copied === "Install command" ? <Check className="h-3.5 w-3.5 text-primary" /> : <Copy className="h-3.5 w-3.5" />}
-                  </Button>
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Downloads source and builds automatically.
-                </p>
-              </div>
             </div>
 
             <div className="flex justify-between">
