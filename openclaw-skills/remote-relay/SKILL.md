@@ -1,3 +1,16 @@
+---
+name: remote-relay
+description: Secure outbound-only relay for remote OpenClaw control — no exposed ports, no SSH, no Telegram.
+homepage: https://github.com/openclaw/remote-relay
+metadata:
+  clawdbot:
+    emoji: "📡"
+    requires:
+      env: ["RELAY_URL", "NODE_ID", "AUTH_TOKEN"]
+    primaryEnv: "AUTH_TOKEN"
+    files: ["relayClient.ts", "config.ts", "capabilities.ts", "index.ts"]
+---
+
 # remote-relay
 
 Enables secure remote communication between an OpenClaw instance and a relay server without exposing ports, requiring SSH, or relying on Telegram/Discord.
@@ -62,16 +75,40 @@ Remote commands are limited to declared capabilities and cannot execute arbitrar
 - **Response complete**: `{ "type": "done", "request_id": "..." }`
 - **Status**: Full heartbeat payload with `request_id`
 
-## Security
+## External Endpoints
 
-All connections are **outbound only** — the node never exposes ports or accepts inbound traffic.
+| Endpoint | Protocol | Data Sent | Data Received |
+|---|---|---|---|
+| `wss://<relay_url>/connect` | WebSocket (TLS) | `auth_token`, `node_id`, heartbeat payloads, prompt response tokens | Relay commands: `prompt`, `status`, `restart`, `workflow` |
 
-- Every connection is authenticated via `auth_token`
-- Unknown message types are rejected and logged
-- Auto-reconnect with exponential backoff on disconnection
-- Connection loss does not interrupt local execution — the node continues processing independently
-- Remote control resumes automatically after reconnect
-- Remote actions are **capability-scoped** and cannot execute arbitrary system-level operations
+No other external endpoints are contacted. All network activity is limited to the configured `relay_url`.
+
+## Security & Privacy
+
+### What leaves your machine
+
+- **`auth_token`** — sent once during the WebSocket handshake to authenticate the node
+- **`node_id`** — sent with every heartbeat and response to identify the node
+- **Heartbeat data** — uptime (seconds), active task count, last error string, connection state
+- **Prompt response tokens** — streamed back to the relay in response to `prompt` commands
+- **Workflow completion status** — success/error for triggered workflows
+
+### What stays on your machine
+
+- All local AI model execution and inference
+- Local file system contents — never read or transmitted
+- Environment variables (other than the three declared above)
+- System information, IP addresses, or hardware details — never collected
+
+### Network posture
+
+- **Outbound only** — the skill never opens a listening port or accepts inbound connections
+- **TLS encrypted** — all WebSocket connections use `wss://` (TLS 1.2+)
+- **No data persistence** — the relay server does not store prompt content or response tokens; it forwards in real time
+
+## Trust Statement
+
+> **By installing this skill, you are connecting your OpenClaw instance to an external relay server at the configured `relay_url`.** Prompt content and response tokens are transmitted through this relay in real time. Only install this skill if you trust the operator of the relay server. The default relay (`wss://relay-terminal-cloud.fly.dev`) is operated by the project maintainers.
 
 ## Operational Guarantees
 
