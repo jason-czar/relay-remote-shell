@@ -8,8 +8,9 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
-    "syscall"
+	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/creack/pty"
@@ -78,7 +79,11 @@ func NewRelayClient(cfg *Config, shell string) *RelayClient {
 
 // Run connects to the relay and processes messages until closed.
 func (c *RelayClient) Run() error {
-	connectURL := c.config.RelayURL + "/connect"
+	// Convert HTTP(S) URL to WebSocket URL
+	relayURL := strings.TrimRight(c.config.RelayURL, "/")
+	relayURL = strings.Replace(relayURL, "https://", "wss://", 1)
+	relayURL = strings.Replace(relayURL, "http://", "ws://", 1)
+	connectURL := relayURL + "/connect"
 	log.Printf("Connecting to %s", connectURL)
 
 	header := http.Header{}
