@@ -2,6 +2,7 @@ import { RemoteRelayConfig, validateConfig } from "./config";
 import {
   IncomingMessage,
   HeartbeatPayload,
+  ConnectionState,
   OpenClawRuntime,
 } from "./capabilities";
 
@@ -17,6 +18,7 @@ export class RelayClient {
   private backoff = INITIAL_BACKOFF;
   private startTime = Date.now();
   private intentionalClose = false;
+  private connectionState: ConnectionState = "offline";
 
   constructor(rawConfig: Partial<RemoteRelayConfig>, runtime: OpenClawRuntime) {
     this.config = validateConfig(rawConfig);
@@ -32,6 +34,7 @@ export class RelayClient {
   /** Gracefully disconnect. */
   disconnect(): void {
     this.intentionalClose = true;
+    this.connectionState = "offline";
     this.stopHeartbeat();
     if (this.ws) {
       this.ws.close(1000, "shutdown");
@@ -41,6 +44,7 @@ export class RelayClient {
 
   private openSocket(): void {
     const url = `${this.config.relay_url}/connect`;
+    this.connectionState = "reconnecting";
     console.log(`[remote-relay] Connecting to ${url}`);
 
     this.ws = new WebSocket(url);
@@ -87,6 +91,7 @@ export class RelayClient {
       case "hello_ok":
         console.log("[remote-relay] Authenticated");
         this.backoff = INITIAL_BACKOFF;
+        this.connectionState = "online";
         this.startHeartbeat();
         break;
 
@@ -179,8 +184,9 @@ export class RelayClient {
     return {
       node_id: this.config.node_id,
       uptime: Math.floor((Date.now() - this.startTime) / 1000),
-      running_tasks: this.runtime.getRunningTaskCount(),
+      active_tasks: this.runtime.getRunningTaskCount(),
       last_error: this.runtime.getLastError(),
+      connection_state: this.connectionState,
     };
   }
 

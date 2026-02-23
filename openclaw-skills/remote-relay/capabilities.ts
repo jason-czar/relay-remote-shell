@@ -4,11 +4,14 @@ export interface IncomingMessage {
   data?: Record<string, unknown>;
 }
 
+export type ConnectionState = "online" | "reconnecting" | "offline";
+
 export interface HeartbeatPayload {
   node_id: string;
   uptime: number;
-  running_tasks: number;
+  active_tasks: number;
   last_error: string | null;
+  connection_state: ConnectionState;
 }
 
 export interface TokenChunk {
@@ -26,8 +29,9 @@ export interface StatusResponse {
   type: "status";
   node_id: string;
   uptime: number;
-  running_tasks: number;
+  active_tasks: number;
   last_error: string | null;
+  connection_state: ConnectionState;
 }
 
 export interface ErrorResponse {
