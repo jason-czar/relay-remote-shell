@@ -11,6 +11,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"syscall"
+	"time"
 )
 
 // Config holds the connector's persistent configuration.
@@ -61,16 +62,42 @@ func main() {
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 
-	// Connect and run
-	client := NewRelayClient(cfg, *shell)
-	go func() {
-		<-sigCh
-		fmt.Println("\nShutting down...")
-		client.Close()
-	}()
+	// Auto-reconnect loop with exponential backoff
+	const (
+		initialDelay = 1 * time.Second
+		maxDelay     = 30 * time.Second
+	)
+	delay := initialDelay
 
-	if err := client.Run(); err != nil {
-		log.Fatalf("Connection error: %v", err)
+	for {
+		client := NewRelayClient(cfg, *shell)
+
+		// Signal handler (reset per connection attempt)
+		go func() {
+			select {
+			case <-sigCh:
+				fmt.Println("\nShutting down...")
+				client.Close()
+				os.Exit(0)
+			case <-client.done:
+			}
+		}()
+
+		err := client.Run()
+		if err == nil {
+			// Clean shutdown (e.g. signal)
+			return
+		}
+
+		log.Printf("Connection lost: %v", err)
+		log.Printf("Reconnecting in %s...", delay)
+		time.Sleep(delay)
+
+		// Exponential backoff
+		delay = delay * 2
+		if delay > maxDelay {
+			delay = maxDelay
+		}
 	}
 }
 
