@@ -11,7 +11,7 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import {
   Wifi, WifiOff, Shield, Activity, Copy, Check, ChevronDown, ChevronRight,
-  RefreshCw, RotateCcw, Loader2, Globe, Server, Zap, ArrowLeft, Settings2, Eye, EyeOff, Terminal
+  RefreshCw, RotateCcw, Loader2, Globe, Server, Zap, ArrowLeft, Settings2, Eye, EyeOff, Terminal, ExternalLink
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -222,10 +222,22 @@ export default function SkillConfig() {
               <p className="text-sm text-muted-foreground">Connect your OpenClaw node to a remote relay server</p>
             </div>
           </div>
-          <Badge variant={status === "connected" ? "default" : "secondary"} className="gap-1.5">
-            <span className={`h-2 w-2 rounded-full ${status === "connected" ? "bg-primary-foreground" : status === "connecting" ? "bg-[hsl(var(--status-connecting))]" : "bg-muted-foreground"}`} />
-            {status === "connected" ? "Connected" : status === "connecting" ? "Connecting" : "Disconnected"}
-          </Badge>
+          <div className="flex items-center gap-2">
+            <a
+              href="https://clawhub.ai/skills/remote-relay"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Button variant="outline" size="sm" className="gap-1.5">
+                <ExternalLink className="h-3.5 w-3.5" />
+                ClawHub
+              </Button>
+            </a>
+            <Badge variant={status === "connected" ? "default" : "secondary"} className="gap-1.5">
+              <span className={`h-2 w-2 rounded-full ${status === "connected" ? "bg-primary-foreground" : status === "connecting" ? "bg-[hsl(var(--status-connecting))]" : "bg-muted-foreground"}`} />
+              {status === "connected" ? "Connected" : status === "connecting" ? "Connecting" : "Disconnected"}
+            </Badge>
+          </div>
         </div>
       </div>
 
