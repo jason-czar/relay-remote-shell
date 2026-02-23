@@ -17,13 +17,29 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 // ─── State ───────────────────────────────────────────────────────────
 // device_id → connector WebSocket
 const connectors = new Map();
+// device_id → { connected_at, last_heartbeat, meta }
+const connectorMeta = new Map();
 // session_id → { browser: ws, device_id: string }
+const browserSessions = new Map();
 const browserSessions = new Map();
 
 // ─── HTTP Server ─────────────────────────────────────────────────────
 const server = createServer((req, res) => {
+  // CORS headers for all HTTP endpoints
+  const cors = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Headers": "authorization, content-type",
+    "Access-Control-Allow-Methods": "GET, OPTIONS",
+  };
+
+  if (req.method === "OPTIONS") {
+    res.writeHead(204, cors);
+    res.end();
+    return;
+  }
+
   if (req.url === "/health") {
-    res.writeHead(200, { "Content-Type": "application/json" });
+    res.writeHead(200, { "Content-Type": "application/json", ...cors });
     res.end(JSON.stringify({
       status: "ok",
       connectors: connectors.size,
@@ -31,6 +47,25 @@ const server = createServer((req, res) => {
     }));
     return;
   }
+
+  if (req.url === "/nodes") {
+    const nodes = [];
+    for (const [deviceId, meta] of connectorMeta) {
+      const ws = connectors.get(deviceId);
+      nodes.push({
+        device_id: deviceId,
+        name: meta.name || deviceId.slice(0, 8),
+        kind: meta.kind || "connector",
+        connected_at: meta.connected_at,
+        last_heartbeat: meta.last_heartbeat,
+        online: !!ws && ws.readyState === 1,
+      });
+    }
+    res.writeHead(200, { "Content-Type": "application/json", ...cors });
+    res.end(JSON.stringify({ nodes }));
+    return;
+  }
+
   res.writeHead(404);
   res.end("Not found");
 });
@@ -99,6 +134,12 @@ connectorWSS.on("connection", (ws) => {
       deviceId = device_id;
       authenticated = true;
       connectors.set(device_id, ws);
+      connectorMeta.set(device_id, {
+        name: meta?.name || device.name,
+        kind: meta?.kind || "connector",
+        connected_at: new Date().toISOString(),
+        last_heartbeat: new Date().toISOString(),
+      });
 
       console.log(`[connector] ${device_id} online (${meta?.name || device.name})`);
       send(ws, { type: "hello_ok" });
@@ -108,6 +149,10 @@ connectorWSS.on("connection", (ws) => {
     if (!authenticated) {
       return send(ws, { type: "error", data: { message: "Send hello first" } });
     }
+
+    // ── Update heartbeat timestamp on any message from connector ──
+    const meta = connectorMeta.get(deviceId);
+    if (meta) meta.last_heartbeat = new Date().toISOString();
 
     // ── Forwarded messages from connector → browser ──
     if (msg.type === "stdout" || msg.type === "session_started" || msg.type === "session_end") {
@@ -133,6 +178,7 @@ connectorWSS.on("connection", (ws) => {
     clearInterval(heartbeat);
     if (deviceId) {
       connectors.delete(deviceId);
+      connectorMeta.delete(deviceId);
       console.log(`[connector] ${deviceId} offline`);
 
       // Mark device offline
