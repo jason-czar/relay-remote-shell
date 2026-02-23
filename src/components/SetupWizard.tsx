@@ -13,17 +13,18 @@ interface SetupWizardProps {
   projectId: string;
   onComplete: () => void;
   onSkip: () => void;
+  existingDevice?: Tables<"devices"> | null;
 }
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 
-export function SetupWizard({ projectId, onComplete, onSkip }: SetupWizardProps) {
+export function SetupWizard({ projectId, onComplete, onSkip, existingDevice }: SetupWizardProps) {
   const { toast } = useToast();
   const navigate = useNavigate();
-  const [step, setStep] = useState(1);
-  const [deviceName, setDeviceName] = useState("");
+  const [step, setStep] = useState(existingDevice ? 2 : 1);
+  const [deviceName, setDeviceName] = useState(existingDevice?.name || "");
   const [creating, setCreating] = useState(false);
-  const [device, setDevice] = useState<Tables<"devices"> | null>(null);
+  const [device, setDevice] = useState<Tables<"devices"> | null>(existingDevice || null);
   const [copied, setCopied] = useState<string | null>(null);
 
   // Poll for device pairing status when on step 3

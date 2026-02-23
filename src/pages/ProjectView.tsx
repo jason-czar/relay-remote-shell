@@ -41,6 +41,7 @@ export default function ProjectView() {
   const [sessionDeviceFilter, setSessionDeviceFilter] = useState("all");
   const [sessionStatusFilter, setSessionStatusFilter] = useState("all");
   const [showWizard, setShowWizard] = useState(false);
+  const [wizardDevice, setWizardDevice] = useState<Tables<"devices"> | null>(null);
   const [initialLoaded, setInitialLoaded] = useState(false);
 
   const filteredSessions = sessions.filter((s) => {
@@ -272,8 +273,9 @@ export default function ProjectView() {
             {showWizard ? (
               <SetupWizard
                 projectId={projectId!}
-                onComplete={() => { setShowWizard(false); load(); }}
-                onSkip={() => { setShowWizard(false); load(); }}
+                existingDevice={wizardDevice}
+                onComplete={() => { setShowWizard(false); setWizardDevice(null); load(); }}
+                onSkip={() => { setShowWizard(false); setWizardDevice(null); load(); }}
               />
             ) : devices.length === 0 ? (
               <Card className="border-dashed">
@@ -282,7 +284,7 @@ export default function ProjectView() {
                   <h3 className="text-lg font-semibold">No devices</h3>
                   <p className="text-sm text-muted-foreground mb-4">Add a device to start connecting</p>
                   {isOwner && (
-                    <Button variant="outline" onClick={() => setShowWizard(true)} className="gap-2">
+                    <Button variant="outline" onClick={() => { setWizardDevice(null); setShowWizard(true); }} className="gap-2">
                       <Monitor className="h-4 w-4" /> Start Setup Wizard
                     </Button>
                   )}
@@ -313,6 +315,12 @@ export default function ProjectView() {
                                   className="inline-flex items-center gap-1 text-xs bg-primary/10 text-primary px-2 py-0.5 rounded hover:bg-primary/20 transition-colors"
                                 >
                                   <Copy className="h-3 w-3" /> Copy pair command
+                                </button>
+                                <button
+                                  onClick={() => { setWizardDevice(device); setShowWizard(true); }}
+                                  className="inline-flex items-center gap-1 text-xs bg-primary/10 text-primary px-2 py-0.5 rounded hover:bg-primary/20 transition-colors"
+                                >
+                                  <Monitor className="h-3 w-3" /> Setup
                                 </button>
                               </>
                             )}
