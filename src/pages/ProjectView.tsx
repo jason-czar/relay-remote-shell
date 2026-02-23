@@ -14,6 +14,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { useToast } from "@/hooks/use-toast";
 import { ProjectViewSkeleton } from "@/components/LoadingSkeletons";
 import { Plus, Monitor, Terminal, Copy, Users, ArrowLeft, Mail, UserMinus, Clock, Pencil, Trash2, RefreshCw, MoreVertical } from "lucide-react";
+import { SetupWizard } from "@/components/SetupWizard";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useProjectRole } from "@/hooks/useProjectRole";
 import type { Tables } from "@/integrations/supabase/types";
@@ -39,6 +40,8 @@ export default function ProjectView() {
   const [inviteLoading, setInviteLoading] = useState(false);
   const [sessionDeviceFilter, setSessionDeviceFilter] = useState("all");
   const [sessionStatusFilter, setSessionStatusFilter] = useState("all");
+  const [showWizard, setShowWizard] = useState(false);
+  const [initialLoaded, setInitialLoaded] = useState(false);
 
   const filteredSessions = sessions.filter((s) => {
     if (sessionDeviceFilter !== "all" && s.device_id !== sessionDeviceFilter) return false;
@@ -61,6 +64,10 @@ export default function ProjectView() {
     setSessions((s.data ?? []).filter((ses) => deviceIds.has(ses.device_id)));
     setMembers(m.data ?? []);
     setPendingInvites(inv.data ?? []);
+    if (!initialLoaded) {
+      setShowWizard((d.data ?? []).length === 0);
+      setInitialLoaded(true);
+    }
   };
 
   useEffect(() => {
@@ -250,12 +257,23 @@ export default function ProjectView() {
             </div>
             )}
 
-            {devices.length === 0 ? (
+            {devices.length === 0 && showWizard ? (
+              <SetupWizard
+                projectId={projectId!}
+                onComplete={() => { setShowWizard(false); load(); }}
+                onSkip={() => setShowWizard(false)}
+              />
+            ) : devices.length === 0 ? (
               <Card className="border-dashed">
                 <CardContent className="flex flex-col items-center py-12">
                   <Monitor className="h-12 w-12 text-muted-foreground mb-4" />
                   <h3 className="text-lg font-semibold">No devices</h3>
-                  <p className="text-sm text-muted-foreground">Add a device to start connecting</p>
+                  <p className="text-sm text-muted-foreground mb-4">Add a device to start connecting</p>
+                  {isOwner && (
+                    <Button variant="outline" onClick={() => setShowWizard(true)} className="gap-2">
+                      <Monitor className="h-4 w-4" /> Start Setup Wizard
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             ) : (
