@@ -37,7 +37,7 @@ interface RelayConfig {
 }
 
 const DEFAULT_CONFIG: RelayConfig = {
-  relayUrl: "",
+  relayUrl: "wss://relay-terminal-cloud.fly.dev",
   connectionMode: "websocket",
   nodeName: "my-node",
   nodeId: generateUUID(),
@@ -201,7 +201,7 @@ export default function SkillConfig() {
               <Label htmlFor="relay-url">Relay URL <span className="text-destructive">*</span></Label>
               <Input
                 id="relay-url"
-                placeholder="https://relay.yourdomain.com"
+                placeholder="wss://relay-terminal-cloud.fly.dev"
                 value={config.relayUrl}
                 onChange={e => update("relayUrl", e.target.value)}
                 className={config.relayUrl && !isValidUrl(config.relayUrl) ? "border-destructive" : ""}
