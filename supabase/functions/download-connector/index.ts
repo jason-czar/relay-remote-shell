@@ -546,10 +546,12 @@ if command -v go &> /dev/null; then
   echo "✓ Built successfully!"
   echo ""
   echo "Next steps:"
-  echo "  1. Pair:    ./relay-connector pair --api <API_URL> --code <PAIRING_CODE>"
-  echo "  2. Connect: ./relay-connector connect"
+  echo "  1. Pair:    cd relay-connector && ./relay-connector --pair <PAIRING_CODE> --api <API_URL> --name \\"MyDevice\\""
+  echo "  2. Connect: ./relay-connector"
 else
-  echo "⚠  Go is not installed. Install Go 1.22+ then run:"
+  echo ""
+  echo "⚠  Go is not installed."
+  echo "   Install Go 1.22+ from https://go.dev/dl/ then run:"
   echo "   cd $DEST && go mod tidy && go build -o relay-connector ."
 fi
 `;

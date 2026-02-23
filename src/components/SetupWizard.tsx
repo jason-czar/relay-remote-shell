@@ -179,6 +179,17 @@ export function SetupWizard({ projectId, onComplete, onSkip, existingDevice }: S
             </div>
 
             <div className="space-y-4">
+            <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-1.5">
+                <p className="text-sm font-medium">⚠️ Requires Go 1.22+</p>
+                <p className="text-xs text-muted-foreground">
+                  The connector is built from source. If you don't have Go installed, get it from{" "}
+                  <a href="https://go.dev/dl/" target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-2">
+                    go.dev/dl
+                  </a>{" "}
+                  first, then continue below.
+                </p>
+              </div>
+
               <div>
                 <p className="text-sm font-medium mb-2">Option 1: Quick install (macOS / Linux)</p>
                 <div className="relative">
@@ -195,7 +206,7 @@ export function SetupWizard({ projectId, onComplete, onSkip, existingDevice }: S
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Downloads source, builds automatically if Go 1.22+ is installed.
+                  Downloads source and builds automatically.
                 </p>
               </div>
 
