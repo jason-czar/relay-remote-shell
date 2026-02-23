@@ -21,7 +21,6 @@ const connectors = new Map();
 const connectorMeta = new Map();
 // session_id → { browser: ws, device_id: string }
 const browserSessions = new Map();
-const browserSessions = new Map();
 
 // ─── HTTP Server ─────────────────────────────────────────────────────
 const server = createServer((req, res) => {
