@@ -83,7 +83,19 @@ export default function ProjectView() {
         setDevices((prev) => [payload.new as Tables<"devices">, ...prev]);
       })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "devices", filter: `project_id=eq.${projectId}` }, (payload) => {
-        setDevices((prev) => prev.map((d) => d.id === (payload.new as Tables<"devices">).id ? (payload.new as Tables<"devices">) : d));
+        const updated = payload.new as Tables<"devices">;
+        setDevices((prev) => {
+          const old = prev.find((d) => d.id === updated.id);
+          if (old && old.status !== updated.status) {
+            const name = updated.name;
+            if (updated.status === "online") {
+              toast({ title: `${name} is online`, description: "Device connected and ready" });
+            } else {
+              toast({ title: `${name} went offline`, description: "Device disconnected", variant: "destructive" });
+            }
+          }
+          return prev.map((d) => d.id === updated.id ? updated : d);
+        });
       })
       .on("postgres_changes", { event: "DELETE", schema: "public", table: "devices", filter: `project_id=eq.${projectId}` }, (payload) => {
         setDevices((prev) => prev.filter((d) => d.id !== (payload.old as any).id));

@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, FolderOpen, ArrowRight, Trash2 } from "lucide-react";
+import { Plus, FolderOpen, ArrowRight, Trash2, Search } from "lucide-react";
 import { ProjectsSkeleton } from "@/components/LoadingSkeletons";
 import type { Tables } from "@/integrations/supabase/types";
 
@@ -19,6 +19,7 @@ export default function Projects() {
   const { toast } = useToast();
   const [projects, setProjects] = useState<Tables<"projects">[]>([]);
   const [newName, setNewName] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
@@ -87,6 +88,18 @@ export default function Projects() {
           </Dialog>
         </div>
 
+        {projects.length > 0 && (
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search projects..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 max-w-sm"
+            />
+          </div>
+        )}
+
         {projects.length === 0 ? (
           <Card className="border-dashed">
             <CardContent className="flex flex-col items-center justify-center py-12">
@@ -97,7 +110,7 @@ export default function Projects() {
           </Card>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {projects.map((project) => (
+            {projects.filter((p) => p.name.toLowerCase().includes(searchQuery.toLowerCase())).map((project) => (
               <Card key={project.id} className="cursor-pointer hover:border-primary/50 transition-colors" onClick={() => navigate(`/project/${project.id}`)}>
                 <CardHeader className="flex flex-row items-start justify-between">
                   <div>
