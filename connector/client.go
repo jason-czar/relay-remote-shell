@@ -51,12 +51,13 @@ type SessionEndData struct {
 
 // RelayClient manages the WebSocket connection and PTY sessions.
 type RelayClient struct {
-	config   *Config
-	shell    string
-	conn     *websocket.Conn
-	sessions map[string]*PTYSession
-	mu       sync.Mutex
-	done     chan struct{}
+	config        *Config
+	shell         string
+	conn          *websocket.Conn
+	sessions      map[string]*PTYSession
+	mu            sync.Mutex
+	done          chan struct{}
+	authenticated bool
 }
 
 // PTYSession represents an active terminal session.
@@ -159,6 +160,7 @@ func (c *RelayClient) handleMessage(msg Message) {
 	switch msg.Type {
 	case "hello_ok":
 		log.Println("✓ Authenticated with relay")
+		c.authenticated = true
 
 	case "session_start":
 		var data SessionStartData
