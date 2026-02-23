@@ -1,12 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { JSZip } from "https://deno.land/x/jszip@0.11.0/mod.ts";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-// Read source files from the actual connector directory
 const GO_MOD = `module github.com/relay-terminal/connector
 
 go 1.22
@@ -15,12 +8,6 @@ require (
 \tgithub.com/creack/pty v1.1.21
 \tgithub.com/gorilla/websocket v1.5.3
 )
-`;
-
-const GO_SUM = `github.com/creack/pty v1.1.21 h1:1/QdRyBGHl0lHhOs6laWEg1yKV+6UEL1FO3EpZCBJaw=
-github.com/creack/pty v1.1.21/go.mod h1:MOBLtS5ELjhRRrroQr9kyvTxUAFNvYEK993ew/Vr4O4=
-github.com/gorilla/websocket v1.5.3 h1:saDtZ6Pbx/0u+bgYQ3q96pZgCzfhKXGPqt7kZ72aNNg=
-github.com/gorilla/websocket v1.5.3/go.mod h1:YR8l580nyteQvAITg2hZ9XVh4b55Pg1QLUP+mc7Kci0=
 `;
 
 const MAIN_GO = `package main
@@ -511,37 +498,19 @@ func (c *RelayClient) sendMessage(msgType string, data json.RawMessage) {
 `;
 
 serve(async (req) => {
+  // Handle CORS
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, {
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, OPTIONS",
+        "Access-Control-Allow-Headers": "*",
+      },
+    });
   }
 
-  const url = new URL(req.url);
-  const format = url.searchParams.get("format");
-
-  try {
-    // ?format=zip → return zip file
-    if (format === "zip") {
-      const zip = new JSZip();
-      const folder = zip.folder("relay-connector");
-
-      folder.addFile("main.go", MAIN_GO.trim());
-      folder.addFile("client.go", CLIENT_GO.trim());
-      folder.addFile("go.mod", GO_MOD.trim());
-      folder.addFile("go.sum", GO_SUM.trim());
-
-      const zipData = await zip.generateAsync({ type: "uint8array" });
-
-      return new Response(zipData, {
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "application/zip",
-          "Content-Disposition": 'attachment; filename="relay-connector.zip"',
-        },
-      });
-    }
-
-    // Default: return shell script for curl | bash
-    const script = `#!/bin/bash
+  // Generate a shell install script that creates the connector directory
+  const script = `#!/bin/bash
 set -e
 
 echo "📦 Downloading Relay Terminal Connector..."
@@ -551,18 +520,17 @@ DEST="relay-connector"
 mkdir -p "$DEST"
 cd "$DEST"
 
+# go.mod
 cat > go.mod << 'GOMODEOF'
 ${GO_MOD.trim()}
 GOMODEOF
 
-cat > go.sum << 'GOSUMEOF'
-${GO_SUM.trim()}
-GOSUMEOF
-
+# main.go
 cat > main.go << 'MAINEOF'
 ${MAIN_GO.trim()}
 MAINEOF
 
+# client.go
 cat > client.go << 'CLIENTEOF'
 ${CLIENT_GO.trim()}
 CLIENTEOF
@@ -570,6 +538,7 @@ CLIENTEOF
 echo "✓ Source files created in ./$DEST/"
 echo ""
 
+# Check if Go is installed
 if command -v go &> /dev/null; then
   echo "🔨 Building connector..."
   go mod tidy
@@ -577,25 +546,19 @@ if command -v go &> /dev/null; then
   echo "✓ Built successfully!"
   echo ""
   echo "Next steps:"
-  echo "  cd $DEST"
-  echo "  ./relay-connector --pair <CODE> --api <API_URL> --name \\"MyDevice\\""
+  echo "  1. Pair:    ./relay-connector pair --api <API_URL> --code <PAIRING_CODE>"
+  echo "  2. Connect: ./relay-connector connect"
 else
   echo "⚠  Go is not installed. Install Go 1.22+ then run:"
   echo "   cd $DEST && go mod tidy && go build -o relay-connector ."
 fi
 `;
 
-    return new Response(script, {
-      headers: {
-        ...corsHeaders,
-        "Content-Type": "application/x-shellscript",
-        "Content-Disposition": 'attachment; filename="install-connector.sh"',
-      },
-    });
-  } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
+  return new Response(script, {
+    headers: {
+      "Content-Type": "application/x-shellscript",
+      "Content-Disposition": 'attachment; filename="install-connector.sh"',
+      "Access-Control-Allow-Origin": "*",
+    },
+  });
 });

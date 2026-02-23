@@ -195,7 +195,7 @@ export function SetupWizard({ projectId, onComplete, onSkip, existingDevice }: S
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Downloads source and builds automatically if Go 1.22+ is installed.
+                  Downloads source, builds automatically if Go 1.22+ is installed.
                 </p>
               </div>
 
@@ -206,22 +206,19 @@ export function SetupWizard({ projectId, onComplete, onSkip, existingDevice }: S
               </div>
 
               <div>
-                <p className="text-sm font-medium mb-2">Option 2: Download zip</p>
+                <p className="text-sm font-medium mb-2">Option 2: Download install script</p>
                 <Button
                   variant="outline"
                   className="gap-2"
                   onClick={() => {
                     const link = document.createElement("a");
-                    link.href = `${SUPABASE_URL}/functions/v1/download-connector?format=zip`;
-                    link.download = "relay-connector.zip";
+                    link.href = `${SUPABASE_URL}/functions/v1/download-connector`;
+                    link.download = "install-connector.sh";
                     link.click();
                   }}
                 >
-                  <Download className="h-4 w-4" /> Download relay-connector.zip
+                  <Download className="h-4 w-4" /> Download install-connector.sh
                 </Button>
-                <p className="text-xs text-muted-foreground mt-2">
-                  Contains <code className="bg-muted px-1 rounded">main.go</code>, <code className="bg-muted px-1 rounded">client.go</code>, <code className="bg-muted px-1 rounded">go.mod</code>, and <code className="bg-muted px-1 rounded">go.sum</code>. Unzip and run <code className="bg-muted px-1 rounded">go build -o relay-connector .</code>
-                </p>
               </div>
             </div>
 
