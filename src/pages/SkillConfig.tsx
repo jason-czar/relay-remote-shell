@@ -324,9 +324,9 @@ export default function SkillConfig() {
             <div>
               <h1 className="text-lg font-semibold text-foreground flex items-center gap-2">
                 <Settings2 className="h-5 w-5 text-muted-foreground" />
-                Remote Relay Configuration
+                PrivateBridge Configuration
               </h1>
-              <p className="text-sm text-muted-foreground">Connect your OpenClaw nodes to a remote relay server</p>
+              <p className="text-sm text-muted-foreground">Connect your OpenClaw nodes via PrivateBridge</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -689,7 +689,7 @@ export default function SkillConfig() {
             <div className="rounded-lg border border-border bg-card p-4 space-y-3">
               <p className="text-sm font-medium text-foreground">How to connect</p>
               <ol className="text-sm text-muted-foreground space-y-2 list-decimal list-inside">
-                <li>Install the <code className="bg-muted px-1.5 py-0.5 rounded text-xs">remote-relay</code> skill in your OpenClaw instance</li>
+                <li>Install the <code className="bg-muted px-1.5 py-0.5 rounded text-xs">private-bridge</code> skill in your OpenClaw instance</li>
                 <li>Paste the config above into your skill configuration</li>
                 <li>Start OpenClaw — it will connect to the relay automatically</li>
                 <li>Use this page to monitor connection status</li>

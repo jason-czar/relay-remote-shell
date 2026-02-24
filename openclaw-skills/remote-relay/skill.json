@@ -1,6 +1,6 @@
 {
   "slug": "remote-relay",
-  "display_name": "Remote Relay",
+  "display_name": "PrivateBridge",
   "version": "1.0.1",
   "description": "Enables secure remote communication between OpenClaw and a relay server without exposing ports.",
   "tags": ["relay", "remote", "websocket", "control"],

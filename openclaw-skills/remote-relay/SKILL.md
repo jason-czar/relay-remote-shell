@@ -4,20 +4,20 @@ description: Secure outbound-only relay for remote OpenClaw control — no expos
 homepage: https://github.com/openclaw/remote-relay
 metadata:
   clawdbot:
-    emoji: "📡"
+    emoji: "🔒"
     requires:
       env: ["RELAY_URL", "NODE_ID", "AUTH_TOKEN"]
     primaryEnv: "AUTH_TOKEN"
     files: ["relayClient.ts", "config.ts", "capabilities.ts", "index.ts"]
 ---
 
-# remote-relay
+# PrivateBridge
 
 Enables secure remote communication between an OpenClaw instance and a relay server without exposing ports, requiring SSH, or relying on Telegram/Discord.
 
 ## Description
 
-The `remote-relay` skill registers your local OpenClaw instance as a **managed remote node** on a relay network. Once connected, the node can receive prompts, execute workflows, report health, and be restarted — all through a secure, outbound-only WebSocket channel.
+The PrivateBridge skill registers your local OpenClaw instance as a **managed remote node** on a relay network. Once connected, the node can receive prompts, execute workflows, report health, and be restarted — all through a secure, outbound-only WebSocket channel.
 
 This skill replaces external messaging-based control layers such as Telegram or Discord with a native, secure relay channel for OpenClaw interaction.
 

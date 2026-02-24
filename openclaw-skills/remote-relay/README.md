@@ -1,7 +1,7 @@
-# 📡 remote-relay
+# 🔒 PrivateBridge
 
 [![ClawHub](https://img.shields.io/badge/ClawHub-remote--relay-blue)](https://clawhub.ai/skills/remote-relay)
-[![Version](https://img.shields.io/badge/version-1.0.0-green)](https://github.com/openclaw/remote-relay)
+[![Version](https://img.shields.io/badge/version-1.0.1-green)](https://github.com/openclaw/remote-relay)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 **Secure outbound-only relay for remote OpenClaw control — no exposed ports, no SSH, no Telegram.**

@@ -45,12 +45,12 @@ export class RelayClient {
   private openSocket(): void {
     const url = `${this.config.relay_url}/connect`;
     this.connectionState = "reconnecting";
-    console.log(`[remote-relay] Connecting to ${url}`);
+    console.log(`[private-bridge] Connecting to ${url}`);
 
     this.ws = new WebSocket(url);
 
     this.ws.onopen = () => {
-      console.log("[remote-relay] Connected, sending auth");
+      console.log("[private-bridge] Connected, sending auth");
       this.send({
         type: "hello",
         data: {
@@ -66,7 +66,7 @@ export class RelayClient {
         const msg = JSON.parse(String(event.data));
         this.handleMessage(msg);
       } catch {
-        console.error("[remote-relay] Invalid message received");
+        console.error("[private-bridge] Invalid message received");
       }
     };
 
@@ -74,7 +74,7 @@ export class RelayClient {
       this.stopHeartbeat();
       if (!this.intentionalClose) {
         console.log(
-          `[remote-relay] Disconnected, reconnecting in ${this.backoff}ms`
+          `[private-bridge] Disconnected, reconnecting in ${this.backoff}ms`
         );
         setTimeout(() => this.openSocket(), this.backoff);
         this.backoff = Math.min(this.backoff * 2, MAX_BACKOFF);
@@ -82,14 +82,14 @@ export class RelayClient {
     };
 
     this.ws.onerror = (err) => {
-      console.error("[remote-relay] WebSocket error", err);
+      console.error("[private-bridge] WebSocket error", err);
     };
   }
 
   private handleMessage(msg: { type: string; data?: unknown }): void {
     switch (msg.type) {
       case "hello_ok":
-        console.log("[remote-relay] Authenticated");
+        console.log("[private-bridge] Authenticated");
         this.backoff = INITIAL_BACKOFF;
         this.connectionState = "online";
         this.startHeartbeat();
@@ -103,11 +103,11 @@ export class RelayClient {
         break;
 
       case "error":
-        console.error("[remote-relay] Relay error:", msg.data);
+        console.error("[private-bridge] Relay error:", msg.data);
         break;
 
       default:
-        console.warn(`[remote-relay] Rejecting unknown type: ${msg.type}`);
+        console.warn(`[private-bridge] Rejecting unknown type: ${msg.type}`);
         break;
     }
   }
