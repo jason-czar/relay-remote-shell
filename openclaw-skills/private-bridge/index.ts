@@ -19,7 +19,7 @@ import type { OpenClawRuntime } from "./capabilities";
 let client: RelayClient | null = null;
 
 /**
- * Initialize and connect the PrivateBridge skill.
+ * Initialize and connect the Private Bridge skill.
  * Call this once from your OpenClaw boot sequence.
  */
 export function init(

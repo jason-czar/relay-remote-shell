@@ -1,4 +1,4 @@
-# 🔒 PrivateBridge
+# 🔒 Private Bridge
 
 [![ClawHub](https://img.shields.io/badge/ClawHub-remote--relay-blue)](https://clawhub.ai/skills/remote-relay)
 [![Version](https://img.shields.io/badge/version-1.0.1-green)](https://github.com/openclaw/remote-relay)

@@ -21,7 +21,7 @@ const navItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Projects", url: "/projects", icon: FolderOpen },
   { title: "Multi-Session", url: "/multi-session", icon: Columns2 },
-  { title: "PrivateBridge", url: "/skill/private-bridge", icon: Plug },
+  { title: "Private Bridge", url: "/skill/private-bridge", icon: Plug },
   { title: "Docs", url: "/docs", icon: BookOpen },
   { title: "Settings", url: "/settings", icon: Settings },
 ];
