@@ -124,7 +124,7 @@ export function WebPanel({ initialUrl = "", deviceId, deviceName, onClose }: Web
       if (contentType.includes("text/html")) {
         let html = await resp.text();
         // Inject a <base> tag so relative resources resolve through proxy
-        const baseUrl = `${relayHttpUrl}/proxy/${deviceId}/${hostPort}/`;
+        const baseUrl = `${relayHttpUrl}/proxy/${deviceId}/${hostPort}/?token=${encodeURIComponent(jwt)}`;
 
         // Build the WS intercept script
         const wsScript = buildWSInterceptScript(relayWsUrl, deviceId, jwt);

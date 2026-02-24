@@ -89,14 +89,20 @@ const server = createServer(async (req, res) => {
     const deviceId = proxyMatch[1];
     const targetPath = "/" + proxyMatch[2];
 
-    // Authenticate: require Authorization header with Supabase JWT
+    // Authenticate: Authorization header OR ?token= query param (for sub-resources)
+    const parsedUrl = new URL(req.url, `http://${req.headers.host}`);
     const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    const queryToken = parsedUrl.searchParams.get("token");
+    let token;
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      token = authHeader.slice(7);
+    } else if (queryToken) {
+      token = queryToken;
+    } else {
       res.writeHead(401, { "Content-Type": "application/json", ...cors });
       res.end(JSON.stringify({ error: "Missing authorization" }));
       return;
     }
-    const token = authHeader.slice(7);
     const { data: { user }, error: authErr } = await supabase.auth.getUser(token);
     if (authErr || !user) {
       res.writeHead(403, { "Content-Type": "application/json", ...cors });
