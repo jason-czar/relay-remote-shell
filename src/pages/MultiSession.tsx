@@ -196,10 +196,6 @@ export default function MultiSession() {
               </Button>
             </div>
           </div>
-        ) : panels.length === 1 ? (
-          <div className="flex-1 rounded-lg overflow-hidden border border-border">
-            {renderPanel(panels[0], removePanel)}
-          </div>
         ) : (
           <ResizablePanelGroup direction={direction} className="flex-1 rounded-lg border border-border">
             {panels.map((panel, i) => (
