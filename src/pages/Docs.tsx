@@ -703,7 +703,7 @@ go build -o relay-connector .`}</CodeBlock>
           <CodeBlock>{`{
   "device_id": "uuid",
   "token": "device-auth-token",
-  "relay_url": "wss://privaclaw.fly.dev"
+   "relay_url": "wss://relay.privaclaw.com"
 }`}</CodeBlock>
 
           <Heading id="connector-cross-compile" level={3}>Cross-Compilation</Heading>
@@ -902,7 +902,7 @@ GOOS=linux GOARCH=arm GOARM=7 go build -o relay-connector-pi .`}</CodeBlock>
             The config UI generates a JSON snippet you can paste into your OpenClaw skill config:
           </p>
           <CodeBlock>{`{
-  "relay_url": "wss://privaclaw.fly.dev",
+  "relay_url": "wss://relay.privaclaw.com",
   "node_id": "your-node-uuid",
   "auth_token": "your-secret-token"
 }`}</CodeBlock>
@@ -1067,7 +1067,7 @@ GOOS=linux GOARCH=arm GOARM=7 go build -o relay-connector-pi .`}</CodeBlock>
 {
   "device_id": "uuid",
   "token": "device-auth-token",
-  "relay_url": "wss://privaclaw.fly.dev"
+  "relay_url": "wss://relay.privaclaw.com"
 }`}</CodeBlock>
 
           <Heading id="api-start-session" level={3}>POST /start-session</Heading>
@@ -1212,7 +1212,7 @@ fly secrets set SUPABASE_URL=https://your-project.supabase.co
 fly secrets set SUPABASE_SERVICE_ROLE_KEY=your-key
 fly deploy`}</CodeBlock>
           <InfoBox variant="info">
-            The default public relay is at <code className="text-xs bg-muted px-1 py-0.5 rounded font-mono">wss://privaclaw.fly.dev</code>. For production use,
+            The default public relay is at <code className="text-xs bg-muted px-1 py-0.5 rounded font-mono">wss://relay.privaclaw.com</code>. For production use,
             we recommend deploying your own relay server for full control.
           </InfoBox>
 
@@ -1289,7 +1289,7 @@ fly deploy`}</CodeBlock>
             </div>
             <div>
               <p className="font-semibold text-sm mb-1">Q: What is the default relay server URL?</p>
-              <p className="text-sm text-muted-foreground"><code className="text-xs bg-muted px-1 py-0.5 rounded font-mono">wss://privaclaw.fly.dev</code> — operated by the project maintainers. For production, deploy your own.</p>
+              <p className="text-sm text-muted-foreground"><code className="text-xs bg-muted px-1 py-0.5 rounded font-mono">wss://relay.privaclaw.com</code> — operated by the project maintainers. For production, deploy your own.</p>
             </div>
             <div>
               <p className="font-semibold text-sm mb-1">Q: How do I update my profile or change my password?</p>

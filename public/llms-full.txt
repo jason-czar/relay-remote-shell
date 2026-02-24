@@ -146,7 +146,7 @@ Saved at `~/.relay-connector.json` (mode 0600):
 {
   "device_id": "uuid",
   "token": "device-auth-token",
-  "relay_url": "wss://privaclaw.fly.dev"
+  "relay_url": "wss://relay.privaclaw.com"
 }
 ```
 
@@ -279,7 +279,7 @@ Config JSON format:
 
 ```json
 {
-  "relay_url": "wss://privaclaw.fly.dev",
+  "relay_url": "wss://relay.privaclaw.com",
   "node_id": "your-node-uuid",
   "auth_token": "your-secret-token"
 }
@@ -423,7 +423,7 @@ Exchanges a pairing code for device credentials.
 {
   "device_id": "uuid",
   "token": "device-auth-token",
-  "relay_url": "wss://privaclaw.fly.dev"
+  "relay_url": "wss://relay.privaclaw.com"
 }
 ```
 
@@ -568,7 +568,7 @@ fly secrets set SUPABASE_SERVICE_ROLE_KEY=your-key
 fly deploy
 ```
 
-Default public relay: `wss://privaclaw.fly.dev`
+Default public relay: `wss://relay.privaclaw.com`
 
 ---
 
@@ -606,7 +606,7 @@ Yes. Connector supports multiple concurrent PTY sessions.
 Yes. Configure manually with JSON. Visual wizard recommended.
 
 **Q: Default relay URL?**
-`wss://privaclaw.fly.dev` — operated by project maintainers. Deploy your own for production.
+`wss://relay.privaclaw.com` — operated by project maintainers. Deploy your own for production.
 
 **Q: How to update profile/password?**
 Go to `/settings`.
@@ -733,7 +733,7 @@ fly secrets set SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 fly deploy
 ```
 
-Your relay URL will be: `wss://privaclaw.fly.dev`
+Your relay URL will be: `wss://relay.privaclaw.com`
 
 ## Local development
 
@@ -993,7 +993,7 @@ Set these environment variables or add them to your OpenClaw config:
 
 | Variable | Required | Description |
 |---|---|---|
-| `RELAY_URL` | ✅ | WebSocket URL of the relay server (e.g. `wss://privaclaw.fly.dev`) |
+| `RELAY_URL` | ✅ | WebSocket URL of the relay server (e.g. `wss://relay.privaclaw.com`) |
 | `NODE_ID` | ✅ | Unique identifier for this node (typically your device ID) |
 | `AUTH_TOKEN` | ✅ | Secret token for relay authentication (your device token) |
 
@@ -1001,7 +1001,7 @@ Set these environment variables or add them to your OpenClaw config:
 
 ```json
 {
-  "relay_url": "wss://privaclaw.fly.dev",
+  "relay_url": "wss://relay.privaclaw.com",
   "node_id": "my-server-01",
   "auth_token": "your-device-token-here"
 }
@@ -1049,7 +1049,7 @@ See [SKILL.md](./SKILL.md) for the full security & privacy disclosure.
 ## Requirements
 
 - OpenClaw v1.0+
-- A running relay server (default: `wss://privaclaw.fly.dev`)
+- A running relay server (default: `wss://relay.privaclaw.com`)
 - Network access to the relay URL (outbound port 443)
 
 ## Troubleshooting

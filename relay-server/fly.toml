@@ -1,4 +1,4 @@
-app = "relay-terminal-cloud"
+app = "privaclaw"
 primary_region = "iad"
 
 [build]
