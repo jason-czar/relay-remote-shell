@@ -88,6 +88,62 @@ function buildInterceptScript(relayHttpUrl: string, relayWsUrl: string, deviceId
     }
     return origOpen.apply(this, arguments);
   };
+
+  // --- MutationObserver for dynamically created elements ---
+  function rewriteAttr(el, attr) {
+    var val = el.getAttribute(attr);
+    if (!val) return;
+    if (/^(https?:|data:|blob:|#|\/\/)/i.test(val)) return;
+    var rewritten = rewriteHttpUrl(val);
+    if (rewritten) {
+      console.log('[mutation-proxy] rewriting ' + attr + '=' + val);
+      el.setAttribute(attr, rewritten);
+    }
+  }
+
+  function rewriteElement(el) {
+    if (!el || !el.getAttribute) return;
+    var tag = el.tagName;
+    if (!tag) return;
+    tag = tag.toUpperCase();
+    if (['SCRIPT', 'IMG', 'SOURCE', 'VIDEO', 'AUDIO', 'EMBED', 'IFRAME'].indexOf(tag) !== -1) {
+      rewriteAttr(el, 'src');
+    }
+    if (['LINK'].indexOf(tag) !== -1) {
+      rewriteAttr(el, 'href');
+    }
+    if (tag === 'OBJECT') {
+      rewriteAttr(el, 'data');
+    }
+  }
+
+  var observer = new MutationObserver(function(mutations) {
+    for (var i = 0; i < mutations.length; i++) {
+      var mutation = mutations[i];
+      // Handle added nodes
+      for (var j = 0; j < mutation.addedNodes.length; j++) {
+        var node = mutation.addedNodes[j];
+        if (node.nodeType !== 1) continue;
+        rewriteElement(node);
+        // Also check children
+        var children = node.querySelectorAll ? node.querySelectorAll('script,img,link,source,video,audio,embed,object,iframe') : [];
+        for (var k = 0; k < children.length; k++) {
+          rewriteElement(children[k]);
+        }
+      }
+      // Handle attribute changes on existing elements
+      if (mutation.type === 'attributes' && mutation.target && mutation.target.nodeType === 1) {
+        rewriteElement(mutation.target);
+      }
+    }
+  });
+
+  observer.observe(document.documentElement || document.body || document, {
+    childList: true,
+    subtree: true,
+    attributes: true,
+    attributeFilter: ['src', 'href', 'data']
+  });
 })();
 </script>`;
 }
