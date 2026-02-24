@@ -268,6 +268,45 @@ export default function Docs() {
   const [searchIndex, setSearchIndex] = useState<ReturnType<typeof buildSearchIndex>>([]);
   const [showResults, setShowResults] = useState(false);
 
+  // Inject structured data and meta tags for AI agents/bots
+  useEffect(() => {
+    // JSON-LD structured data
+    const jsonLd = document.createElement("script");
+    jsonLd.type = "application/ld+json";
+    jsonLd.textContent = JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "TechArticle",
+      "name": "Relay Terminal Cloud Documentation",
+      "description": "Complete documentation for Relay Terminal Cloud — secure browser-based terminal access to remote machines via outbound-only WebSocket relay.",
+      "url": "https://relay-remote-shell.lovable.app/docs",
+      "about": {
+        "@type": "SoftwareApplication",
+        "name": "Relay Terminal Cloud",
+        "applicationCategory": "DeveloperApplication",
+        "operatingSystem": "Web, Linux, macOS, Windows",
+      },
+      "mainEntity": {
+        "@type": "WebAPI",
+        "name": "Relay Terminal API",
+        "documentation": "https://relay-remote-shell.lovable.app/docs#api-reference",
+        "provider": { "@type": "Organization", "name": "Relay Terminal Cloud" },
+      },
+      "alternativeHeadline": "AI-readable docs available at /llms.txt",
+    });
+    document.head.appendChild(jsonLd);
+
+    // Meta tags for bots
+    const metaAI = document.createElement("meta");
+    metaAI.name = "ai-content";
+    metaAI.content = "/llms.txt";
+    document.head.appendChild(metaAI);
+
+    return () => {
+      document.head.removeChild(jsonLd);
+      document.head.removeChild(metaAI);
+    };
+  }, []);
+
   // Build search index after render
   useEffect(() => {
     const timer = setTimeout(() => setSearchIndex(buildSearchIndex()), 500);
@@ -458,8 +497,17 @@ export default function Docs() {
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 min-w-0 px-6 lg:px-12 py-10 max-w-4xl">
+        <main className="flex-1 min-w-0 px-6 lg:px-12 py-10 max-w-4xl" role="main">
+          {/* Machine-readable hint for crawlers */}
+          <div className="sr-only" aria-hidden="true" data-ai-docs="/llms.txt">
+            Machine-readable documentation available at /llms.txt in plain Markdown format.
+            This page contains full documentation for Relay Terminal Cloud including architecture,
+            API reference, relay protocol, connector agent, remote relay skill, security model,
+            and troubleshooting guides.
+          </div>
+
           {/* Hero */}
+          <article>
           <div className="mb-12">
             <h1 className="text-4xl font-bold tracking-tight mb-4">Documentation</h1>
             <p className="text-lg text-muted-foreground leading-relaxed max-w-2xl">
@@ -471,6 +519,11 @@ export default function Docs() {
               <a href="#connector"><Badge variant="outline" className="cursor-pointer hover:bg-muted gap-1"><Download className="h-3 w-3" /> Install Connector</Badge></a>
               <a href="#remote-relay"><Badge variant="outline" className="cursor-pointer hover:bg-muted gap-1"><Plug className="h-3 w-3" /> Remote Relay</Badge></a>
               <a href="#api-reference"><Badge variant="outline" className="cursor-pointer hover:bg-muted gap-1"><Code className="h-3 w-3" /> API Reference</Badge></a>
+            </div>
+            <div className="mt-4">
+              <a href="/llms.txt" target="_blank" rel="noopener" className="text-xs text-muted-foreground hover:text-foreground transition-colors inline-flex items-center gap-1">
+                <Cpu className="h-3 w-3" /> AI agents: machine-readable version at <code className="bg-muted px-1 py-0.5 rounded font-mono">/llms.txt</code>
+              </a>
             </div>
           </div>
 
@@ -1259,6 +1312,7 @@ fly deploy`}</CodeBlock>
             </div>
             <p className="text-xs text-muted-foreground mt-6">© {new Date().getFullYear()} Relay Terminal Cloud. All rights reserved.</p>
           </div>
+          </article>
         </main>
       </div>
     </div>

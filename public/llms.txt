@@ -1,0 +1,700 @@
+# Relay Terminal Cloud — Documentation
+
+> Machine-readable documentation for AI agents and bots.
+> Human-friendly docs available at: https://relay-remote-shell.lovable.app/docs
+> Last updated: 2025-02-24
+
+---
+
+## Overview
+
+Relay Terminal Cloud is a platform for secure, browser-based terminal access to remote machines. It uses an outbound-only WebSocket relay architecture — no VPNs, SSH keys, or exposed ports required. Machines connect *out* to the relay; nothing listens inbound.
+
+### Components
+
+| Component | Technology | Role |
+|---|---|---|
+| Web App | React + TypeScript + Vite | Dashboard, project/device management, browser terminal (xterm.js) |
+| Relay Server | Node.js + WebSocket | Stateful WebSocket hub bridging browsers and connectors |
+| Connector Agent | Go binary | Runs on target machine, spawns PTY sessions on demand |
+
+### Architecture
+
+```
+┌──────────────┐     WSS      ┌──────────────┐     WSS      ┌──────────────┐
+│   Browser    │◄────────────►│ Relay Server │◄────────────►│  Connector   │
+│  (xterm.js)  │              │  (Node.js)   │              │    (Go)      │
+└──────────────┘              └──────┬───────┘              └──────┬───────┘
+                                     │                             │
+                              ┌──────┴───────┐              ┌──────┴───────┐
+                              │   Supabase   │              │  Local PTY   │
+                              │  (Auth, DB)  │              │   /bin/sh    │
+                              └──────────────┘              └──────────────┘
+```
+
+- **Control plane**: Edge Functions handle pairing, session lifecycle, team management
+- **Data plane**: Relay server handles persistent WebSocket connections and stdin/stdout forwarding
+- All WebSocket connections use `wss://` (TLS encrypted)
+
+### Key Concepts
+
+| Concept | Description |
+|---|---|
+| Project | Container for devices and team members. Each project has one owner. |
+| Device | A registered machine that accepts terminal sessions via the connector agent. |
+| Pairing Code | One-time code to authenticate the connector agent with a device entry. |
+| Connector | Go binary running on the target machine, spawning PTY shells on demand. |
+| Session | Active terminal connection between browser and device through the relay. |
+| Relay Server | WebSocket hub bridging browser clients and connector agents. |
+| Remote Relay Skill | OpenClaw skill connecting AI agents to the relay for remote prompting/control. |
+| Node | A configured OpenClaw instance connected via the remote-relay skill. |
+
+---
+
+## Getting Started
+
+### 1. Create an Account
+
+Navigate to `/auth` and sign up with email. Confirm via email link, then sign in.
+
+### 2. Create a Project
+
+Go to `/projects` → "New Project". Give it a name (e.g., "Home Lab"). Projects contain devices and team members.
+
+### 3. Add a Device
+
+Inside your project, click "Add Device". Enter a name. A one-time pairing code is generated.
+
+### 4. Install the Connector
+
+```bash
+git clone <repo-url>
+cd connector
+go build -o relay-connector .
+```
+
+Or download pre-built binaries from the dashboard.
+
+### 5. Pair Your Device
+
+```bash
+./relay-connector --pair ABCD1234 \
+  --api https://<supabase-url>/functions/v1 \
+  --name "My Server"
+```
+
+This exchanges the pairing code for a persistent device token saved to `~/.relay-connector.json`.
+
+### 6. Connect via Terminal
+
+```bash
+./relay-connector
+```
+
+Device shows as **online** in the dashboard. Click "Connect" to open a browser terminal.
+
+---
+
+## Connector Agent
+
+### Overview
+
+Lightweight Go binary. Outbound-only WebSocket to relay. Spawns PTY sessions on demand.
+
+- No inbound ports required
+- Multiple concurrent terminal sessions
+- Automatic reconnection with exponential backoff
+- ~5MB binary
+
+### Installation
+
+Prerequisites: Go 1.22+
+
+```bash
+cd connector
+go mod tidy
+go build -o relay-connector .
+```
+
+### Pairing
+
+```bash
+./relay-connector --pair <PAIRING_CODE> \
+  --api https://<supabase-url>/functions/v1 \
+  --name "Device Name"
+```
+
+Calls the `pair-device` edge function. Returns device ID, auth token, relay URL. Saved locally.
+
+### CLI Flags
+
+| Flag | Description | Default |
+|---|---|---|
+| `--pair <code>` | Pairing code from web UI | — |
+| `--name <name>` | Device name (pairing only) | — |
+| `--api <url>` | Edge Function base URL | Required for pairing |
+| `--config <path>` | Config file path | `~/.relay-connector.json` |
+| `--shell <path>` | Shell to spawn | `$SHELL` or `/bin/sh` |
+
+### Configuration File
+
+Saved at `~/.relay-connector.json` (mode 0600):
+
+```json
+{
+  "device_id": "uuid",
+  "token": "device-auth-token",
+  "relay_url": "wss://relay-terminal-cloud.fly.dev"
+}
+```
+
+### Cross-Compilation
+
+```bash
+# Linux (amd64)
+GOOS=linux GOARCH=amd64 go build -o relay-connector-linux .
+
+# macOS (Apple Silicon)
+GOOS=darwin GOARCH=arm64 go build -o relay-connector-mac .
+
+# Windows
+GOOS=windows GOARCH=amd64 go build -o relay-connector.exe .
+
+# Raspberry Pi (ARM)
+GOOS=linux GOARCH=arm GOARM=7 go build -o relay-connector-pi .
+```
+
+---
+
+## Projects & Devices
+
+### Project Management
+
+- Projects are the top-level organizational unit
+- Each project has an **owner** (creator) and optional **members**
+- Owners: add/remove devices, invite members, delete project
+- Members: view devices, connect to terminal sessions
+- Each device belongs to exactly one project
+
+### Device Management
+
+Each device has:
+- **Name**: Human-readable label
+- **Status**: Online or Offline (real-time updates)
+- **Pairing Code**: One-time code for connector setup
+- **Paired**: Whether connector has authenticated
+
+Device actions (owner only): Rename, Regenerate Pairing Code, Delete.
+
+### Pairing Codes
+
+6-character alphanumeric strings. Single-use — consumed after successful pairing. Regenerate from device menu if re-pairing is needed.
+
+### Device Status & Realtime
+
+Status updates via Supabase Realtime subscriptions. Connector connects → status becomes **online**. Disconnects → **offline**. Toast notifications in dashboard.
+
+---
+
+## Terminal Sessions
+
+### Starting a Session
+
+1. Creates session record via `start-session` edge function
+2. Opens WebSocket to relay server
+3. Authenticates with JWT token
+4. Relay forwards `session_start` to connector
+5. Connector spawns PTY shell, streams stdout
+
+### Session Features
+
+- Full xterm.js terminal (cursor, scrollback, selection, colors)
+- Copy/Paste via toolbar or keyboard shortcuts
+- Responsive resizing (synced to browser window)
+- Latency indicator (ping/pong measurements)
+- Session resumption for active sessions
+
+### Reconnection & Resilience
+
+Automatic reconnection with exponential backoff: 1s → 2s → 4s → 8s → 16s → 30s max. Session preserved on relay side. Manual reconnect via toolbar.
+
+### Session History
+
+Logged in database: start time, end time, device, user. View in project → Sessions tab. Filter by device or status.
+
+---
+
+## Teams & Collaboration
+
+### Roles & Permissions
+
+| Permission | Owner | Member |
+|---|---|---|
+| View project & devices | ✅ | ✅ |
+| Connect to terminal sessions | ✅ | ✅ |
+| View team members | ✅ | ✅ |
+| Add/remove devices | ✅ | ❌ |
+| Invite/remove members | ✅ | ❌ |
+| Rename/delete project | ✅ | ❌ |
+| Regenerate pairing codes | ✅ | ❌ |
+
+### Inviting Members
+
+Owners invite by email from Team tab. Existing account → added immediately. No account → invitation created, fulfilled on signup.
+
+### Managing Team
+
+Owners can remove members and cancel pending invitations. Members cannot transfer ownership or promote others.
+
+---
+
+## Remote Relay Skill (OpenClaw)
+
+### Overview
+
+The `remote-relay` skill (v1.0.1) enables secure remote communication between OpenClaw instances and the relay server. Replaces Telegram/Discord with native encrypted WebSocket channel.
+
+Configure at `/skill/remote-relay`.
+
+### Capabilities
+
+| Capability | Description |
+|---|---|
+| `remote_chat` | Receive and execute prompts remotely, streaming tokens back |
+| `remote_status` | Report node health: uptime, active tasks, last error, connection state |
+| `remote_restart` | Safely restart OpenClaw. Pending tasks cancelled and reported first. |
+| `remote_trigger` | Execute OpenClaw workflows/tasks remotely |
+
+### Configuration
+
+| Key | Required | Description |
+|---|---|---|
+| `relay_url` | ✅ | WebSocket URL of the relay server |
+| `node_id` | ✅ | Unique identifier for this OpenClaw node (UUID or custom) |
+| `auth_token` | ✅ | Secret token for relay authentication (min 8 chars) |
+
+Config JSON format:
+
+```json
+{
+  "relay_url": "wss://relay-terminal-cloud.fly.dev",
+  "node_id": "your-node-uuid",
+  "auth_token": "your-secret-token"
+}
+```
+
+### Multi-Node Management
+
+Save multiple node configurations per skill. Useful for dev/staging/prod or different machines. Each config identified by `(user_id, skill_slug, node_id)` tuple.
+
+- Create nodes with "New Node" button
+- Switch between nodes in node selector
+- Each node has independent relay URL, auth token, settings
+- Node IDs can be UUID or custom
+- Delete nodes with trash icon (confirmation required)
+
+### Message Protocol
+
+**Incoming (Relay → Node):**
+
+| Type | Action |
+|---|---|
+| `prompt` | Execute via OpenClaw prompt runner, stream tokens back |
+| `status` | Return node health payload |
+| `restart` | Cancel pending tasks, report, restart |
+| `workflow` | Execute named OpenClaw task/workflow |
+
+**Outgoing (Node → Relay):**
+
+- **Heartbeat** (every 15s): `{ "node_id": "...", "uptime": 3600, "active_tasks": 2, "last_error": null, "connection_state": "online" }`
+- **Token stream**: `{ "type": "token", "request_id": "...", "content": "..." }`
+- **Done**: `{ "type": "done", "request_id": "..." }`
+- **Status**: Full heartbeat payload with `request_id`
+
+### Security & Privacy
+
+**What leaves your machine:**
+- `auth_token` — sent once during WebSocket handshake
+- `node_id` — sent with every heartbeat and response
+- Heartbeat data — uptime, active task count, last error, connection state
+- Prompt response tokens — streamed to relay
+
+**What stays on your machine:**
+- All local AI model execution and inference
+- Local file system contents — never transmitted
+- Environment variables (except declared config keys)
+- System information, IP addresses, hardware details — never collected
+
+**Network posture:**
+- Outbound only — never opens listening port
+- TLS encrypted — `wss://` (TLS 1.2+)
+- No data persistence — relay forwards in real time
+
+> ⚠️ By installing this skill, you connect your OpenClaw instance to an external relay server. Prompt content and response tokens are transmitted in real time. Only install if you trust the relay operator.
+
+---
+
+## Relay Protocol
+
+### Protocol Overview
+
+All messages use JSON envelope: `{ "type": "message_type", "data": { ... } }`
+
+### Connector ↔ Relay Messages
+
+**Connector → Relay:**
+
+| Type | When | Data |
+|---|---|---|
+| `hello` | On connect | `device_id`, `token`, `meta.name` |
+| `session_started` | After spawning PTY | `session_id` |
+| `stdout` | Terminal output | `session_id`, `data_b64` |
+| `session_end` | Shell exit | `session_id`, `reason` |
+
+**Relay → Connector:**
+
+| Type | When | Data |
+|---|---|---|
+| `hello_ok` | Auth success | — |
+| `session_start` | User connects | `session_id`, `cols`, `rows` |
+| `stdin` | User types | `session_id`, `data_b64` |
+| `resize` | Browser resize | `session_id`, `cols`, `rows` |
+| `session_end` | User disconnects | `session_id`, `reason` |
+
+### Browser ↔ Relay Messages
+
+**Browser → Relay:**
+
+```json
+// Auth (on connect)
+{ "type": "auth", "data": { "token": "jwt", "session_id": "uuid", "device_id": "uuid" } }
+
+// stdin, resize, session_end — same format as Relay → Connector
+```
+
+**Relay → Browser:**
+
+```json
+// Auth acknowledgement
+{ "type": "auth_ok" }
+
+// stdout — forwarded from connector
+{ "type": "stdout", "data": { "session_id": "uuid", "data_b64": "base64" } }
+
+// Ping/pong for latency
+{ "type": "pong" }
+
+// Error
+{ "type": "error", "data": { "message": "..." } }
+```
+
+---
+
+## API Reference
+
+### Edge Functions
+
+All backend operations are serverless edge functions at:
+
+```
+https://<project-url>/functions/v1/<function-name>
+```
+
+All endpoints require:
+- `Authorization: Bearer <jwt-token>` header
+- `apikey: <anon-key>` header
+
+### POST /pair-device
+
+Exchanges a pairing code for device credentials.
+
+**Request:**
+```json
+{
+  "pairing_code": "ABCD1234",
+  "name": "My Server"
+}
+```
+
+**Response (200):**
+```json
+{
+  "device_id": "uuid",
+  "token": "device-auth-token",
+  "relay_url": "wss://relay-terminal-cloud.fly.dev"
+}
+```
+
+### POST /start-session
+
+Creates a new terminal session for a device.
+
+**Request:**
+```json
+{ "device_id": "uuid" }
+```
+
+**Response (200):**
+```json
+{ "session_id": "uuid" }
+```
+
+### POST /end-session
+
+Ends an active session.
+
+**Request:**
+```json
+{ "session_id": "uuid" }
+```
+
+**Response (200):**
+```json
+{ "ok": true }
+```
+
+### GET /relay-nodes
+
+Returns all nodes currently connected to the relay server.
+
+**Response (200):**
+```json
+{
+  "nodes": [
+    {
+      "device_id": "uuid",
+      "name": "My Server",
+      "kind": "connector",
+      "connected_at": "ISO8601",
+      "last_heartbeat": "ISO8601",
+      "online": true
+    }
+  ]
+}
+```
+
+### POST /invite-member
+
+Invites a user to a project by email.
+
+**Request:**
+```json
+{
+  "project_id": "uuid",
+  "email": "user@example.com"
+}
+```
+
+**Response (200):**
+```json
+{
+  "status": "added | invited",
+  "message": "Member added to project | Invitation sent"
+}
+```
+
+### GET /download-connector
+
+Returns the connector binary or build instructions for the user's platform.
+
+---
+
+## Security
+
+### Authentication Model
+
+JWT-based authentication. Users authenticate with email/password.
+
+- **Browser → Relay**: JWT token from auth session
+- **Connector → Relay**: Device token from pairing
+- **Edge Functions**: JWT + anon key in headers
+
+### Row-Level Security (RLS)
+
+All tables protected by RLS:
+
+| Table | Rule |
+|---|---|
+| Projects | Visible to project members; only owners can modify |
+| Devices | Visible to project members; only owners can add/update/delete |
+| Sessions | Users can view own sessions or sessions for devices in their projects |
+| Profiles | Users can only view/update their own profile |
+| Skill Configs | Users can only CRUD their own configurations |
+| Invitations | Visible to project members; only owners can create/modify |
+
+### Network Posture
+
+- **Outbound only** — connectors never open listening ports
+- **TLS encrypted** — all WebSocket connections use `wss://` (TLS 1.2+)
+- **No data persistence on relay** — forwards in real time, never stores
+- **Credentials never in code** — stored securely, never in repository
+
+### Data Privacy
+
+Terminal content (stdin/stdout) forwarded in real time, never persisted. Database stores session metadata only. Skill configurations stored encrypted, accessible only by owning user via RLS.
+
+---
+
+## Self-Hosting
+
+### Relay Server Deployment
+
+Node.js application. Requires:
+
+| Variable | Description |
+|---|---|
+| `SUPABASE_URL` | Backend project URL |
+| `SUPABASE_SERVICE_ROLE_KEY` | Service role key for server-side operations |
+
+### Docker
+
+```bash
+cd relay-server
+export SUPABASE_URL=https://your-project.supabase.co
+export SUPABASE_SERVICE_ROLE_KEY=your-key
+docker build -t relay-server .
+docker run -p 8080:8080 relay-server
+```
+
+### Fly.io
+
+```bash
+cd relay-server
+fly launch
+fly secrets set SUPABASE_URL=https://your-project.supabase.co
+fly secrets set SUPABASE_SERVICE_ROLE_KEY=your-key
+fly deploy
+```
+
+Default public relay: `wss://relay-terminal-cloud.fly.dev`
+
+---
+
+## Troubleshooting
+
+### Common Issues
+
+| Issue | Solution |
+|---|---|
+| Device stays offline after pairing | Ensure connector is running without `--pair`. Check relay URL in config. Verify outbound WSS (port 443) not blocked. |
+| Terminal shows "Connection timeout" | Relay may be down. Refresh page. Check relay logs. If self-hosting, verify container is running. |
+| "Failed to create session" error | Device is likely offline. Verify connector is running and authenticated. |
+| WebSocket handshake test fails | Relay URL must start with `wss://` or `https://`. Check for CORS or certificate errors. |
+| Skill configuration not saving | Must be signed in. Auth token ≥8 chars. Relay URL must be valid `wss://` or `https://`. |
+| Can't invite team members | Only project owners can invite. Verify you're the owner. |
+
+### FAQ
+
+**Q: Do I need to open any ports?**
+No. Connector only makes outbound connections. No inbound ports required.
+
+**Q: Works behind corporate firewall/proxy?**
+Yes, if outbound WebSocket (port 443) is allowed. Uses standard WSS.
+
+**Q: Is terminal data stored?**
+No. Relay forwards in real time, never persists terminal content. Only session metadata is stored.
+
+**Q: Multiple users on same device?**
+Yes. Connector supports multiple concurrent PTY sessions.
+
+**Q: What shell is spawned?**
+`$SHELL` env var, falling back to `/bin/sh`. Override with `--shell` flag.
+
+**Q: Can I use remote-relay without the web app?**
+Yes. Configure manually with JSON. Visual wizard recommended.
+
+**Q: Default relay URL?**
+`wss://relay-terminal-cloud.fly.dev` — operated by project maintainers. Deploy your own for production.
+
+**Q: How to update profile/password?**
+Go to `/settings`.
+
+---
+
+## Database Schema
+
+### Tables
+
+| Table | Key Columns |
+|---|---|
+| `projects` | `id`, `name`, `owner_id`, `created_at`, `updated_at` |
+| `devices` | `id`, `name`, `project_id`, `status` (online/offline), `paired`, `pairing_code`, `device_token`, `last_seen` |
+| `sessions` | `id`, `device_id`, `user_id`, `status` (active/ended), `started_at`, `ended_at` |
+| `profiles` | `id`, `user_id`, `display_name`, `avatar_url` |
+| `project_members` | `id`, `project_id`, `user_id`, `role` (owner/member), `invited_by` |
+| `invitations` | `id`, `project_id`, `email`, `invited_by`, `status` |
+| `skill_configs` | `id`, `user_id`, `skill_slug`, `node_id`, `name`, `config` (JSON) |
+
+### Enums
+
+- `device_status`: `online`, `offline`
+- `project_role`: `owner`, `member`
+- `session_status`: `active`, `ended`
+
+### Helper Functions
+
+- `is_project_member(_project_id)` — returns boolean
+- `is_project_owner(_project_id)` — returns boolean
+- `is_device_in_user_project(_device_id)` — returns boolean
+
+---
+
+## Routes
+
+| Path | Description | Auth Required |
+|---|---|---|
+| `/` | Landing page | No |
+| `/auth` | Sign in / Sign up | No |
+| `/reset-password` | Password reset | No |
+| `/docs` | Documentation (this page) | No |
+| `/dashboard` | Main dashboard | Yes |
+| `/projects` | Project list | Yes |
+| `/project/:id` | Project detail (devices, team, sessions) | Yes |
+| `/terminal/:deviceId/:sessionId` | Live terminal session | Yes |
+| `/skill/remote-relay` | Remote relay skill configuration | Yes |
+| `/settings` | User profile and account settings | Yes |
+
+---
+
+## TypeScript Interfaces (Remote Relay Skill)
+
+```typescript
+interface IncomingMessage {
+  type: "prompt" | "status" | "restart" | "workflow";
+  request_id: string;
+  data?: Record<string, unknown>;
+}
+
+type ConnectionState = "online" | "reconnecting" | "offline";
+
+interface HeartbeatPayload {
+  node_id: string;
+  uptime: number;
+  active_tasks: number;
+  last_error: string | null;
+  connection_state: ConnectionState;
+}
+
+interface TokenChunk {
+  type: "token";
+  request_id: string;
+  content: string;
+}
+
+interface DoneMessage {
+  type: "done";
+  request_id: string;
+}
+
+interface OpenClawRuntime {
+  executePrompt(prompt: string, onToken: (token: string) => void): Promise<void>;
+  executeWorkflow(workflowId: string, params: Record<string, unknown>): Promise<void>;
+  getRunningTaskCount(): number;
+  getLastError(): string | null;
+  restart(): Promise<void>;
+}
+```
+
+---
+
+*End of machine-readable documentation. For the interactive version, visit https://relay-remote-shell.lovable.app/docs*
