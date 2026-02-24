@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"strings"
@@ -67,12 +68,41 @@ type HTTPResponseData struct {
 	BodyB64    string            `json:"body_b64,omitempty"`
 }
 
+// WSOpenData is the payload for ws_open messages (WebSocket proxy).
+type WSOpenData struct {
+	TunnelID  string   `json:"tunnel_id"`
+	URL       string   `json:"url"`
+	Protocols []string `json:"protocols,omitempty"`
+}
+
+// WSFrameData is the payload for ws_frame messages.
+type WSFrameData struct {
+	TunnelID string `json:"tunnel_id"`
+	DataB64  string `json:"data_b64"`
+	Binary   bool   `json:"binary"`
+}
+
+// WSCloseData is the payload for ws_close messages.
+type WSCloseData struct {
+	TunnelID string `json:"tunnel_id"`
+	Code     int    `json:"code"`
+	Reason   string `json:"reason,omitempty"`
+}
+
+// WSTunnel represents an active WebSocket proxy tunnel.
+type WSTunnel struct {
+	id   string
+	conn *websocket.Conn
+	done chan struct{}
+}
+
 // RelayClient manages the WebSocket connection and PTY sessions.
 type RelayClient struct {
 	config        *Config
 	shell         string
 	conn          *websocket.Conn
 	sessions      map[string]*PTYSession
+	wsTunnels     map[string]*WSTunnel
 	mu            sync.Mutex
 	done          chan struct{}
 	authenticated bool
@@ -89,10 +119,11 @@ type PTYSession struct {
 // NewRelayClient creates a new relay client.
 func NewRelayClient(cfg *Config, shell string) *RelayClient {
 	return &RelayClient{
-		config:   cfg,
-		shell:    shell,
-		sessions: make(map[string]*PTYSession),
-		done:     make(chan struct{}),
+		config:    cfg,
+		shell:     shell,
+		sessions:  make(map[string]*PTYSession),
+		wsTunnels: make(map[string]*WSTunnel),
+		done:      make(chan struct{}),
 	}
 }
 
@@ -165,6 +196,10 @@ func (c *RelayClient) Close() {
 		c.cleanupSession(id, sess)
 	}
 
+	for id, tunnel := range c.wsTunnels {
+		c.cleanupWSTunnel(id, tunnel)
+	}
+
 	if c.conn != nil {
 		c.conn.WriteMessage(
 			websocket.CloseMessage,
@@ -220,6 +255,30 @@ func (c *RelayClient) handleMessage(msg Message) {
 		}
 		go c.handleHTTPRequest(data)
 
+	case "ws_open":
+		var data WSOpenData
+		if err := json.Unmarshal(msg.Data, &data); err != nil {
+			log.Printf("Invalid ws_open: %v", err)
+			return
+		}
+		go c.handleWSOpen(data)
+
+	case "ws_frame":
+		var data WSFrameData
+		if err := json.Unmarshal(msg.Data, &data); err != nil {
+			log.Printf("Invalid ws_frame: %v", err)
+			return
+		}
+		c.handleWSFrame(data)
+
+	case "ws_close":
+		var data WSCloseData
+		if err := json.Unmarshal(msg.Data, &data); err != nil {
+			log.Printf("Invalid ws_close: %v", err)
+			return
+		}
+		c.handleWSClose(data)
+
 	case "error":
 		log.Printf("Relay error: %s", string(msg.Data))
 
@@ -228,13 +287,162 @@ func (c *RelayClient) handleMessage(msg Message) {
 	}
 }
 
+// ─── WebSocket Proxy Handlers ────────────────────────────────────────
+
+func (c *RelayClient) handleWSOpen(data WSOpenData) {
+	log.Printf("[ws-proxy] opening tunnel %s → %s", data.TunnelID[:8], data.URL)
+
+	// Validate URL
+	parsed, err := url.Parse(data.URL)
+	if err != nil || (parsed.Scheme != "ws" && parsed.Scheme != "wss") {
+		c.sendWSError(data.TunnelID, fmt.Sprintf("Invalid WebSocket URL: %s", data.URL))
+		return
+	}
+
+	// Connect to local WebSocket
+	dialer := websocket.Dialer{
+		HandshakeTimeout: 10 * time.Second,
+	}
+	header := http.Header{}
+
+	var conn *websocket.Conn
+	if len(data.Protocols) > 0 {
+		header.Set("Sec-WebSocket-Protocol", strings.Join(data.Protocols, ", "))
+		conn, _, err = dialer.Dial(data.URL, header)
+	} else {
+		conn, _, err = dialer.Dial(data.URL, header)
+	}
+	if err != nil {
+		c.sendWSError(data.TunnelID, fmt.Sprintf("Failed to connect to %s: %v", data.URL, err))
+		return
+	}
+
+	tunnel := &WSTunnel{
+		id:   data.TunnelID,
+		conn: conn,
+		done: make(chan struct{}),
+	}
+
+	c.mu.Lock()
+	c.wsTunnels[data.TunnelID] = tunnel
+	c.mu.Unlock()
+
+	// Confirm tunnel opened
+	ackData, _ := json.Marshal(map[string]string{"tunnel_id": data.TunnelID})
+	c.sendMessage("ws_opened", ackData)
+
+	log.Printf("[ws-proxy] tunnel %s connected to %s", data.TunnelID[:8], data.URL)
+
+	// Read from local WS and forward to relay
+	go c.readWSTunnel(tunnel)
+}
+
+func (c *RelayClient) readWSTunnel(tunnel *WSTunnel) {
+	defer func() {
+		c.mu.Lock()
+		delete(c.wsTunnels, tunnel.id)
+		c.mu.Unlock()
+		tunnel.conn.Close()
+	}()
+
+	for {
+		select {
+		case <-tunnel.done:
+			return
+		default:
+		}
+
+		msgType, data, err := tunnel.conn.ReadMessage()
+		if err != nil {
+			select {
+			case <-tunnel.done:
+				return
+			default:
+			}
+			// Notify relay that the local WS closed
+			closeData, _ := json.Marshal(map[string]interface{}{
+				"tunnel_id": tunnel.id,
+				"code":      1000,
+				"reason":    "local websocket closed",
+			})
+			c.sendMessage("ws_close", closeData)
+			return
+		}
+
+		isBinary := msgType == websocket.BinaryMessage
+		encoded := base64.StdEncoding.EncodeToString(data)
+
+		frameData, _ := json.Marshal(WSFrameData{
+			TunnelID: tunnel.id,
+			DataB64:  encoded,
+			Binary:   isBinary,
+		})
+		c.sendMessage("ws_frame", frameData)
+	}
+}
+
+func (c *RelayClient) handleWSFrame(data WSFrameData) {
+	c.mu.Lock()
+	tunnel, ok := c.wsTunnels[data.TunnelID]
+	c.mu.Unlock()
+	if !ok {
+		return
+	}
+
+	decoded, err := base64.StdEncoding.DecodeString(data.DataB64)
+	if err != nil {
+		log.Printf("[ws-proxy] invalid base64 frame: %v", err)
+		return
+	}
+
+	msgType := websocket.TextMessage
+	if data.Binary {
+		msgType = websocket.BinaryMessage
+	}
+
+	if err := tunnel.conn.WriteMessage(msgType, decoded); err != nil {
+		log.Printf("[ws-proxy] write error on tunnel %s: %v", data.TunnelID[:8], err)
+	}
+}
+
+func (c *RelayClient) handleWSClose(data WSCloseData) {
+	log.Printf("[ws-proxy] closing tunnel %s", data.TunnelID[:8])
+	c.mu.Lock()
+	tunnel, ok := c.wsTunnels[data.TunnelID]
+	if ok {
+		c.cleanupWSTunnel(data.TunnelID, tunnel)
+	}
+	c.mu.Unlock()
+}
+
+func (c *RelayClient) cleanupWSTunnel(id string, tunnel *WSTunnel) {
+	select {
+	case <-tunnel.done:
+	default:
+		close(tunnel.done)
+	}
+	tunnel.conn.WriteMessage(
+		websocket.CloseMessage,
+		websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""),
+	)
+	tunnel.conn.Close()
+	delete(c.wsTunnels, id)
+}
+
+func (c *RelayClient) sendWSError(tunnelID, message string) {
+	errData, _ := json.Marshal(map[string]string{
+		"tunnel_id": tunnelID,
+		"message":   message,
+	})
+	c.sendMessage("ws_error", errData)
+}
+
+// ─── HTTP Proxy Handler ─────────────────────────────────────────────
+
 func (c *RelayClient) handleHTTPRequest(data HTTPRequestData) {
 	log.Printf("[proxy] %s %s (req %s)", data.Method, data.Path, data.RequestID[:8])
 
-	// Build local URL — the path contains the full target like /localhost:3000/path
-	// Extract host:port and path from data.Path
-	// data.Path looks like "/localhost:3000/some/path" or "/127.0.0.1:8080/api"
-	targetURL := "http:/" + data.Path // data.Path starts with /, so this gives http://localhost:3000/...
+	targetURL := "http:/" + data.Path
 
 	var bodyReader io.Reader
 	if data.BodyB64 != "" {
@@ -252,7 +460,6 @@ func (c *RelayClient) handleHTTPRequest(data HTTPRequestData) {
 		return
 	}
 
-	// Set forwarded headers
 	for k, v := range data.Headers {
 		req.Header.Set(k, v)
 	}
@@ -265,14 +472,12 @@ func (c *RelayClient) handleHTTPRequest(data HTTPRequestData) {
 	}
 	defer resp.Body.Close()
 
-	// Read response body (limit to 10MB)
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 10*1024*1024))
 	if err != nil {
 		c.sendHTTPError(data.RequestID, 502, fmt.Sprintf("Failed to read response: %v", err))
 		return
 	}
 
-	// Collect response headers
 	respHeaders := make(map[string]string)
 	for k := range resp.Header {
 		respHeaders[k] = resp.Header.Get(k)
@@ -300,6 +505,8 @@ func (c *RelayClient) sendHTTPError(requestID string, statusCode int, message st
 	raw, _ := json.Marshal(responseData)
 	c.sendMessage("http_response", raw)
 }
+
+// ─── PTY Session Handlers ───────────────────────────────────────────
 
 func (c *RelayClient) startSession(data SessionStartData) {
 	log.Printf("Starting session %s (%dx%d)", data.SessionID, data.Cols, data.Rows)
@@ -334,14 +541,11 @@ func (c *RelayClient) startSession(data SessionStartData) {
 	c.sessions[data.SessionID] = sess
 	c.mu.Unlock()
 
-	// Acknowledge session start
 	ackData, _ := json.Marshal(map[string]string{"session_id": data.SessionID})
 	c.sendMessage("session_started", ackData)
 
-	// Read PTY output and forward to relay
 	go c.readPTY(sess)
 
-	// Wait for process to exit
 	go func() {
 		_ = cmd.Wait()
 		log.Printf("Session %s: shell exited", data.SessionID)

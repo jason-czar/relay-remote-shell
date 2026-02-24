@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Globe, X, RotateCcw, ExternalLink, Loader2, AlertCircle } from "lucide-react";
+import { Globe, X, RotateCcw, Loader2, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 interface WebPanelProps {
@@ -9,6 +9,53 @@ interface WebPanelProps {
   deviceId?: string;
   deviceName?: string;
   onClose?: () => void;
+}
+
+/**
+ * Generates a script that overrides the WebSocket constructor so that
+ * any `ws://localhost:*` or `ws://127.0.0.1:*` connections from the
+ * proxied page are routed through the relay's /ws-proxy/ endpoint.
+ */
+function buildWSInterceptScript(relayWsUrl: string, deviceId: string, token: string): string {
+  return `
+<script>
+(function() {
+  var OrigWebSocket = window.WebSocket;
+  var RELAY_WS = ${JSON.stringify(relayWsUrl)};
+  var DEVICE_ID = ${JSON.stringify(deviceId)};
+  var TOKEN = ${JSON.stringify(token)};
+
+  window.WebSocket = function(url, protocols) {
+    var parsed;
+    try { parsed = new URL(url); } catch(e) {
+      return protocols
+        ? new OrigWebSocket(url, protocols)
+        : new OrigWebSocket(url);
+    }
+
+    var host = parsed.hostname;
+    if (host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0') {
+      var hostPort = parsed.host;
+      var path = parsed.pathname + parsed.search;
+      var proxyUrl = RELAY_WS + '/ws-proxy/' + DEVICE_ID + '/' + hostPort + path + '?token=' + encodeURIComponent(TOKEN);
+      console.log('[ws-proxy] intercepting ' + url + ' → ' + proxyUrl.substring(0, 80) + '...');
+      return protocols
+        ? new OrigWebSocket(proxyUrl, protocols)
+        : new OrigWebSocket(proxyUrl);
+    }
+
+    return protocols
+      ? new OrigWebSocket(url, protocols)
+      : new OrigWebSocket(url);
+  };
+
+  window.WebSocket.prototype = OrigWebSocket.prototype;
+  window.WebSocket.CONNECTING = OrigWebSocket.CONNECTING;
+  window.WebSocket.OPEN = OrigWebSocket.OPEN;
+  window.WebSocket.CLOSING = OrigWebSocket.CLOSING;
+  window.WebSocket.CLOSED = OrigWebSocket.CLOSED;
+})();
+</script>`;
 }
 
 export function WebPanel({ initialUrl = "", deviceId, deviceName, onClose }: WebPanelProps) {
@@ -20,9 +67,13 @@ export function WebPanel({ initialUrl = "", deviceId, deviceName, onClose }: Web
   const [key, setKey] = useState(0);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
-  const relayUrl = (import.meta.env.VITE_RELAY_URL || "wss://relay-terminal-cloud.fly.dev")
+  const relayHttpUrl = (import.meta.env.VITE_RELAY_URL || "wss://relay-terminal-cloud.fly.dev")
     .replace("wss://", "https://")
     .replace("ws://", "http://");
+
+  const relayWsUrl = (import.meta.env.VITE_RELAY_URL || "wss://relay-terminal-cloud.fly.dev")
+    .replace("https://", "wss://")
+    .replace("http://", "ws://");
 
   const fetchViaProxy = useCallback(async (targetUrl: string) => {
     if (!deviceId) return;
@@ -53,7 +104,7 @@ export function WebPanel({ initialUrl = "", deviceId, deviceName, onClose }: Web
       const path = parsed.pathname + parsed.search + parsed.hash;
       const proxyPath = `/proxy/${deviceId}/${hostPort}${path}`;
 
-      const resp = await fetch(`${relayUrl}${proxyPath}`, {
+      const resp = await fetch(`${relayHttpUrl}${proxyPath}`, {
         headers: { Authorization: `Bearer ${jwt}` },
       });
 
@@ -73,11 +124,21 @@ export function WebPanel({ initialUrl = "", deviceId, deviceName, onClose }: Web
       if (contentType.includes("text/html")) {
         let html = await resp.text();
         // Inject a <base> tag so relative resources resolve through proxy
-        const baseUrl = `${relayUrl}/proxy/${deviceId}/${hostPort}/`;
-        html = html.replace(
-          /(<head[^>]*>)/i,
-          `$1<base href="${baseUrl}" />`
-        );
+        const baseUrl = `${relayHttpUrl}/proxy/${deviceId}/${hostPort}/`;
+
+        // Build the WS intercept script
+        const wsScript = buildWSInterceptScript(relayWsUrl, deviceId, jwt);
+
+        // Inject both the WS intercept script and <base> tag into <head>
+        if (html.match(/<head[^>]*>/i)) {
+          html = html.replace(
+            /(<head[^>]*>)/i,
+            `$1<base href="${baseUrl}" />${wsScript}`
+          );
+        } else {
+          // No <head> tag — prepend
+          html = `<head><base href="${baseUrl}" />${wsScript}</head>` + html;
+        }
         setProxyHtml(html);
       } else {
         // For non-HTML, display in iframe via blob URL
@@ -91,7 +152,7 @@ export function WebPanel({ initialUrl = "", deviceId, deviceName, onClose }: Web
     } finally {
       setLoading(false);
     }
-  }, [deviceId, relayUrl]);
+  }, [deviceId, relayHttpUrl, relayWsUrl]);
 
   const handleNavigate = (e: React.FormEvent) => {
     e.preventDefault();
