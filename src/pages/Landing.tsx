@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Terminal, Shield, Wifi, Users, Zap, ArrowRight, Monitor } from "lucide-react";
+import logo from "@/assets/logo.png";
 
 export default function Landing() {
   const navigate = useNavigate();
@@ -11,7 +12,7 @@ export default function Landing() {
       <nav className="border-b border-border">
         <div className="max-w-6xl mx-auto flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4">
           <div className="flex items-center gap-2">
-            <Terminal className="h-6 w-6 text-primary" />
+            <img src={logo} alt="PrivaClaw" className="h-7 w-7 rounded" />
             <span className="text-lg font-bold tracking-tight">PrivaClaw</span>
           </div>
           <div className="flex items-center gap-1 sm:gap-3">
@@ -145,7 +146,7 @@ export default function Landing() {
       <footer className="border-t border-border">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8 flex flex-col sm:flex-row items-center justify-between gap-2">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Terminal className="h-4 w-4" />
+            <img src={logo} alt="PrivaClaw" className="h-4 w-4 rounded" />
             PrivaClaw
           </div>
           <p className="text-xs text-muted-foreground">© {new Date().getFullYear()} All rights reserved.</p>

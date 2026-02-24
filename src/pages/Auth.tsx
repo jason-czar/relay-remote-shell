@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Terminal, Mail, Lock, ArrowRight } from "lucide-react";
+import { Mail, Lock, ArrowRight } from "lucide-react";
+import logo from "@/assets/logo.png";
 import { emailSchema, passwordSchema } from "@/lib/validations";
 
 export default function Auth() {
@@ -97,7 +98,7 @@ export default function Auth() {
         <Card className="w-full max-w-md border-border">
           <CardHeader className="text-center">
             <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
-              <Terminal className="h-6 w-6 text-primary" />
+              <img src={logo} alt="PrivaClaw" className="h-7 w-7 rounded" />
             </div>
             <CardTitle className="text-xl">Reset Password</CardTitle>
             <CardDescription>Enter your email to receive a reset link</CardDescription>
@@ -136,7 +137,7 @@ export default function Auth() {
       <Card className="w-full max-w-md border-border">
         <CardHeader className="text-center">
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
-            <Terminal className="h-6 w-6 text-primary" />
+            <img src={logo} alt="PrivaClaw" className="h-7 w-7 rounded" />
           </div>
           <CardTitle className="text-xl">
             {isLogin ? "Welcome back" : "Create account"}

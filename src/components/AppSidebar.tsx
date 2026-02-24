@@ -1,4 +1,5 @@
-import { Terminal, LayoutDashboard, FolderOpen, Settings, LogOut, Sun, Moon, Plug, BookOpen, Columns2 } from "lucide-react";
+import { LayoutDashboard, FolderOpen, Settings, LogOut, Sun, Moon, Plug, BookOpen, Columns2 } from "lucide-react";
+import logo from "@/assets/logo.png";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import { useTheme } from "next-themes";
@@ -48,7 +49,7 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupLabel>
             <div className="flex items-center gap-2">
-              <Terminal className="h-4 w-4 text-primary" />
+              <img src={logo} alt="PrivaClaw" className="h-5 w-5 rounded" />
               {!collapsed && <span className="font-mono text-sm font-bold">PrivaClaw</span>}
             </div>
           </SidebarGroupLabel>
