@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/StatusBadge";
 import { useToast } from "@/hooks/use-toast";
 import { ProjectViewSkeleton } from "@/components/LoadingSkeletons";
-import { Plus, Monitor, Terminal, Copy, Users, ArrowLeft, Mail, UserMinus, Clock, Pencil, Trash2, RefreshCw, MoreVertical } from "lucide-react";
+import { Plus, Monitor, Terminal, Copy, Users, ArrowLeft, Mail, UserMinus, Clock, Pencil, Trash2, RefreshCw, MoreVertical, Play } from "lucide-react";
 import { SetupWizard } from "@/components/SetupWizard";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useProjectRole } from "@/hooks/useProjectRole";
@@ -438,6 +438,11 @@ export default function ProjectView() {
                           {s.status === "active" && dev && (
                             <Button size="sm" variant="outline" className="gap-1 h-7" onClick={() => navigate(`/terminal/${dev.id}?session=${s.id}`)}>
                               <Terminal className="h-3 w-3" /> Rejoin
+                            </Button>
+                          )}
+                          {s.status === "ended" && (
+                            <Button size="sm" variant="ghost" className="gap-1 h-7" onClick={() => navigate(`/playback/${s.id}`)}>
+                              <Play className="h-3 w-3" /> Replay
                             </Button>
                           )}
                         </div>

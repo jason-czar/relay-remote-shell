@@ -13,6 +13,7 @@ import Dashboard from "./pages/Dashboard";
 import Projects from "./pages/Projects";
 import ProjectView from "./pages/ProjectView";
 import TerminalSession from "./pages/TerminalSession";
+import SessionPlayback from "./pages/SessionPlayback";
 import Settings from "./pages/Settings";
 import SkillConfig from "./pages/SkillConfig";
 import Docs from "./pages/Docs";
@@ -51,6 +52,7 @@ const App = () => (
                 <Route path="/projects" element={<ProtectedRoute><Projects /></ProtectedRoute>} />
                 <Route path="/project/:projectId" element={<ProtectedRoute><ProjectView /></ProtectedRoute>} />
                 <Route path="/terminal/:deviceId" element={<ProtectedRoute><TerminalSession /></ProtectedRoute>} />
+                <Route path="/playback/:sessionId" element={<ProtectedRoute><SessionPlayback /></ProtectedRoute>} />
                 <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
                 <Route path="/skill/remote-relay" element={<ProtectedRoute><SkillConfig /></ProtectedRoute>} />
                 <Route path="/docs" element={<Docs />} />

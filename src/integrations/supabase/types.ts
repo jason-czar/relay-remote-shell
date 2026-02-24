@@ -203,6 +203,44 @@ export type Database = {
         }
         Relationships: []
       }
+      session_recordings: {
+        Row: {
+          created_at: string
+          duration_ms: number
+          frame_count: number
+          frames: Json
+          id: string
+          session_id: string
+          size_bytes: number
+        }
+        Insert: {
+          created_at?: string
+          duration_ms?: number
+          frame_count?: number
+          frames?: Json
+          id?: string
+          session_id: string
+          size_bytes?: number
+        }
+        Update: {
+          created_at?: string
+          duration_ms?: number
+          frame_count?: number
+          frames?: Json
+          id?: string
+          session_id?: string
+          size_bytes?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_recordings_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sessions: {
         Row: {
           device_id: string
