@@ -13,6 +13,7 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
 }
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+const startedAt = Date.now();
 
 // ─── State ───────────────────────────────────────────────────────────
 // device_id → connector WebSocket
@@ -38,11 +39,16 @@ const server = createServer((req, res) => {
   }
 
   if (req.url === "/health") {
+    const mem = process.memoryUsage();
     res.writeHead(200, { "Content-Type": "application/json", ...cors });
     res.end(JSON.stringify({
       status: "ok",
+      uptime_seconds: Math.floor((Date.now() - startedAt) / 1000),
       connectors: connectors.size,
       sessions: browserSessions.size,
+      memory_mb: Math.round(mem.rss / 1024 / 1024),
+      version: "1.0.0",
+      timestamp: new Date().toISOString(),
     }));
     return;
   }

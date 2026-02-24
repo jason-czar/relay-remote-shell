@@ -7,7 +7,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/StatusBadge";
-import { Monitor, Wifi, Activity, Plus, Terminal, ArrowRight, Plug, RefreshCw, Clock, Settings2 } from "lucide-react";
+import { Monitor, Wifi, Activity, Plus, Terminal, ArrowRight, Plug, RefreshCw, Clock, Settings2, HeartPulse, Server, MemoryStick } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { DashboardSkeleton } from "@/components/LoadingSkeletons";
 import type { Tables } from "@/integrations/supabase/types";
 
@@ -20,6 +21,17 @@ interface RelayNode {
   online: boolean;
 }
 
+interface RelayHealth {
+  status: "ok" | "unreachable";
+  uptime_seconds?: number;
+  connectors?: number;
+  sessions?: number;
+  memory_mb?: number;
+  version?: string;
+  timestamp?: string;
+  error?: string;
+}
+
 export default function Dashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -27,6 +39,7 @@ export default function Dashboard() {
   const [devices, setDevices] = useState<Tables<"devices">[]>([]);
   const [sessions, setSessions] = useState<Tables<"sessions">[]>([]);
   const [nodes, setNodes] = useState<RelayNode[]>([]);
+  const [health, setHealth] = useState<RelayHealth | null>(null);
   const [skillConfigs, setSkillConfigs] = useState<any[]>([]);
   const [nodesLoading, setNodesLoading] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -34,12 +47,18 @@ export default function Dashboard() {
   const fetchNodes = useCallback(async () => {
     setNodesLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke("relay-nodes");
-      if (!error && data?.nodes) {
-        setNodes(data.nodes);
+      const [nodesRes, healthRes] = await Promise.all([
+        supabase.functions.invoke("relay-nodes"),
+        supabase.functions.invoke("relay-health"),
+      ]);
+      if (!nodesRes.error && nodesRes.data?.nodes) {
+        setNodes(nodesRes.data.nodes);
+      }
+      if (!healthRes.error && healthRes.data) {
+        setHealth(healthRes.data as RelayHealth);
       }
     } catch {
-      // Silently fail — relay may be down
+      setHealth({ status: "unreachable", error: "Failed to reach relay" });
     }
     setNodesLoading(false);
   }, []);
@@ -145,6 +164,84 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Relay Health Widget */}
+        <Card className={health?.status === "ok" ? "border-status-online/30" : health ? "border-status-offline/30" : ""}>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <div className="flex items-center gap-2">
+              <HeartPulse className={`h-5 w-5 ${health?.status === "ok" ? "text-status-online" : "text-status-offline"}`} />
+              <div>
+                <CardTitle className="text-base">Relay Server</CardTitle>
+                <CardDescription>
+                  {health?.status === "ok"
+                    ? `v${health.version ?? "?"} · up ${formatUptime(health.uptime_seconds ?? 0)}`
+                    : health?.status === "unreachable"
+                      ? "Unable to reach relay server"
+                      : "Checking…"}
+                </CardDescription>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <StatusBadge status={health?.status === "ok" ? "online" : health ? "offline" : "connecting"} />
+              <Button variant="ghost" size="icon" onClick={fetchNodes} disabled={nodesLoading} className="h-8 w-8">
+                <RefreshCw className={`h-3.5 w-3.5 ${nodesLoading ? "animate-spin" : ""}`} />
+              </Button>
+            </div>
+          </CardHeader>
+          {health?.status === "ok" && (
+            <CardContent>
+              <TooltipProvider>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="rounded-lg border border-border p-3 text-center">
+                        <Server className="h-4 w-4 text-muted-foreground mx-auto mb-1" />
+                        <p className="text-lg font-bold">{health.connectors ?? 0}</p>
+                        <p className="text-xs text-muted-foreground">Connectors</p>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>Active WebSocket connectors</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="rounded-lg border border-border p-3 text-center">
+                        <Terminal className="h-4 w-4 text-muted-foreground mx-auto mb-1" />
+                        <p className="text-lg font-bold">{health.sessions ?? 0}</p>
+                        <p className="text-xs text-muted-foreground">Sessions</p>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>Active browser terminal sessions</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="rounded-lg border border-border p-3 text-center">
+                        <Clock className="h-4 w-4 text-muted-foreground mx-auto mb-1" />
+                        <p className="text-lg font-bold">{formatUptime(health.uptime_seconds ?? 0)}</p>
+                        <p className="text-xs text-muted-foreground">Uptime</p>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>Server uptime since last restart</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="rounded-lg border border-border p-3 text-center">
+                        <MemoryStick className="h-4 w-4 text-muted-foreground mx-auto mb-1" />
+                        <p className="text-lg font-bold">{health.memory_mb ?? "?"}MB</p>
+                        <p className="text-xs text-muted-foreground">Memory</p>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>Resident set size (RSS)</TooltipContent>
+                  </Tooltip>
+                </div>
+              </TooltipProvider>
+              {health.timestamp && (
+                <p className="text-xs text-muted-foreground text-center mt-3">
+                  Last checked {timeSince(health.timestamp)} · auto-refreshes every 30s
+                </p>
+              )}
+            </CardContent>
+          )}
+        </Card>
 
         {projects.length === 0 && !loading ? (
           <Card className="border-dashed">
@@ -358,6 +455,16 @@ function timeSince(dateStr: string): string {
   const hours = Math.floor(minutes / 60);
   if (hours < 24) return `${hours}h ago`;
   return `${Math.floor(hours / 24)}d ago`;
+}
+
+function formatUptime(totalSeconds: number): string {
+  if (totalSeconds < 60) return `${totalSeconds}s`;
+  const m = Math.floor(totalSeconds / 60);
+  if (m < 60) return `${m}m`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ${m % 60}m`;
+  const d = Math.floor(h / 24);
+  return `${d}d ${h % 24}h`;
 }
 
 function FolderIcon() {
