@@ -109,3 +109,41 @@ Same format as Relay → Connector (forwarded directly).
 
 ### `stdout`, `session_end`, `error`
 Same format as Connector → Relay (forwarded directly).
+
+## HTTP Proxy
+
+The relay provides an HTTP proxy endpoint for browsing localhost URLs on remote devices.
+
+### Endpoint
+```
+GET/POST/... /proxy/:deviceId/:host/:port/path
+```
+
+Requires `Authorization: Bearer <supabase-jwt>` header.
+
+### Relay → Connector: `http_request`
+```json
+{
+  "type": "http_request",
+  "data": {
+    "request_id": "uuid",
+    "method": "GET",
+    "path": "/localhost:3000/api/data",
+    "headers": { "accept": "text/html" },
+    "body_b64": "optional-base64-body"
+  }
+}
+```
+
+### Connector → Relay: `http_response`
+```json
+{
+  "type": "http_response",
+  "data": {
+    "request_id": "uuid",
+    "status_code": 200,
+    "headers": { "content-type": "text/html" },
+    "body_b64": "base64-encoded-response-body"
+  }
+}
+```

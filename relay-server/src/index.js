@@ -2,6 +2,7 @@ import "dotenv/config";
 import { createServer } from "http";
 import { WebSocketServer } from "ws";
 import { createClient } from "@supabase/supabase-js";
+import { randomUUID } from "crypto";
 
 const PORT = parseInt(process.env.PORT || "8080");
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -26,13 +27,17 @@ const browserSessions = new Map();
 const sessionRecordings = new Map();
 const MAX_RECORDING_BYTES = 5 * 1024 * 1024; // 5MB limit per session
 
+// request_id → { resolve, reject, timer } for pending HTTP proxy requests
+const pendingProxyRequests = new Map();
+const PROXY_TIMEOUT_MS = 30000;
+
 // ─── HTTP Server ─────────────────────────────────────────────────────
-const server = createServer((req, res) => {
+const server = createServer(async (req, res) => {
   // CORS headers for all HTTP endpoints
   const cors = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "authorization, content-type",
-    "Access-Control-Allow-Methods": "GET, OPTIONS",
+    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, PATCH, OPTIONS",
   };
 
   if (req.method === "OPTIONS") {
@@ -50,7 +55,7 @@ const server = createServer((req, res) => {
       connectors: connectors.size,
       sessions: browserSessions.size,
       memory_mb: Math.round(mem.rss / 1024 / 1024),
-      version: "1.0.0",
+      version: "1.1.0",
       timestamp: new Date().toISOString(),
     }));
     return;
@@ -71,6 +76,95 @@ const server = createServer((req, res) => {
     }
     res.writeHead(200, { "Content-Type": "application/json", ...cors });
     res.end(JSON.stringify({ nodes }));
+    return;
+  }
+
+  // ─── HTTP Proxy: /proxy/:deviceId/... ──────────────────────────────
+  const proxyMatch = req.url.match(/^\/proxy\/([a-f0-9-]+)\/(.*)$/);
+  if (proxyMatch) {
+    const deviceId = proxyMatch[1];
+    const targetPath = "/" + proxyMatch[2];
+
+    // Authenticate: require Authorization header with Supabase JWT
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      res.writeHead(401, { "Content-Type": "application/json", ...cors });
+      res.end(JSON.stringify({ error: "Missing authorization" }));
+      return;
+    }
+    const token = authHeader.slice(7);
+    const { data: { user }, error: authErr } = await supabase.auth.getUser(token);
+    if (authErr || !user) {
+      res.writeHead(403, { "Content-Type": "application/json", ...cors });
+      res.end(JSON.stringify({ error: "Invalid token" }));
+      return;
+    }
+
+    // Check connector is online
+    const connectorWs = connectors.get(deviceId);
+    if (!connectorWs || connectorWs.readyState !== 1) {
+      res.writeHead(502, { "Content-Type": "application/json", ...cors });
+      res.end(JSON.stringify({ error: "Device connector offline" }));
+      return;
+    }
+
+    // Read request body if present
+    let bodyChunks = [];
+    for await (const chunk of req) {
+      bodyChunks.push(chunk);
+    }
+    const bodyBuffer = Buffer.concat(bodyChunks);
+    const bodyB64 = bodyBuffer.length > 0 ? bodyBuffer.toString("base64") : undefined;
+
+    // Build and send proxy request to connector
+    const requestId = randomUUID();
+    const proxyPromise = new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        pendingProxyRequests.delete(requestId);
+        reject(new Error("Proxy timeout"));
+      }, PROXY_TIMEOUT_MS);
+      pendingProxyRequests.set(requestId, { resolve, reject, timer });
+    });
+
+    // Forward relevant headers (strip hop-by-hop)
+    const forwardHeaders = {};
+    for (const [key, val] of Object.entries(req.headers)) {
+      if (!["host", "connection", "upgrade", "authorization", "transfer-encoding"].includes(key)) {
+        forwardHeaders[key] = val;
+      }
+    }
+
+    send(connectorWs, {
+      type: "http_request",
+      data: {
+        request_id: requestId,
+        method: req.method,
+        path: targetPath,
+        headers: forwardHeaders,
+        body_b64: bodyB64,
+      },
+    });
+
+    try {
+      const proxyRes = await proxyPromise;
+      const responseHeaders = { ...cors };
+      if (proxyRes.headers) {
+        for (const [k, v] of Object.entries(proxyRes.headers)) {
+          if (!["transfer-encoding", "connection"].includes(k.toLowerCase())) {
+            responseHeaders[k] = v;
+          }
+        }
+      }
+      res.writeHead(proxyRes.status_code || 200, responseHeaders);
+      if (proxyRes.body_b64) {
+        res.end(Buffer.from(proxyRes.body_b64, "base64"));
+      } else {
+        res.end();
+      }
+    } catch (err) {
+      res.writeHead(504, { "Content-Type": "application/json", ...cors });
+      res.end(JSON.stringify({ error: err.message }));
+    }
     return;
   }
 
@@ -161,6 +255,18 @@ connectorWSS.on("connection", (ws) => {
     // ── Update heartbeat timestamp on any message from connector ──
     const meta = connectorMeta.get(deviceId);
     if (meta) meta.last_heartbeat = new Date().toISOString();
+
+    // ── http_response from connector (proxy reply) ──
+    if (msg.type === "http_response") {
+      const requestId = msg.data?.request_id;
+      const pending = pendingProxyRequests.get(requestId);
+      if (pending) {
+        clearTimeout(pending.timer);
+        pendingProxyRequests.delete(requestId);
+        pending.resolve(msg.data);
+      }
+      return;
+    }
 
     // ── Forwarded messages from connector → browser ──
     if (msg.type === "stdout" || msg.type === "session_started" || msg.type === "session_end") {
@@ -390,6 +496,7 @@ server.listen(PORT, () => {
   console.log(`[relay] listening on port ${PORT}`);
   console.log(`[relay] connector endpoint: ws://localhost:${PORT}/connect`);
   console.log(`[relay] browser endpoint:   ws://localhost:${PORT}/session`);
+  console.log(`[relay] proxy endpoint:     http://localhost:${PORT}/proxy/:deviceId/...`);
 });
 
 // Graceful shutdown
