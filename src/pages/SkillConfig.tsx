@@ -8,10 +8,12 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Separator } from "@/components/ui/separator";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import {
   Wifi, WifiOff, Shield, Activity, Copy, Check, ChevronDown, ChevronRight,
-  RefreshCw, RotateCcw, Loader2, Globe, Server, Zap, ArrowLeft, Settings2, Eye, EyeOff, Terminal, ExternalLink
+  RefreshCw, RotateCcw, Loader2, Globe, Server, Zap, ArrowLeft, Settings2, Eye, EyeOff, Terminal, ExternalLink,
+  Plus, Trash2
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -38,6 +40,13 @@ interface RelayConfig {
   maxConcurrentTasks: number;
 }
 
+interface SavedNode {
+  id: string;
+  node_id: string;
+  name: string;
+  config: RelayConfig;
+}
+
 const DEFAULT_CONFIG: RelayConfig = {
   relayUrl: "wss://relay-terminal-cloud.fly.dev",
   connectionMode: "websocket",
@@ -57,25 +66,74 @@ export default function SkillConfig() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [config, setConfig] = useState<RelayConfig>(DEFAULT_CONFIG);
+  const [savedNodes, setSavedNodes] = useState<SavedNode[]>([]);
+  const [activeNodeId, setActiveNodeId] = useState<string | null>(null);
   const [loadingConfig, setLoadingConfig] = useState(true);
 
-  // Load config from database on mount
+  // Load all saved configs for user
   useEffect(() => {
     if (!user) return;
     const load = async () => {
       const { data } = await supabase
         .from("skill_configs")
-        .select("config")
+        .select("*")
         .eq("user_id", user.id)
-        .eq("skill_slug", "remote-relay")
-        .maybeSingle();
-      if (data?.config) {
-        setConfig({ ...DEFAULT_CONFIG, ...(data.config as Partial<RelayConfig>) });
+        .eq("skill_slug", "remote-relay") as any;
+      const nodes: SavedNode[] = (data ?? []).map((row: any) => ({
+        id: row.id,
+        node_id: row.node_id,
+        name: row.name,
+        config: { ...DEFAULT_CONFIG, ...(row.config as Partial<RelayConfig>) },
+      }));
+      setSavedNodes(nodes);
+      if (nodes.length > 0) {
+        setActiveNodeId(nodes[0].node_id);
+        setConfig(nodes[0].config);
       }
       setLoadingConfig(false);
     };
     load();
   }, [user]);
+
+  const selectNode = (nodeId: string) => {
+    const node = savedNodes.find(n => n.node_id === nodeId);
+    if (node) {
+      setActiveNodeId(nodeId);
+      setConfig(node.config);
+      setStatus("disconnected");
+      setLatency(null);
+    }
+  };
+
+  const createNewNode = () => {
+    const newConfig = { ...DEFAULT_CONFIG, nodeId: generateUUID(), nodeName: `node-${savedNodes.length + 1}` };
+    const newNodeId = newConfig.nodeId;
+    setConfig(newConfig);
+    setActiveNodeId(newNodeId);
+    setStatus("disconnected");
+    setLatency(null);
+    // Don't add to savedNodes yet — will be added on save
+    toast({ title: "New node config", description: "Configure and save to persist." });
+  };
+
+  const deleteNode = async (nodeId: string) => {
+    if (!user) return;
+    const node = savedNodes.find(n => n.node_id === nodeId);
+    if (!node) return;
+    await supabase.from("skill_configs").delete().eq("id", node.id) as any;
+    const remaining = savedNodes.filter(n => n.node_id !== nodeId);
+    setSavedNodes(remaining);
+    if (activeNodeId === nodeId) {
+      if (remaining.length > 0) {
+        setActiveNodeId(remaining[0].node_id);
+        setConfig(remaining[0].config);
+      } else {
+        setActiveNodeId(null);
+        setConfig({ ...DEFAULT_CONFIG, nodeId: generateUUID() });
+      }
+    }
+    toast({ title: "Node deleted", description: `"${node.name}" has been removed.` });
+  };
 
   const [status, setStatus] = useState<ConnectionStatus>("disconnected");
   const [latency, setLatency] = useState<number | null>(null);
@@ -110,7 +168,6 @@ export default function SkillConfig() {
     setStatus("connecting");
     const start = Date.now();
 
-    // Normalize to wss://
     let wsUrl = config.relayUrl.replace(/\/+$/, "");
     wsUrl = wsUrl.replace(/^https:\/\//, "wss://");
     wsUrl = wsUrl.replace(/^http:\/\//, "ws://");
@@ -171,21 +228,38 @@ export default function SkillConfig() {
       return;
     }
     setSaving(true);
-    const { error } = await supabase
+    const { error, data } = await supabase
       .from("skill_configs")
       .upsert([{
         user_id: user.id,
         skill_slug: "remote-relay",
+        node_id: config.nodeId,
+        name: config.nodeName,
         config: JSON.parse(JSON.stringify(config)),
-      }] as any, { onConflict: "user_id,skill_slug" });
+      }] as any, { onConflict: "user_id,skill_slug,node_id" })
+      .select() as any;
     if (error) {
       toast({ title: "Save failed", description: error.message, variant: "destructive" });
       setSaving(false);
       return;
     }
+    // Update local saved nodes list
+    const existing = savedNodes.findIndex(n => n.node_id === config.nodeId);
+    const savedNode: SavedNode = {
+      id: data?.[0]?.id ?? config.nodeId,
+      node_id: config.nodeId,
+      name: config.nodeName,
+      config,
+    };
+    if (existing >= 0) {
+      setSavedNodes(prev => prev.map((n, i) => i === existing ? savedNode : n));
+    } else {
+      setSavedNodes(prev => [...prev, savedNode]);
+    }
+    setActiveNodeId(config.nodeId);
     await testConnection();
     setSaving(false);
-    toast({ title: "Configuration saved", description: "Settings saved to your account. Copy the config below into your OpenClaw instance." });
+    toast({ title: "Configuration saved", description: `"${config.nodeName}" saved to your account.` });
   };
 
   const generateToken = () => {
@@ -236,6 +310,8 @@ export default function SkillConfig() {
     disconnected: "bg-muted",
   }[status];
 
+  const isUnsaved = !savedNodes.some(n => n.node_id === config.nodeId);
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -250,7 +326,7 @@ export default function SkillConfig() {
                 <Settings2 className="h-5 w-5 text-muted-foreground" />
                 Remote Relay Configuration
               </h1>
-              <p className="text-sm text-muted-foreground">Connect your OpenClaw node to a remote relay server</p>
+              <p className="text-sm text-muted-foreground">Connect your OpenClaw nodes to a remote relay server</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -273,6 +349,78 @@ export default function SkillConfig() {
       </div>
 
       <div className="max-w-4xl mx-auto px-6 py-8 space-y-6">
+        {/* Node Selector */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between text-base">
+              <span className="flex items-center gap-2">
+                <Server className="h-4 w-4 text-primary" />
+                Your Nodes
+              </span>
+              <Button variant="outline" size="sm" className="gap-1.5" onClick={createNewNode}>
+                <Plus className="h-3.5 w-3.5" />
+                New Node
+              </Button>
+            </CardTitle>
+            <CardDescription>Select a node to configure, or create a new one</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {savedNodes.length === 0 && !isUnsaved ? (
+              <p className="text-sm text-muted-foreground">No saved nodes yet. Click "New Node" to create one.</p>
+            ) : (
+              <div className="space-y-2">
+                {savedNodes.map(node => (
+                  <div
+                    key={node.node_id}
+                    className={`flex items-center justify-between rounded-lg border p-3 cursor-pointer transition-colors ${
+                      activeNodeId === node.node_id ? "border-primary bg-primary/5" : "border-border hover:bg-muted/50"
+                    }`}
+                    onClick={() => selectNode(node.node_id)}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Server className="h-4 w-4 text-muted-foreground" />
+                      <div>
+                        <p className="text-sm font-medium">{node.name}</p>
+                        <p className="text-xs text-muted-foreground font-mono">{node.node_id.slice(0, 8)}… · {node.config.envTag}</p>
+                      </div>
+                    </div>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={e => e.stopPropagation()}>
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete "{node.name}"?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This will permanently remove this node configuration. This action cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => deleteNode(node.node_id)}>Delete</AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                ))}
+                {isUnsaved && (
+                  <div className="flex items-center justify-between rounded-lg border border-dashed border-primary/50 bg-primary/5 p-3">
+                    <div className="flex items-center gap-3">
+                      <Server className="h-4 w-4 text-primary" />
+                      <div>
+                        <p className="text-sm font-medium">{config.nodeName} <Badge variant="outline" className="ml-2 text-[10px]">unsaved</Badge></p>
+                        <p className="text-xs text-muted-foreground font-mono">{config.nodeId.slice(0, 8)}… · new</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         {/* Section 1: Relay Connection */}
         <Card>
           <CardHeader>

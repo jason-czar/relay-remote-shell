@@ -235,13 +235,26 @@ export default function Dashboard() {
           </div>
 
           {/* Saved Skill Configs */}
-          {skillConfigs.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Your Skill Configurations</CardTitle>
-                <CardDescription>Saved relay configurations for your OpenClaw nodes</CardDescription>
-              </CardHeader>
-              <CardContent>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-base">Your Node Configurations</CardTitle>
+                <CardDescription>Saved relay configs for your OpenClaw nodes ({skillConfigs.length})</CardDescription>
+              </div>
+              <Button variant="outline" size="sm" className="gap-1.5" onClick={() => navigate("/skill/remote-relay")}>
+                <Plus className="h-3.5 w-3.5" /> Add Node
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {skillConfigs.length === 0 ? (
+                <div className="text-center py-6">
+                  <Settings2 className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground">No node configurations yet</p>
+                  <Button variant="link" size="sm" className="mt-1" onClick={() => navigate("/skill/remote-relay")}>
+                    Configure your first node →
+                  </Button>
+                </div>
+              ) : (
                 <div className="space-y-3">
                   {skillConfigs.map((sc: any) => {
                     const cfg = sc.config || {};
@@ -250,9 +263,9 @@ export default function Dashboard() {
                         <div className="flex items-center gap-3">
                           <Settings2 className="h-4 w-4 text-muted-foreground" />
                           <div>
-                            <p className="text-sm font-medium">{cfg.nodeName || sc.skill_slug}</p>
+                            <p className="text-sm font-medium">{sc.name || cfg.nodeName || sc.skill_slug}</p>
                             <p className="text-xs text-muted-foreground">
-                              {cfg.relayUrl || "No URL set"} · {cfg.envTag || "dev"}
+                              {cfg.relayUrl || "No URL set"} · {cfg.envTag || "dev"} · <span className="font-mono">{(sc.node_id || "").slice(0, 8)}…</span>
                             </p>
                           </div>
                         </div>
@@ -263,9 +276,9 @@ export default function Dashboard() {
                     );
                   })}
                 </div>
-              </CardContent>
-            </Card>
-          )}
+              )}
+            </CardContent>
+          </Card>
 
           {/* Connected Relay Nodes */}
           <Card>
