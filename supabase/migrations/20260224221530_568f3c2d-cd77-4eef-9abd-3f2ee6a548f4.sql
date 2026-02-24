@@ -1,0 +1,1 @@
+ALTER TABLE public.skill_configs ALTER COLUMN skill_slug SET DEFAULT 'private-bridge';
