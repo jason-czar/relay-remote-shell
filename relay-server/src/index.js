@@ -226,7 +226,7 @@ connectorWSS.on("connection", (ws) => {
       // Validate device token
       const { data: device, error } = await supabase
         .from("devices")
-        .select("id, device_token, name")
+        .select("id, device_token, name, workdir")
         .eq("id", device_id)
         .eq("paired", true)
         .single();
@@ -254,7 +254,7 @@ connectorWSS.on("connection", (ws) => {
       });
 
       console.log(`[connector] ${device_id} online (${meta?.name || device.name})`);
-      send(ws, { type: "hello_ok" });
+      send(ws, { type: "hello_ok", data: { workdir: device.workdir || "" } });
       return;
     }
 
