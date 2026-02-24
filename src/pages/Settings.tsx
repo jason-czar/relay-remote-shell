@@ -9,10 +9,13 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
-import { Camera, User, Lock, Save, RotateCcw } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Camera, User, Lock, Save, RotateCcw, Timer } from "lucide-react";
 import type { Tables } from "@/integrations/supabase/types";
 import { displayNameSchema, passwordSchema } from "@/lib/validations";
 import { resetOnboardingTour } from "@/components/OnboardingTour";
+import { getInactivitySettings, saveInactivitySettings, type InactivitySettings } from "@/hooks/useInactivityTimeout";
 
 export default function Settings() {
   const { user } = useAuth();
@@ -29,6 +32,8 @@ export default function Settings() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [changingPassword, setChangingPassword] = useState(false);
+
+  const [timeoutSettings, setTimeoutSettings] = useState<InactivitySettings>(getInactivitySettings);
 
   useEffect(() => {
     if (!user) return;
@@ -267,6 +272,56 @@ export default function Settings() {
                 {changingPassword ? "Updating..." : "Update Password"}
               </Button>
             </form>
+          </CardContent>
+        </Card>
+
+        {/* Session Timeout */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Timer className="h-4 w-4" /> Session Timeout
+            </CardTitle>
+            <CardDescription>Automatically log out after a period of inactivity</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="timeout-toggle">Enable inactivity timeout</Label>
+              <Switch
+                id="timeout-toggle"
+                checked={timeoutSettings.enabled}
+                onCheckedChange={(checked) => {
+                  const next = { ...timeoutSettings, enabled: checked };
+                  setTimeoutSettings(next);
+                  saveInactivitySettings(next);
+                  toast({ title: checked ? "Timeout enabled" : "Timeout disabled" });
+                }}
+              />
+            </div>
+            {timeoutSettings.enabled && (
+              <div className="space-y-2">
+                <Label>Timeout after</Label>
+                <Select
+                  value={String(timeoutSettings.minutes)}
+                  onValueChange={(val) => {
+                    const next = { ...timeoutSettings, minutes: Number(val) };
+                    setTimeoutSettings(next);
+                    saveInactivitySettings(next);
+                    toast({ title: `Timeout set to ${val} minutes` });
+                  }}
+                >
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[5, 10, 15, 30, 60].map((m) => (
+                      <SelectItem key={m} value={String(m)}>
+                        {m} minutes
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </CardContent>
         </Card>
 
