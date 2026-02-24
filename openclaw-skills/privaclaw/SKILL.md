@@ -108,7 +108,7 @@ No other external endpoints are contacted. All network activity is limited to th
 
 ## Trust Statement
 
-> **By installing this skill, you are connecting your OpenClaw instance to an external relay server at the configured `relay_url`.** Prompt content and response tokens are transmitted through this relay in real time. Only install this skill if you trust the operator of the relay server. The default relay (`wss://privaclaw.fly.dev`) is operated by the project maintainers.
+> **By installing this skill, you are connecting your OpenClaw instance to an external relay server at the configured `relay_url`.** Prompt content and response tokens are transmitted through this relay in real time. Only install this skill if you trust the operator of the relay server. The default relay (`wss://relay.privaclaw.com`) is operated by the project maintainers.
 
 ## Operational Guarantees
 

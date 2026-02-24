@@ -200,7 +200,7 @@ export default function TerminalSession() {
   }, [deviceId, user]);
 
   const connectWebSocket = async (term: Terminal, dev: Tables<"devices"> | null, sessionId: string) => {
-    const relayUrl = import.meta.env.VITE_RELAY_URL || "wss://privaclaw.fly.dev";
+    const relayUrl = import.meta.env.VITE_RELAY_URL || "wss://relay.privaclaw.com";
 
     if (!relayUrl) {
       term.writeln(`\x1b[33m⚠ No relay URL configured (set VITE_RELAY_URL)\x1b[0m`);

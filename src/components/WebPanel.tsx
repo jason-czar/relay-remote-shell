@@ -258,11 +258,11 @@ export function WebPanel({ initialUrl = "", deviceId, deviceName, onClose }: Web
   const [key, setKey] = useState(0);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
-  const relayHttpUrl = (import.meta.env.VITE_RELAY_URL || "wss://privaclaw.fly.dev")
+  const relayHttpUrl = (import.meta.env.VITE_RELAY_URL || "wss://relay.privaclaw.com")
     .replace("wss://", "https://")
     .replace("ws://", "http://");
 
-  const relayWsUrl = (import.meta.env.VITE_RELAY_URL || "wss://privaclaw.fly.dev")
+  const relayWsUrl = (import.meta.env.VITE_RELAY_URL || "wss://relay.privaclaw.com")
     .replace("https://", "wss://")
     .replace("http://", "ws://");
 

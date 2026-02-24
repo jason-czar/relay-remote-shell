@@ -28,7 +28,7 @@ fly secrets set SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 fly deploy
 ```
 
-Your relay URL will be: `wss://privaclaw.fly.dev`
+Your relay URL will be: `wss://relay.privaclaw.com`
 
 ## Local development
 

@@ -48,7 +48,7 @@ interface SavedNode {
 }
 
 const DEFAULT_CONFIG: RelayConfig = {
-  relayUrl: "wss://privaclaw.fly.dev",
+  relayUrl: "wss://relay.privaclaw.com",
   connectionMode: "websocket",
   nodeName: "my-node",
   nodeId: generateUUID(),
@@ -271,7 +271,7 @@ export default function SkillConfig() {
 
   const [configCopied, setConfigCopied] = useState(false);
   const skillConfig = JSON.stringify({
-    relay_url: config.relayUrl || "wss://privaclaw.fly.dev",
+    relay_url: config.relayUrl || "wss://relay.privaclaw.com",
     node_id: config.nodeId,
     auth_token: config.authToken || "<generate a token above>",
   }, null, 2);
@@ -435,7 +435,7 @@ export default function SkillConfig() {
               <Label htmlFor="relay-url">Relay URL <span className="text-destructive">*</span></Label>
               <Input
                 id="relay-url"
-                placeholder="wss://privaclaw.fly.dev"
+                placeholder="wss://relay.privaclaw.com"
                 value={config.relayUrl}
                 onChange={e => update("relayUrl", e.target.value)}
                 className={config.relayUrl && !isValidUrl(config.relayUrl) ? "border-destructive" : ""}

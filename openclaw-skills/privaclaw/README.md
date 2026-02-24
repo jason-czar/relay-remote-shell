@@ -35,7 +35,7 @@ Set these environment variables or add them to your OpenClaw config:
 
 | Variable | Required | Description |
 |---|---|---|
-| `RELAY_URL` | ✅ | WebSocket URL of the relay server (e.g. `wss://privaclaw.fly.dev`) |
+| `RELAY_URL` | ✅ | WebSocket URL of the relay server (e.g. `wss://relay.privaclaw.com`) |
 | `NODE_ID` | ✅ | Unique identifier for this node (typically your device ID) |
 | `AUTH_TOKEN` | ✅ | Secret token for relay authentication (your device token) |
 
@@ -43,7 +43,7 @@ Set these environment variables or add them to your OpenClaw config:
 
 ```json
 {
-  "relay_url": "wss://privaclaw.fly.dev",
+  "relay_url": "wss://relay.privaclaw.com",
   "node_id": "my-server-01",
   "auth_token": "your-device-token-here"
 }
@@ -91,7 +91,7 @@ See [SKILL.md](./SKILL.md) for the full security & privacy disclosure.
 ## Requirements
 
 - OpenClaw v1.0+
-- A running relay server (default: `wss://privaclaw.fly.dev`)
+- A running relay server (default: `wss://relay.privaclaw.com`)
 - Network access to the relay URL (outbound port 443)
 
 ## Troubleshooting
