@@ -12,48 +12,82 @@ interface WebPanelProps {
 }
 
 /**
- * Generates a script that overrides the WebSocket constructor so that
- * any `ws://localhost:*` or `ws://127.0.0.1:*` connections from the
- * proxied page are routed through the relay's /ws-proxy/ endpoint.
+ * Generates a script that intercepts WebSocket, fetch, and XMLHttpRequest
+ * so that any localhost connections from the proxied page are routed
+ * through the relay with authentication.
  */
-function buildWSInterceptScript(relayWsUrl: string, deviceId: string, token: string): string {
+function buildInterceptScript(relayHttpUrl: string, relayWsUrl: string, deviceId: string, token: string): string {
   return `
 <script>
 (function() {
-  var OrigWebSocket = window.WebSocket;
+  var RELAY_HTTP = ${JSON.stringify(relayHttpUrl)};
   var RELAY_WS = ${JSON.stringify(relayWsUrl)};
   var DEVICE_ID = ${JSON.stringify(deviceId)};
   var TOKEN = ${JSON.stringify(token)};
 
+  function isLocal(hostname) {
+    return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '0.0.0.0';
+  }
+
+  function rewriteHttpUrl(url) {
+    var parsed;
+    try { parsed = new URL(url, location.href); } catch(e) { return null; }
+    if (!isLocal(parsed.hostname)) return null;
+    var hostPort = parsed.host;
+    var path = parsed.pathname + parsed.search;
+    var sep = path.indexOf('?') !== -1 ? '&' : '?';
+    return RELAY_HTTP + '/proxy/' + DEVICE_ID + '/' + hostPort + path + sep + 'token=' + encodeURIComponent(TOKEN);
+  }
+
+  // --- WebSocket interception ---
+  var OrigWebSocket = window.WebSocket;
   window.WebSocket = function(url, protocols) {
     var parsed;
     try { parsed = new URL(url); } catch(e) {
-      return protocols
-        ? new OrigWebSocket(url, protocols)
-        : new OrigWebSocket(url);
+      return protocols ? new OrigWebSocket(url, protocols) : new OrigWebSocket(url);
     }
-
-    var host = parsed.hostname;
-    if (host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0') {
+    if (isLocal(parsed.hostname)) {
       var hostPort = parsed.host;
       var path = parsed.pathname + parsed.search;
       var proxyUrl = RELAY_WS + '/ws-proxy/' + DEVICE_ID + '/' + hostPort + path + '?token=' + encodeURIComponent(TOKEN);
-      console.log('[ws-proxy] intercepting ' + url + ' → ' + proxyUrl.substring(0, 80) + '...');
-      return protocols
-        ? new OrigWebSocket(proxyUrl, protocols)
-        : new OrigWebSocket(proxyUrl);
+      console.log('[ws-proxy] intercepting ' + url);
+      return protocols ? new OrigWebSocket(proxyUrl, protocols) : new OrigWebSocket(proxyUrl);
     }
-
-    return protocols
-      ? new OrigWebSocket(url, protocols)
-      : new OrigWebSocket(url);
+    return protocols ? new OrigWebSocket(url, protocols) : new OrigWebSocket(url);
   };
-
   window.WebSocket.prototype = OrigWebSocket.prototype;
   window.WebSocket.CONNECTING = OrigWebSocket.CONNECTING;
   window.WebSocket.OPEN = OrigWebSocket.OPEN;
   window.WebSocket.CLOSING = OrigWebSocket.CLOSING;
   window.WebSocket.CLOSED = OrigWebSocket.CLOSED;
+
+  // --- fetch() interception ---
+  var origFetch = window.fetch;
+  window.fetch = function(input, init) {
+    var url = (typeof input === 'string') ? input : (input && input.url ? input.url : '');
+    var rewritten = rewriteHttpUrl(url);
+    if (rewritten) {
+      console.log('[fetch-proxy] intercepting ' + url);
+      if (typeof input === 'string') {
+        return origFetch.call(this, rewritten, init);
+      } else {
+        return origFetch.call(this, new Request(rewritten, input), init);
+      }
+    }
+    return origFetch.call(this, input, init);
+  };
+
+  // --- XMLHttpRequest interception ---
+  var OrigXHR = window.XMLHttpRequest;
+  var origOpen = OrigXHR.prototype.open;
+  OrigXHR.prototype.open = function(method, url) {
+    var rewritten = rewriteHttpUrl(url);
+    if (rewritten) {
+      console.log('[xhr-proxy] intercepting ' + url);
+      arguments[1] = rewritten;
+    }
+    return origOpen.apply(this, arguments);
+  };
 })();
 </script>`;
 }
@@ -150,8 +184,8 @@ export function WebPanel({ initialUrl = "", deviceId, deviceName, onClose }: Web
           (_match, url) => `url("${rewriteUrl(url)}")`
         );
 
-        // Build the WS intercept script
-        const wsScript = buildWSInterceptScript(relayWsUrl, deviceId, jwt);
+        // Build the intercept script (WS + fetch + XHR)
+        const wsScript = buildInterceptScript(relayHttpUrl, relayWsUrl, deviceId, jwt);
 
         // Inject <base> (without token — just for any remaining relative refs) and WS intercept
         const baseTag = `<base href="${proxyBase}" />`;
