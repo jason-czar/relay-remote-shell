@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { Plus, Terminal, Globe, Columns2, Monitor } from "lucide-react";
+import { Plus, Terminal, Globe, Columns2, Rows2, Monitor } from "lucide-react";
 import { StatusBadge } from "@/components/StatusBadge";
 import type { Tables } from "@/integrations/supabase/types";
 
@@ -31,6 +31,7 @@ export default function MultiSession() {
   const [devices, setDevices] = useState<Tables<"devices">[]>([]);
   const [addOpen, setAddOpen] = useState(false);
   const [webUrl, setWebUrl] = useState("");
+  const [direction, setDirection] = useState<"horizontal" | "vertical">("horizontal");
 
   useEffect(() => {
     if (!user) return;
@@ -83,7 +84,30 @@ export default function MultiSession() {
               <span className="text-xs text-muted-foreground">{panels.length} panel{panels.length !== 1 ? "s" : ""}</span>
             )}
           </div>
-          <Dialog open={addOpen} onOpenChange={setAddOpen}>
+          <div className="flex items-center gap-1">
+            {panels.length >= 2 && (
+              <div className="flex items-center border border-border rounded-md overflow-hidden">
+                <Button
+                  variant={direction === "horizontal" ? "secondary" : "ghost"}
+                  size="icon"
+                  className="h-8 w-8 rounded-none"
+                  onClick={() => setDirection("horizontal")}
+                  title="Horizontal split"
+                >
+                  <Columns2 className="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  variant={direction === "vertical" ? "secondary" : "ghost"}
+                  size="icon"
+                  className="h-8 w-8 rounded-none"
+                  onClick={() => setDirection("vertical")}
+                  title="Vertical split"
+                >
+                  <Rows2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            )}
+            <Dialog open={addOpen} onOpenChange={setAddOpen}>
             <DialogTrigger asChild>
               <Button size="sm" className="gap-1.5">
                 <Plus className="h-3.5 w-3.5" /> Add Panel
@@ -153,6 +177,7 @@ export default function MultiSession() {
               </div>
             </DialogContent>
           </Dialog>
+          </div>
         </div>
 
         {/* Panels area */}
@@ -176,7 +201,7 @@ export default function MultiSession() {
             {renderPanel(panels[0], removePanel)}
           </div>
         ) : (
-          <ResizablePanelGroup direction="horizontal" className="flex-1 rounded-lg border border-border">
+          <ResizablePanelGroup direction={direction} className="flex-1 rounded-lg border border-border">
             {panels.map((panel, i) => (
               <PanelWithHandle key={panel.id} panel={panel} index={i} total={panels.length} onRemove={removePanel} />
             ))}
