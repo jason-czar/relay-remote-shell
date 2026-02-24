@@ -28,6 +28,20 @@ const PairDeviceSchema = z.object({
     .nullable(),
 });
 
+// Rate limit config
+const MAX_ATTEMPTS_PER_IP = 10;     // max attempts per IP in the window
+const WINDOW_MINUTES = 15;          // sliding window size
+const CLEANUP_THRESHOLD = 100;      // cleanup old rows when count exceeds this
+
+function getClientIp(req: Request): string {
+  return (
+    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    req.headers.get("cf-connecting-ip") ||
+    req.headers.get("x-real-ip") ||
+    "unknown"
+  );
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -36,6 +50,13 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") {
     return json({ error: "Method not allowed" }, 405);
   }
+
+  const supabase = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+  );
+
+  const clientIp = getClientIp(req);
 
   try {
     const body = await req.json();
@@ -48,12 +69,45 @@ Deno.serve(async (req) => {
 
     const { pairing_code, name } = parsed.data;
 
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
+    // --- Rate limiting ---
+    const windowStart = new Date(Date.now() - WINDOW_MINUTES * 60 * 1000).toISOString();
 
-    // Find device by pairing code
+    const { count, error: countErr } = await supabase
+      .from("rate_limit_pairing")
+      .select("*", { count: "exact", head: true })
+      .eq("ip_address", clientIp)
+      .gte("created_at", windowStart);
+
+    if (countErr) {
+      console.error("Rate limit check failed:", countErr.message);
+      // Fail open — don't block if rate limit check errors
+    } else if ((count ?? 0) >= MAX_ATTEMPTS_PER_IP) {
+      return json(
+        { error: "Too many pairing attempts. Please try again later." },
+        429
+      );
+    }
+
+    // Log this attempt
+    await supabase.from("rate_limit_pairing").insert({
+      ip_address: clientIp,
+      attempted_code: pairing_code.toUpperCase(),
+    });
+
+    // Periodic cleanup of old entries (fire-and-forget)
+    const { count: totalCount } = await supabase
+      .from("rate_limit_pairing")
+      .select("*", { count: "exact", head: true });
+
+    if ((totalCount ?? 0) > CLEANUP_THRESHOLD) {
+      supabase
+        .from("rate_limit_pairing")
+        .delete()
+        .lt("created_at", windowStart)
+        .then(() => {});
+    }
+
+    // --- Pairing logic ---
     const { data: device, error: findErr } = await supabase
       .from("devices")
       .select("*")
