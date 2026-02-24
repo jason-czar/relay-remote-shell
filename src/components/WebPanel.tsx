@@ -123,21 +123,45 @@ export function WebPanel({ initialUrl = "", deviceId, deviceName, onClose }: Web
       const contentType = resp.headers.get("content-type") || "";
       if (contentType.includes("text/html")) {
         let html = await resp.text();
-        // Inject a <base> tag so relative resources resolve through proxy
-        const baseUrl = `${relayHttpUrl}/proxy/${deviceId}/${hostPort}/?token=${encodeURIComponent(jwt)}`;
+        const proxyBase = `${relayHttpUrl}/proxy/${deviceId}/${hostPort}/`;
+        const tokenParam = `token=${encodeURIComponent(jwt)}`;
+
+        // Rewrite relative asset URLs (src="./..." href="./...") to go through proxy with token
+        const rewriteUrl = (attrUrl: string): string => {
+          // Skip absolute URLs, data URIs, anchors, and protocol-relative
+          if (/^(https?:|data:|blob:|#|\/\/)/i.test(attrUrl)) return attrUrl;
+          // Resolve relative to proxy base and append token
+          const resolved = new URL(attrUrl, proxyBase).href;
+          const sep = resolved.includes("?") ? "&" : "?";
+          return resolved + sep + tokenParam;
+        };
+
+        // Rewrite src and href attributes in HTML tags
+        html = html.replace(
+          /(<(?:script|link|img|source|video|audio|embed|object|iframe)\b[^>]*?\b)(src|href)(=["'])([^"']*)(["'])/gi,
+          (_match, before, attr, eqQuote, url, endQuote) => {
+            return before + attr + eqQuote + rewriteUrl(url) + endQuote;
+          }
+        );
+
+        // Also rewrite url() in inline styles
+        html = html.replace(
+          /url\(["']?([^)"']+)["']?\)/gi,
+          (_match, url) => `url("${rewriteUrl(url)}")`
+        );
 
         // Build the WS intercept script
         const wsScript = buildWSInterceptScript(relayWsUrl, deviceId, jwt);
 
-        // Inject both the WS intercept script and <base> tag into <head>
+        // Inject <base> (without token — just for any remaining relative refs) and WS intercept
+        const baseTag = `<base href="${proxyBase}" />`;
         if (html.match(/<head[^>]*>/i)) {
           html = html.replace(
             /(<head[^>]*>)/i,
-            `$1<base href="${baseUrl}" />${wsScript}`
+            `$1${baseTag}${wsScript}`
           );
         } else {
-          // No <head> tag — prepend
-          html = `<head><base href="${baseUrl}" />${wsScript}</head>` + html;
+          html = `<head>${baseTag}${wsScript}</head>` + html;
         }
         setProxyHtml(html);
       } else {
