@@ -61,7 +61,7 @@ const App = () => (
                 <Route path="/terminal/:deviceId" element={<ProtectedRoute><TerminalSession /></ProtectedRoute>} />
                 <Route path="/playback/:sessionId" element={<ProtectedRoute><SessionPlayback /></ProtectedRoute>} />
                 <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-                <Route path="/skill/remote-relay" element={<ProtectedRoute><SkillConfig /></ProtectedRoute>} />
+                <Route path="/skill/private-bridge" element={<ProtectedRoute><SkillConfig /></ProtectedRoute>} />
                 <Route path="/multi-session" element={<ProtectedRoute><MultiSession /></ProtectedRoute>} />
                 <Route path="/docs" element={<Docs />} />
                 <Route path="*" element={<NotFound />} />
