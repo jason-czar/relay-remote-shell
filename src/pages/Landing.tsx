@@ -15,6 +15,9 @@ export default function Landing() {
             <span className="text-lg font-bold tracking-tight">Relay Terminal</span>
           </div>
           <div className="flex items-center gap-3">
+            <Button variant="ghost" onClick={() => navigate("/docs")}>
+              Docs
+            </Button>
             <Button variant="ghost" onClick={() => navigate("/auth")}>
               Sign In
             </Button>

@@ -15,6 +15,7 @@ import ProjectView from "./pages/ProjectView";
 import TerminalSession from "./pages/TerminalSession";
 import Settings from "./pages/Settings";
 import SkillConfig from "./pages/SkillConfig";
+import Docs from "./pages/Docs";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -52,6 +53,7 @@ const App = () => (
                 <Route path="/terminal/:deviceId" element={<ProtectedRoute><TerminalSession /></ProtectedRoute>} />
                 <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
                 <Route path="/skill/remote-relay" element={<ProtectedRoute><SkillConfig /></ProtectedRoute>} />
+                <Route path="/docs" element={<Docs />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>
