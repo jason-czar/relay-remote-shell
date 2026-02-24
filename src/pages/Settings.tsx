@@ -9,9 +9,10 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
-import { Camera, User, Lock, Save } from "lucide-react";
+import { Camera, User, Lock, Save, RotateCcw } from "lucide-react";
 import type { Tables } from "@/integrations/supabase/types";
 import { displayNameSchema, passwordSchema } from "@/lib/validations";
+import { resetOnboardingTour } from "@/components/OnboardingTour";
 
 export default function Settings() {
   const { user } = useAuth();
@@ -266,6 +267,27 @@ export default function Settings() {
                 {changingPassword ? "Updating..." : "Update Password"}
               </Button>
             </form>
+          </CardContent>
+        </Card>
+
+        {/* Onboarding */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <RotateCcw className="h-4 w-4" /> Onboarding Tour
+            </CardTitle>
+            <CardDescription>Restart the getting-started walkthrough</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button
+              variant="outline"
+              onClick={() => {
+                resetOnboardingTour();
+                toast({ title: "Tour reset", description: "Visit the Dashboard to see the tour again." });
+              }}
+            >
+              Restart Tour
+            </Button>
           </CardContent>
         </Card>
       </div>
