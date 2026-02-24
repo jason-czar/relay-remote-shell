@@ -11,6 +11,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import { Camera, User, Lock, Save } from "lucide-react";
 import type { Tables } from "@/integrations/supabase/types";
+import { displayNameSchema, passwordSchema } from "@/lib/validations";
 
 export default function Settings() {
   const { user } = useAuth();
@@ -95,6 +96,11 @@ export default function Settings() {
 
   const handleSaveProfile = async () => {
     if (!user) return;
+    const result = displayNameSchema.safeParse(displayName);
+    if (!result.success) {
+      toast({ title: "Validation error", description: result.error.issues[0].message, variant: "destructive" });
+      return;
+    }
     setSaving(true);
     try {
       const { error } = await supabase
@@ -113,8 +119,9 @@ export default function Settings() {
 
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (newPassword.length < 6) {
-      toast({ title: "Password too short", description: "Minimum 6 characters", variant: "destructive" });
+    const passResult = passwordSchema.safeParse(newPassword);
+    if (!passResult.success) {
+      toast({ title: "Invalid password", description: passResult.error.issues[0].message, variant: "destructive" });
       return;
     }
     if (newPassword !== confirmPassword) {

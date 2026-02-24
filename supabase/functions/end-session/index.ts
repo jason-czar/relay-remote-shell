@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.97.0";
+import { z } from "https://esm.sh/zod@3.25.76";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -12,6 +13,14 @@ function json(body: unknown, status = 200) {
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 }
+
+const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const EndSessionSchema = z.object({
+  session_id: z
+    .string({ required_error: "session_id is required" })
+    .regex(uuidRegex, "session_id must be a valid UUID"),
+});
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -39,12 +48,15 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { session_id } = await req.json();
+    const body = await req.json();
+    const parsed = EndSessionSchema.safeParse(body);
 
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (!session_id || typeof session_id !== "string" || !uuidRegex.test(session_id)) {
-      return json({ error: "Valid session_id is required" }, 400);
+    if (!parsed.success) {
+      const message = parsed.error.issues.map((i) => i.message).join("; ");
+      return json({ error: message }, 400);
     }
+
+    const { session_id } = parsed.data;
 
     // Update session - RLS ensures user can only update own sessions
     const { data, error } = await supabaseUser

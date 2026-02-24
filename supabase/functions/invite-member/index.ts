@@ -1,53 +1,72 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.97.0";
+import { z } from "https://esm.sh/zod@3.25.76";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-serve(async (req) => {
+function json(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const InviteMemberSchema = z.object({
+  email: z
+    .string({ required_error: "email is required" })
+    .email("Invalid email address")
+    .max(255, "Email must be under 255 characters")
+    .transform((v) => v.toLowerCase().trim()),
+  project_id: z
+    .string({ required_error: "project_id is required" })
+    .regex(uuidRegex, "project_id must be a valid UUID"),
+});
+
+Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  if (req.method !== "POST") {
+    return json({ error: "Method not allowed" }, 405);
+  }
+
+  const authHeader = req.headers.get("authorization");
+  if (!authHeader) {
+    return json({ error: "Unauthorized" }, 401);
+  }
+
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+
+  const userClient = createClient(supabaseUrl, anonKey, {
+    global: { headers: { Authorization: authHeader } },
+  });
+  const { data: { user }, error: authError } = await userClient.auth.getUser();
+  if (authError || !user) {
+    return json({ error: "Unauthorized" }, 401);
   }
 
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const body = await req.json();
+    const parsed = InviteMemberSchema.safeParse(body);
 
-    // Auth check
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: "No authorization header" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    if (!parsed.success) {
+      const message = parsed.error.issues.map((i) => i.message).join("; ");
+      return json({ error: message }, 400);
     }
 
-    const userClient = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data: { user }, error: authError } = await userClient.auth.getUser();
-    if (authError || !user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    const { email, project_id } = parsed.data;
 
-    const { email, project_id } = await req.json();
-
-    if (!email || !project_id) {
-      return new Response(JSON.stringify({ error: "email and project_id required" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // Verify caller is project owner
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
+    // Verify caller is project owner
     const { data: membership } = await adminClient
       .from("project_members")
       .select("role")
@@ -56,16 +75,13 @@ serve(async (req) => {
       .single();
 
     if (membership?.role !== "owner") {
-      return new Response(JSON.stringify({ error: "Only project owners can invite members" }), {
-        status: 403,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return json({ error: "Only project owners can invite members" }, 403);
     }
 
     // Check if user already a member
     const { data: existingUser } = await adminClient.auth.admin.listUsers();
     const targetUser = existingUser?.users?.find(
-      (u) => u.email?.toLowerCase() === email.toLowerCase()
+      (u) => u.email?.toLowerCase() === email
     );
 
     if (targetUser) {
@@ -78,10 +94,7 @@ serve(async (req) => {
         .single();
 
       if (existingMember) {
-        return new Response(JSON.stringify({ error: "User is already a member of this project" }), {
-          status: 409,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        return json({ error: "User is already a member of this project" }, 409);
       }
 
       // Add directly as member
@@ -95,53 +108,37 @@ serve(async (req) => {
         });
 
       if (insertError) {
-        return new Response(JSON.stringify({ error: insertError.message }), {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        return json({ error: insertError.message }, 500);
       }
 
       // Also create an accepted invitation record
       await adminClient.from("invitations").insert({
         project_id,
-        email: email.toLowerCase(),
+        email,
         invited_by: user.id,
         status: "accepted",
       });
 
-      return new Response(JSON.stringify({ status: "added", message: "User added to project" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return json({ status: "added", message: "User added to project" });
     }
 
     // User doesn't exist yet — create pending invitation
     const { error: inviteError } = await adminClient.from("invitations").insert({
       project_id,
-      email: email.toLowerCase(),
+      email,
       invited_by: user.id,
       status: "pending",
     });
 
     if (inviteError) {
       if (inviteError.code === "23505") {
-        return new Response(JSON.stringify({ error: "Invitation already sent to this email" }), {
-          status: 409,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        return json({ error: "Invitation already sent to this email" }, 409);
       }
-      return new Response(JSON.stringify({ error: inviteError.message }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return json({ error: inviteError.message }, 500);
     }
 
-    return new Response(JSON.stringify({ status: "invited", message: "Invitation created. User will be added when they sign up." }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  } catch (err) {
-    return new Response(JSON.stringify({ error: err.message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return json({ status: "invited", message: "Invitation created. User will be added when they sign up." });
+  } catch {
+    return json({ error: "Invalid request body" }, 400);
   }
 });
