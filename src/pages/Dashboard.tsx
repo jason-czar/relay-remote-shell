@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/StatusBadge";
-import { Monitor, Wifi, Activity, Plus, Terminal, ArrowRight, Plug, RefreshCw, Clock } from "lucide-react";
+import { Monitor, Wifi, Activity, Plus, Terminal, ArrowRight, Plug, RefreshCw, Clock, Settings2 } from "lucide-react";
 import { DashboardSkeleton } from "@/components/LoadingSkeletons";
 import type { Tables } from "@/integrations/supabase/types";
 
@@ -27,6 +27,7 @@ export default function Dashboard() {
   const [devices, setDevices] = useState<Tables<"devices">[]>([]);
   const [sessions, setSessions] = useState<Tables<"sessions">[]>([]);
   const [nodes, setNodes] = useState<RelayNode[]>([]);
+  const [skillConfigs, setSkillConfigs] = useState<any[]>([]);
   const [nodesLoading, setNodesLoading] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -46,14 +47,16 @@ export default function Dashboard() {
   useEffect(() => {
     if (!user) return;
     const load = async () => {
-      const [p, d, s] = await Promise.all([
+      const [p, d, s, sc] = await Promise.all([
         supabase.from("projects").select("*"),
         supabase.from("devices").select("*"),
         supabase.from("sessions").select("*").order("started_at", { ascending: false }).limit(10),
+        supabase.from("skill_configs").select("*") as any,
       ]);
       setProjects(p.data ?? []);
       setDevices(d.data ?? []);
       setSessions(s.data ?? []);
+      setSkillConfigs(sc.data ?? []);
       setLoading(false);
     };
     load();
@@ -230,6 +233,39 @@ export default function Dashboard() {
               </CardContent>
             </Card>
           </div>
+
+          {/* Saved Skill Configs */}
+          {skillConfigs.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Your Skill Configurations</CardTitle>
+                <CardDescription>Saved relay configurations for your OpenClaw nodes</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {skillConfigs.map((sc: any) => {
+                    const cfg = sc.config || {};
+                    return (
+                      <div key={sc.id} className="flex items-center justify-between rounded-lg border border-border p-3">
+                        <div className="flex items-center gap-3">
+                          <Settings2 className="h-4 w-4 text-muted-foreground" />
+                          <div>
+                            <p className="text-sm font-medium">{cfg.nodeName || sc.skill_slug}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {cfg.relayUrl || "No URL set"} · {cfg.envTag || "dev"}
+                            </p>
+                          </div>
+                        </div>
+                        <Button size="sm" variant="outline" className="gap-1.5" onClick={() => navigate("/skill/remote-relay")}>
+                          <Settings2 className="h-3 w-3" /> Configure
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Connected Relay Nodes */}
           <Card>

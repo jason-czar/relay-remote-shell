@@ -217,6 +217,33 @@ export type Database = {
           },
         ]
       }
+      skill_configs: {
+        Row: {
+          config: Json
+          created_at: string
+          id: string
+          skill_slug: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          config?: Json
+          created_at?: string
+          id?: string
+          skill_slug?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          id?: string
+          skill_slug?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
