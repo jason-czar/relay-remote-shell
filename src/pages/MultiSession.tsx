@@ -31,6 +31,7 @@ export default function MultiSession() {
   const [devices, setDevices] = useState<Tables<"devices">[]>([]);
   const [addOpen, setAddOpen] = useState(false);
   const [webUrl, setWebUrl] = useState("");
+  const [webDevice, setWebDevice] = useState<Tables<"devices"> | null>(null);
   const [direction, setDirection] = useState<"horizontal" | "vertical">("horizontal");
 
   useEffect(() => {
@@ -60,8 +61,15 @@ export default function MultiSession() {
 
   const addWebPanel = (url?: string) => {
     const normalized = url?.trim() || "";
-    setPanels((prev) => [...prev, { id: nextId(), type: "web", url: normalized }]);
+    setPanels((prev) => [...prev, {
+      id: nextId(),
+      type: "web",
+      url: normalized,
+      deviceId: webDevice?.id,
+      deviceName: webDevice?.name,
+    }]);
     setWebUrl("");
+    setWebDevice(null);
     setAddOpen(false);
   };
 
@@ -156,8 +164,36 @@ export default function MultiSession() {
                 {/* Web panel */}
                 <div className="border-t border-border pt-4">
                   <p className="text-sm font-medium mb-2 flex items-center gap-1.5">
-                    <Globe className="h-3.5 w-3.5" /> Web Preview
+                    <Globe className="h-3.5 w-3.5" /> Web Preview (Remote)
                   </p>
+                  <p className="text-[10px] text-muted-foreground mb-2">
+                    Browse a localhost URL running on a connected device
+                  </p>
+
+                  {/* Device picker */}
+                  <p className="text-xs text-muted-foreground mb-1">Select device:</p>
+                  <div className="space-y-1 max-h-32 overflow-y-auto mb-3">
+                    {onlineDevices.length === 0 ? (
+                      <p className="text-xs text-muted-foreground italic">No online devices</p>
+                    ) : (
+                      onlineDevices.map((d) => (
+                        <button
+                          key={d.id}
+                          onClick={() => setWebDevice(d)}
+                          className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-md text-left text-xs transition-colors ${
+                            webDevice?.id === d.id
+                              ? "bg-primary/10 border border-primary/30"
+                              : "hover:bg-accent border border-transparent"
+                          }`}
+                        >
+                          <Monitor className="h-3 w-3 text-muted-foreground" />
+                          <span className="flex-1 truncate">{d.name}</span>
+                          <StatusBadge status="online" />
+                        </button>
+                      ))
+                    )}
+                  </div>
+
                   <form
                     onSubmit={(e) => { e.preventDefault(); addWebPanel(webUrl); }}
                     className="flex gap-2"
@@ -167,12 +203,15 @@ export default function MultiSession() {
                       onChange={(e) => setWebUrl(e.target.value)}
                       placeholder="http://localhost:3000"
                       className="text-sm h-9"
+                      disabled={!webDevice}
                     />
-                    <Button type="submit" size="sm" variant="secondary" className="shrink-0">
+                    <Button type="submit" size="sm" variant="secondary" className="shrink-0" disabled={!webDevice}>
                       Add
                     </Button>
                   </form>
-                  <p className="text-[10px] text-muted-foreground mt-1">Leave blank to enter URL later</p>
+                  {!webDevice && (
+                    <p className="text-[10px] text-muted-foreground mt-1">Pick a device above first</p>
+                  )}
                 </div>
               </div>
             </DialogContent>
@@ -232,6 +271,8 @@ function renderPanel(panel: SplitPanel, onRemove: (id: string) => void) {
   return (
     <WebPanel
       initialUrl={panel.url}
+      deviceId={panel.deviceId}
+      deviceName={panel.deviceName}
       onClose={() => onRemove(panel.id)}
     />
   );

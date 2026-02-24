@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -47,6 +48,23 @@ type ResizeData struct {
 type SessionEndData struct {
 	SessionID string `json:"session_id"`
 	Reason    string `json:"reason"`
+}
+
+// HTTPRequestData is the payload for http_request messages (proxy).
+type HTTPRequestData struct {
+	RequestID string            `json:"request_id"`
+	Method    string            `json:"method"`
+	Path      string            `json:"path"`
+	Headers   map[string]string `json:"headers,omitempty"`
+	BodyB64   string            `json:"body_b64,omitempty"`
+}
+
+// HTTPResponseData is the payload for http_response messages (proxy reply).
+type HTTPResponseData struct {
+	RequestID  string            `json:"request_id"`
+	StatusCode int               `json:"status_code"`
+	Headers    map[string]string `json:"headers,omitempty"`
+	BodyB64    string            `json:"body_b64,omitempty"`
 }
 
 // RelayClient manages the WebSocket connection and PTY sessions.
@@ -194,12 +212,93 @@ func (c *RelayClient) handleMessage(msg Message) {
 		}
 		c.endSession(data.SessionID, data.Reason)
 
+	case "http_request":
+		var data HTTPRequestData
+		if err := json.Unmarshal(msg.Data, &data); err != nil {
+			log.Printf("Invalid http_request: %v", err)
+			return
+		}
+		go c.handleHTTPRequest(data)
+
 	case "error":
 		log.Printf("Relay error: %s", string(msg.Data))
 
 	default:
 		log.Printf("Unknown message type: %s", msg.Type)
 	}
+}
+
+func (c *RelayClient) handleHTTPRequest(data HTTPRequestData) {
+	log.Printf("[proxy] %s %s (req %s)", data.Method, data.Path, data.RequestID[:8])
+
+	// Build local URL — the path contains the full target like /localhost:3000/path
+	// Extract host:port and path from data.Path
+	// data.Path looks like "/localhost:3000/some/path" or "/127.0.0.1:8080/api"
+	targetURL := "http:/" + data.Path // data.Path starts with /, so this gives http://localhost:3000/...
+
+	var bodyReader io.Reader
+	if data.BodyB64 != "" {
+		decoded, err := base64.StdEncoding.DecodeString(data.BodyB64)
+		if err != nil {
+			c.sendHTTPError(data.RequestID, 400, "Invalid request body encoding")
+			return
+		}
+		bodyReader = strings.NewReader(string(decoded))
+	}
+
+	req, err := http.NewRequest(data.Method, targetURL, bodyReader)
+	if err != nil {
+		c.sendHTTPError(data.RequestID, 500, fmt.Sprintf("Failed to create request: %v", err))
+		return
+	}
+
+	// Set forwarded headers
+	for k, v := range data.Headers {
+		req.Header.Set(k, v)
+	}
+
+	client := &http.Client{Timeout: 25 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		c.sendHTTPError(data.RequestID, 502, fmt.Sprintf("Local request failed: %v", err))
+		return
+	}
+	defer resp.Body.Close()
+
+	// Read response body (limit to 10MB)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 10*1024*1024))
+	if err != nil {
+		c.sendHTTPError(data.RequestID, 502, fmt.Sprintf("Failed to read response: %v", err))
+		return
+	}
+
+	// Collect response headers
+	respHeaders := make(map[string]string)
+	for k := range resp.Header {
+		respHeaders[k] = resp.Header.Get(k)
+	}
+
+	responseData := HTTPResponseData{
+		RequestID:  data.RequestID,
+		StatusCode: resp.StatusCode,
+		Headers:    respHeaders,
+		BodyB64:    base64.StdEncoding.EncodeToString(body),
+	}
+
+	raw, _ := json.Marshal(responseData)
+	c.sendMessage("http_response", raw)
+	log.Printf("[proxy] %s %s → %d (%d bytes)", data.Method, data.Path, resp.StatusCode, len(body))
+}
+
+func (c *RelayClient) sendHTTPError(requestID string, statusCode int, message string) {
+	responseData := HTTPResponseData{
+		RequestID:  requestID,
+		StatusCode: statusCode,
+		Headers:    map[string]string{"Content-Type": "application/json"},
+		BodyB64:    base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf(`{"error":"%s"}`, message))),
+	}
+	raw, _ := json.Marshal(responseData)
+	c.sendMessage("http_response", raw)
 }
 
 func (c *RelayClient) startSession(data SessionStartData) {
