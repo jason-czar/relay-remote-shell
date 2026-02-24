@@ -486,7 +486,7 @@ export default function SkillConfig() {
             <div className="space-y-2">
               <Label>Node ID</Label>
               <div className="flex gap-2">
-                <Input value={config.nodeId} readOnly className="font-mono text-sm bg-muted" />
+                <Input value={config.nodeId} onChange={e => update("nodeId", e.target.value)} className="font-mono text-sm" placeholder="UUID or custom identifier" />
                 <Button variant="outline" size="icon" onClick={copyNodeId} className="shrink-0">
                   {copied ? <Check className="h-4 w-4 text-primary" /> : <Copy className="h-4 w-4" />}
                 </Button>
