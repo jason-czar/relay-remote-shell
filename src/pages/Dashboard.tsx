@@ -129,7 +129,7 @@ export default function Dashboard() {
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Card data-tour="stat-projects">
+          <Card data-tour="stat-projects" className="cursor-pointer hover:border-primary/50 transition-colors" onClick={() => navigate("/projects")}>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium">Projects</CardTitle>
               <FolderIcon />
@@ -138,7 +138,7 @@ export default function Dashboard() {
               <div className="text-2xl font-bold">{projects.length}</div>
             </CardContent>
           </Card>
-          <Card data-tour="stat-devices">
+          <Card data-tour="stat-devices" className="cursor-pointer hover:border-primary/50 transition-colors" onClick={() => navigate("/projects")}>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium">Total Devices</CardTitle>
               <Monitor className="h-4 w-4 text-muted-foreground" />
@@ -147,7 +147,7 @@ export default function Dashboard() {
               <div className="text-2xl font-bold">{devices.length}</div>
             </CardContent>
           </Card>
-          <Card data-tour="stat-online">
+          <Card data-tour="stat-online" className="cursor-pointer hover:border-primary/50 transition-colors" onClick={() => navigate("/projects")}>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium">Online</CardTitle>
               <Wifi className="h-4 w-4 text-status-online" />
@@ -156,7 +156,7 @@ export default function Dashboard() {
               <div className="text-2xl font-bold text-status-online">{onlineDevices.length}</div>
             </CardContent>
           </Card>
-          <Card data-tour="stat-sessions">
+          <Card data-tour="stat-sessions" className="cursor-pointer hover:border-primary/50 transition-colors" onClick={() => navigate("/projects")}>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium">Active Sessions</CardTitle>
               <Activity className="h-4 w-4 text-status-connecting" />
