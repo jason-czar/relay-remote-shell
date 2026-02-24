@@ -222,6 +222,8 @@ export type Database = {
           config: Json
           created_at: string
           id: string
+          name: string
+          node_id: string
           skill_slug: string
           updated_at: string
           user_id: string
@@ -230,6 +232,8 @@ export type Database = {
           config?: Json
           created_at?: string
           id?: string
+          name?: string
+          node_id?: string
           skill_slug?: string
           updated_at?: string
           user_id: string
@@ -238,6 +242,8 @@ export type Database = {
           config?: Json
           created_at?: string
           id?: string
+          name?: string
+          node_id?: string
           skill_slug?: string
           updated_at?: string
           user_id?: string
