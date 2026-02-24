@@ -48,7 +48,7 @@ interface SavedNode {
 }
 
 const DEFAULT_CONFIG: RelayConfig = {
-  relayUrl: "wss://relay-terminal-cloud.fly.dev",
+  relayUrl: "wss://privaclaw.fly.dev",
   connectionMode: "websocket",
   nodeName: "my-node",
   nodeId: generateUUID(),
@@ -271,7 +271,7 @@ export default function SkillConfig() {
 
   const [configCopied, setConfigCopied] = useState(false);
   const skillConfig = JSON.stringify({
-    relay_url: config.relayUrl || "wss://relay-terminal-cloud.fly.dev",
+    relay_url: config.relayUrl || "wss://privaclaw.fly.dev",
     node_id: config.nodeId,
     auth_token: config.authToken || "<generate a token above>",
   }, null, 2);
@@ -324,9 +324,9 @@ export default function SkillConfig() {
             <div>
               <h1 className="text-lg font-semibold text-foreground flex items-center gap-2">
                 <Settings2 className="h-5 w-5 text-muted-foreground" />
-                Private Bridge Configuration
+                PrivaClaw Configuration
               </h1>
-              <p className="text-sm text-muted-foreground">Connect your OpenClaw nodes via Private Bridge</p>
+              <p className="text-sm text-muted-foreground">Connect your OpenClaw nodes via PrivaClaw</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -435,7 +435,7 @@ export default function SkillConfig() {
               <Label htmlFor="relay-url">Relay URL <span className="text-destructive">*</span></Label>
               <Input
                 id="relay-url"
-                placeholder="wss://relay-terminal-cloud.fly.dev"
+                placeholder="wss://privaclaw.fly.dev"
                 value={config.relayUrl}
                 onChange={e => update("relayUrl", e.target.value)}
                 className={config.relayUrl && !isValidUrl(config.relayUrl) ? "border-destructive" : ""}

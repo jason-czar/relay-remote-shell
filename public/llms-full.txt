@@ -1,16 +1,16 @@
-# Relay Terminal Cloud — Full Documentation
+# PrivaClaw — Full Documentation
 
 > Machine-readable documentation for AI agents and bots.
 > This is the extended version with full source documents included.
 > Compact version: /llms.txt
-> Human-friendly docs: https://relay-remote-shell.lovable.app/docs
+> Human-friendly docs: https://privaclaw.com/docs
 > Last updated: 2025-02-24
 
 ---
 
 ## Overview
 
-Relay Terminal Cloud is a platform for secure, browser-based terminal access to remote machines. It uses an outbound-only WebSocket relay architecture — no VPNs, SSH keys, or exposed ports required. Machines connect *out* to the relay; nothing listens inbound.
+PrivaClaw is a platform for secure, browser-based terminal access to remote machines. It uses an outbound-only WebSocket relay architecture — no VPNs, SSH keys, or exposed ports required. Machines connect *out* to the relay; nothing listens inbound.
 
 ### Components
 
@@ -48,8 +48,8 @@ Relay Terminal Cloud is a platform for secure, browser-based terminal access to 
 | Connector | Go binary running on the target machine, spawning PTY shells on demand. |
 | Session | Active terminal connection between browser and device through the relay. |
 | Relay Server | WebSocket hub bridging browser clients and connector agents. |
-| Remote Relay Skill | OpenClaw skill connecting AI agents to the relay for remote prompting/control. |
-| Node | A configured OpenClaw instance connected via the remote-relay skill. |
+| PrivaClaw Skill | OpenClaw skill connecting AI agents to the relay for remote prompting/control. |
+| Node | A configured OpenClaw instance connected via the PrivaClaw skill. |
 
 ---
 
@@ -146,7 +146,7 @@ Saved at `~/.relay-connector.json` (mode 0600):
 {
   "device_id": "uuid",
   "token": "device-auth-token",
-  "relay_url": "wss://relay-terminal-cloud.fly.dev"
+  "relay_url": "wss://privaclaw.fly.dev"
 }
 ```
 
@@ -250,13 +250,13 @@ Owners can remove members and cancel pending invitations. Members cannot transfe
 
 ---
 
-## Remote Relay Skill (OpenClaw)
+## PrivaClaw Skill (OpenClaw)
 
 ### Overview
 
-The `remote-relay` skill (v1.0.1) enables secure remote communication between OpenClaw instances and the relay server. Replaces Telegram/Discord with native encrypted WebSocket channel.
+The PrivaClaw skill (v1.0.1) enables secure remote communication between OpenClaw instances and the relay server. Replaces Telegram/Discord with native encrypted WebSocket channel.
 
-Configure at `/skill/remote-relay`.
+Configure at `/skill/private-bridge`.
 
 ### Capabilities
 
@@ -279,7 +279,7 @@ Config JSON format:
 
 ```json
 {
-  "relay_url": "wss://relay-terminal-cloud.fly.dev",
+  "relay_url": "wss://privaclaw.fly.dev",
   "node_id": "your-node-uuid",
   "auth_token": "your-secret-token"
 }
@@ -423,7 +423,7 @@ Exchanges a pairing code for device credentials.
 {
   "device_id": "uuid",
   "token": "device-auth-token",
-  "relay_url": "wss://relay-terminal-cloud.fly.dev"
+  "relay_url": "wss://privaclaw.fly.dev"
 }
 ```
 
@@ -568,7 +568,7 @@ fly secrets set SUPABASE_SERVICE_ROLE_KEY=your-key
 fly deploy
 ```
 
-Default public relay: `wss://relay-terminal-cloud.fly.dev`
+Default public relay: `wss://privaclaw.fly.dev`
 
 ---
 
@@ -602,11 +602,11 @@ Yes. Connector supports multiple concurrent PTY sessions.
 **Q: What shell is spawned?**
 `$SHELL` env var, falling back to `/bin/sh`. Override with `--shell` flag.
 
-**Q: Can I use remote-relay without the web app?**
+**Q: Can I use PrivaClaw without the web app?**
 Yes. Configure manually with JSON. Visual wizard recommended.
 
 **Q: Default relay URL?**
-`wss://relay-terminal-cloud.fly.dev` — operated by project maintainers. Deploy your own for production.
+`wss://privaclaw.fly.dev` — operated by project maintainers. Deploy your own for production.
 
 **Q: How to update profile/password?**
 Go to `/settings`.
@@ -655,7 +655,7 @@ Go to `/settings`.
 | `/projects` | Project list | Yes |
 | `/project/:id` | Project detail (devices, team, sessions) | Yes |
 | `/terminal/:deviceId/:sessionId` | Live terminal session | Yes |
-| `/skill/remote-relay` | Remote relay skill configuration | Yes |
+| `/skill/private-bridge` | PrivaClaw skill configuration | Yes |
 | `/settings` | User profile and account settings | Yes |
 
 ---
@@ -703,7 +703,7 @@ interface OpenClawRuntime {
 
 # APPENDIX A: Relay Server README (Full Source)
 
-# Relay Terminal Cloud — WebSocket Relay Server
+# PrivaClaw — WebSocket Relay Server
 
 A stateful WebSocket relay that bridges browser terminal sessions to Go connectors.
 
@@ -727,13 +727,13 @@ npm install
 
 # Install Fly CLI: https://fly.io/docs/getting-started/installing-flyctl/
 fly auth login
-fly launch --name relay-terminal-cloud
+fly launch --name privaclaw
 fly secrets set SUPABASE_URL=https://<your-project>.supabase.co
 fly secrets set SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 fly deploy
 ```
 
-Your relay URL will be: `wss://relay-terminal-cloud.fly.dev`
+Your relay URL will be: `wss://privaclaw.fly.dev`
 
 ## Local development
 
@@ -878,9 +878,9 @@ Same format as Connector → Relay (forwarded directly).
 
 # APPENDIX C: Go Connector README (Full Source)
 
-# Relay Terminal — Go Connector
+# PrivaClaw — Go Connector
 
-A lightweight agent that runs on your local machine or server, pairing it with the Relay Terminal Cloud web app and spawning PTY shell sessions on demand.
+A lightweight agent that runs on your local machine or server, pairing it with the PrivaClaw web app and spawning PTY shell sessions on demand.
 
 ## Prerequisites
 
@@ -958,9 +958,9 @@ GOOS=windows GOARCH=amd64 go build -o relay-connector.exe .
 
 ---
 
-# APPENDIX D: Remote Relay Skill README (Full Source)
+# APPENDIX D: PrivaClaw Skill README (Full Source)
 
-# 📡 remote-relay
+# 🔒 PrivaClaw
 
 **Secure outbound-only relay for remote OpenClaw control — no exposed ports, no SSH, no Telegram.**
 
@@ -993,7 +993,7 @@ Set these environment variables or add them to your OpenClaw config:
 
 | Variable | Required | Description |
 |---|---|---|
-| `RELAY_URL` | ✅ | WebSocket URL of the relay server (e.g. `wss://relay-terminal-cloud.fly.dev`) |
+| `RELAY_URL` | ✅ | WebSocket URL of the relay server (e.g. `wss://privaclaw.fly.dev`) |
 | `NODE_ID` | ✅ | Unique identifier for this node (typically your device ID) |
 | `AUTH_TOKEN` | ✅ | Secret token for relay authentication (your device token) |
 
@@ -1001,7 +1001,7 @@ Set these environment variables or add them to your OpenClaw config:
 
 ```json
 {
-  "relay_url": "wss://relay-terminal-cloud.fly.dev",
+  "relay_url": "wss://privaclaw.fly.dev",
   "node_id": "my-server-01",
   "auth_token": "your-device-token-here"
 }
@@ -1049,7 +1049,7 @@ See [SKILL.md](./SKILL.md) for the full security & privacy disclosure.
 ## Requirements
 
 - OpenClaw v1.0+
-- A running relay server (default: `wss://relay-terminal-cloud.fly.dev`)
+- A running relay server (default: `wss://privaclaw.fly.dev`)
 - Network access to the relay URL (outbound port 443)
 
 ## Troubleshooting
@@ -1067,4 +1067,4 @@ MIT
 
 ---
 
-*End of full machine-readable documentation. Compact version at /llms.txt. Interactive version at https://relay-remote-shell.lovable.app/docs*
+*End of full machine-readable documentation. Compact version at /llms.txt. Interactive version at https://privaclaw.com/docs*

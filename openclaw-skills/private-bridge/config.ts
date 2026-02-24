@@ -5,9 +5,9 @@ export interface RemoteRelayConfig {
 }
 
 export function validateConfig(config: Partial<RemoteRelayConfig>): RemoteRelayConfig {
-  if (!config.relay_url) throw new Error("private-bridge: relay_url is required");
-  if (!config.node_id) throw new Error("private-bridge: node_id is required");
-  if (!config.auth_token) throw new Error("private-bridge: auth_token is required");
+  if (!config.relay_url) throw new Error("privaclaw: relay_url is required");
+  if (!config.node_id) throw new Error("privaclaw: node_id is required");
+  if (!config.auth_token) throw new Error("privaclaw: auth_token is required");
 
   // Normalize URL: ensure wss:// for secure connections
   let url = config.relay_url.replace(/\/+$/, "");

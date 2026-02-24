@@ -12,7 +12,7 @@ export default function Landing() {
         <div className="max-w-6xl mx-auto flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4">
           <div className="flex items-center gap-2">
             <Terminal className="h-6 w-6 text-primary" />
-            <span className="text-lg font-bold tracking-tight">Relay Terminal</span>
+            <span className="text-lg font-bold tracking-tight">PrivaClaw</span>
           </div>
           <div className="flex items-center gap-1 sm:gap-3">
             <Button variant="ghost" size="sm" className="hidden sm:inline-flex" onClick={() => navigate("/docs")}>
@@ -40,7 +40,7 @@ export default function Landing() {
           <span className="text-primary">from anywhere.</span>
         </h1>
         <p className="text-lg text-muted-foreground max-w-xl mx-auto mt-6 leading-relaxed">
-          Relay Terminal Cloud gives your team instant, browser-based terminal sessions
+          PrivaClaw gives your team instant, browser-based terminal sessions
           to remote servers, workstations, and IoT devices — no VPN or SSH config needed.
         </p>
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-10">
@@ -62,7 +62,7 @@ export default function Landing() {
           </div>
           <div className="p-6 text-left font-mono text-sm leading-relaxed bg-card text-primary" style={{ background: "hsl(220 30% 6%)" }}>
             <p><span className="text-primary">$</span> relay connect production-server</p>
-            <p className="text-muted-foreground">⟳ Authenticating via Relay Terminal Cloud...</p>
+            <p className="text-muted-foreground">⟳ Authenticating via PrivaClaw...</p>
             <p className="text-primary">✓ Connected to production-server (session a3f8c2d1)</p>
             <p className="mt-2"><span className="text-primary">root@prod</span>:<span className="text-accent-foreground">~</span># systemctl status nginx</p>
             <p className="text-muted-foreground">● nginx.service - A high performance web server</p>
@@ -146,7 +146,7 @@ export default function Landing() {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8 flex flex-col sm:flex-row items-center justify-between gap-2">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Terminal className="h-4 w-4" />
-            Relay Terminal Cloud
+            PrivaClaw
           </div>
           <p className="text-xs text-muted-foreground">© {new Date().getFullYear()} All rights reserved.</p>
         </div>

@@ -1,6 +1,6 @@
-# Relay Terminal — Go Connector
+# PrivaClaw — Go Connector
 
-A lightweight agent that runs on your local machine or server, pairing it with the Relay Terminal Cloud web app and spawning PTY shell sessions on demand.
+A lightweight agent that runs on your local machine or server, pairing it with the PrivaClaw web app and spawning PTY shell sessions on demand.
 
 ## Prerequisites
 

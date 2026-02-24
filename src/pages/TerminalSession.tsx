@@ -181,7 +181,7 @@ export default function TerminalSession() {
 
       sessionIdRef.current = sessionId;
 
-      term.writeln(`\x1b[2m── Relay Terminal Cloud ──\x1b[0m`);
+      term.writeln(`\x1b[2m── PrivaClaw ──\x1b[0m`);
       term.writeln(`\x1b[2mDevice:\x1b[0m ${dev?.name ?? deviceId}`);
       term.writeln(`\x1b[2mSession:\x1b[0m ${sessionId!.slice(0, 8)}`);
       term.writeln("");
@@ -200,7 +200,7 @@ export default function TerminalSession() {
   }, [deviceId, user]);
 
   const connectWebSocket = async (term: Terminal, dev: Tables<"devices"> | null, sessionId: string) => {
-    const relayUrl = import.meta.env.VITE_RELAY_URL || "wss://relay-terminal-cloud.fly.dev";
+    const relayUrl = import.meta.env.VITE_RELAY_URL || "wss://privaclaw.fly.dev";
 
     if (!relayUrl) {
       term.writeln(`\x1b[33m⚠ No relay URL configured (set VITE_RELAY_URL)\x1b[0m`);
