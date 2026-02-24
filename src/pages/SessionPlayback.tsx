@@ -11,6 +11,7 @@ import {
   SkipBack,
   SkipForward,
   FastForward,
+  Download,
 } from "lucide-react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
@@ -245,6 +246,35 @@ export default function SessionPlayback() {
     return `${min}:${sec.toString().padStart(2, "0")}`;
   };
 
+  const handleDownloadCast = () => {
+    if (!recording) return;
+
+    // asciicast v2 format: https://docs.asciinema.org/manual/asciicast/v2/
+    const header = JSON.stringify({
+      version: 2,
+      width: 120,
+      height: 40,
+      timestamp: Math.floor(Date.now() / 1000),
+      title: `Session ${sessionId?.slice(0, 8)}`,
+      env: { TERM: "xterm-256color" },
+    });
+
+    const events = recording.frames.map((frame) => {
+      const seconds = frame.t / 1000;
+      const text = atob(frame.d);
+      return JSON.stringify([seconds, "o", text]);
+    });
+
+    const content = [header, ...events].join("\n") + "\n";
+    const blob = new Blob([content], { type: "application/x-asciicast" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `session-${sessionId?.slice(0, 8)}.cast`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -294,6 +324,16 @@ export default function SessionPlayback() {
             </p>
           </div>
         </div>
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-8 gap-1 text-xs shrink-0"
+          onClick={handleDownloadCast}
+          title="Download as .cast file"
+        >
+          <Download className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">.cast</span>
+        </Button>
       </div>
 
       {/* Terminal */}
