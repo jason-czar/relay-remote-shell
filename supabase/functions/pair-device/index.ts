@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.97.0";
+import { z } from "https://esm.sh/zod@3.25.76";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -13,6 +14,20 @@ function json(body: unknown, status = 200) {
   });
 }
 
+const PairDeviceSchema = z.object({
+  pairing_code: z
+    .string({ required_error: "pairing_code is required" })
+    .min(1, "pairing_code cannot be empty")
+    .max(20, "pairing_code must be 20 characters or fewer")
+    .regex(/^[A-Za-z0-9]+$/, "pairing_code must be alphanumeric"),
+  name: z
+    .string()
+    .max(100, "Device name must be under 100 characters")
+    .regex(/^[^<>]*$/, "Device name contains invalid characters")
+    .optional()
+    .nullable(),
+});
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -23,15 +38,15 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { pairing_code, name } = await req.json();
+    const body = await req.json();
+    const parsed = PairDeviceSchema.safeParse(body);
 
-    if (!pairing_code || typeof pairing_code !== "string" || pairing_code.length > 20) {
-      return json({ error: "Valid pairing_code is required" }, 400);
+    if (!parsed.success) {
+      const message = parsed.error.issues.map((i) => i.message).join("; ");
+      return json({ error: message }, 400);
     }
 
-    if (name && (typeof name !== "string" || name.length > 100)) {
-      return json({ error: "Device name must be under 100 characters" }, 400);
-    }
+    const { pairing_code, name } = parsed.data;
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -81,7 +96,7 @@ Deno.serve(async (req) => {
       token,
       relay_url: relayUrl,
     });
-  } catch (e) {
+  } catch {
     return json({ error: "Invalid request body" }, 400);
   }
 });

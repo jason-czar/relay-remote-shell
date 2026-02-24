@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Terminal, Mail, Lock, ArrowRight } from "lucide-react";
+import { emailSchema, passwordSchema } from "@/lib/validations";
 
 export default function Auth() {
   const [isLogin, setIsLogin] = useState(true);
@@ -13,20 +14,40 @@ export default function Auth() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [showForgot, setShowForgot] = useState(false);
+  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
   const navigate = useNavigate();
   const { toast } = useToast();
 
+  const validate = () => {
+    const newErrors: typeof errors = {};
+    const emailResult = emailSchema.safeParse(email);
+    if (!emailResult.success) newErrors.email = emailResult.error.issues[0].message;
+
+    if (!isLogin || password) {
+      // For signup, enforce strong password; for login, just require non-empty
+      if (isLogin) {
+        if (!password) newErrors.password = "Password is required";
+      } else {
+        const passResult = passwordSchema.safeParse(password);
+        if (!passResult.success) newErrors.password = passResult.error.issues[0].message;
+      }
+    }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!validate()) return;
     setLoading(true);
     try {
       if (isLogin) {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
         if (error) throw error;
         navigate("/dashboard");
       } else {
         const { error } = await supabase.auth.signUp({
-          email,
+          email: email.trim(),
           password,
           options: { emailRedirectTo: window.location.origin },
         });
@@ -42,9 +63,15 @@ export default function Auth() {
 
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
+    const emailResult = emailSchema.safeParse(email);
+    if (!emailResult.success) {
+      setErrors({ email: emailResult.error.issues[0].message });
+      return;
+    }
+    setErrors({});
     setLoading(true);
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
         redirectTo: `${window.location.origin}/reset-password`,
       });
       if (error) throw error;
@@ -77,16 +104,19 @@ export default function Auth() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleForgotPassword} className="space-y-4">
-              <div className="relative">
-                <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  type="email"
-                  placeholder="you@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="pl-10"
-                  required
-                />
+              <div>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    type="email"
+                    placeholder="you@example.com"
+                    value={email}
+                    onChange={(e) => { setEmail(e.target.value); setErrors({}); }}
+                    className="pl-10"
+                    required
+                  />
+                </div>
+                {errors.email && <p className="text-xs text-destructive mt-1">{errors.email}</p>}
               </div>
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading ? "Sending..." : "Send Reset Link"}
@@ -117,28 +147,39 @@ export default function Auth() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="relative">
-              <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="pl-10"
-                required
-              />
+            <div>
+              <div className="relative">
+                <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => { setEmail(e.target.value); setErrors((p) => ({ ...p, email: undefined })); }}
+                  className="pl-10"
+                  required
+                />
+              </div>
+              {errors.email && <p className="text-xs text-destructive mt-1">{errors.email}</p>}
             </div>
-            <div className="relative">
-              <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="pl-10"
-                required
-                minLength={6}
-              />
+            <div>
+              <div className="relative">
+                <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => { setPassword(e.target.value); setErrors((p) => ({ ...p, password: undefined })); }}
+                  className="pl-10"
+                  required
+                  minLength={8}
+                />
+              </div>
+              {errors.password && <p className="text-xs text-destructive mt-1">{errors.password}</p>}
+              {!isLogin && !errors.password && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Min 8 chars, uppercase, lowercase, and a number
+                </p>
+              )}
             </div>
             {isLogin && (
               <button
@@ -176,7 +217,7 @@ export default function Auth() {
 
           <p className="mt-6 text-center text-sm text-muted-foreground">
             {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
-            <button className="text-primary hover:underline" onClick={() => setIsLogin(!isLogin)}>
+            <button className="text-primary hover:underline" onClick={() => { setIsLogin(!isLogin); setErrors({}); }}>
               {isLogin ? "Sign up" : "Sign in"}
             </button>
           </p>

@@ -18,6 +18,7 @@ import { SetupWizard } from "@/components/SetupWizard";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useProjectRole } from "@/hooks/useProjectRole";
 import type { Tables } from "@/integrations/supabase/types";
+import { deviceNameSchema, inviteEmailSchema } from "@/lib/validations";
 
 export default function ProjectView() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -109,13 +110,22 @@ export default function ProjectView() {
     return Math.random().toString(36).substring(2, 8).toUpperCase();
   };
 
+  const [deviceNameError, setDeviceNameError] = useState("");
+  const [inviteEmailError, setInviteEmailError] = useState("");
+
   const addDevice = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!projectId || !newDeviceName.trim()) return;
+    if (!projectId) return;
+    const result = deviceNameSchema.safeParse(newDeviceName);
+    if (!result.success) {
+      setDeviceNameError(result.error.issues[0].message);
+      return;
+    }
+    setDeviceNameError("");
     const pairingCode = generatePairingCode();
     const { error } = await supabase.from("devices").insert({
       project_id: projectId,
-      name: newDeviceName.trim(),
+      name: result.data,
       pairing_code: pairingCode,
     });
     if (error) {
@@ -162,7 +172,13 @@ export default function ProjectView() {
 
   const inviteMember = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!projectId || !inviteEmail.trim()) return;
+    if (!projectId) return;
+    const result = inviteEmailSchema.safeParse(inviteEmail);
+    if (!result.success) {
+      setInviteEmailError(result.error.issues[0].message);
+      return;
+    }
+    setInviteEmailError("");
     setInviteLoading(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -262,7 +278,10 @@ export default function ProjectView() {
                 <DialogContent>
                   <DialogHeader><DialogTitle>Add Device</DialogTitle></DialogHeader>
                   <form onSubmit={addDevice} className="space-y-4">
-                    <Input placeholder="Device name (e.g. Home Server)" value={newDeviceName} onChange={(e) => setNewDeviceName(e.target.value)} required />
+                    <div>
+                      <Input placeholder="Device name (e.g. Home Server)" value={newDeviceName} onChange={(e) => { setNewDeviceName(e.target.value); setDeviceNameError(""); }} required maxLength={100} />
+                      {deviceNameError && <p className="text-xs text-destructive mt-1">{deviceNameError}</p>}
+                    </div>
                     <Button type="submit" className="w-full">Add Device</Button>
                   </form>
                 </DialogContent>
@@ -440,7 +459,10 @@ export default function ProjectView() {
                   <DialogContent>
                     <DialogHeader><DialogTitle>Invite Team Member</DialogTitle></DialogHeader>
                     <form onSubmit={inviteMember} className="space-y-4">
-                      <Input type="email" placeholder="Email address" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} required />
+                      <div>
+                        <Input type="email" placeholder="Email address" value={inviteEmail} onChange={(e) => { setInviteEmail(e.target.value); setInviteEmailError(""); }} required maxLength={255} />
+                        {inviteEmailError && <p className="text-xs text-destructive mt-1">{inviteEmailError}</p>}
+                      </div>
                       <p className="text-xs text-muted-foreground">If the user already has an account, they'll be added immediately. Otherwise, they'll be added when they sign up.</p>
                       <Button type="submit" className="w-full" disabled={inviteLoading}>
                         {inviteLoading ? "Sending..." : "Send Invitation"}

@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.97.0";
+import { z } from "https://esm.sh/zod@3.25.76";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -12,6 +13,14 @@ function json(body: unknown, status = 200) {
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 }
+
+const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const StartSessionSchema = z.object({
+  device_id: z
+    .string({ required_error: "device_id is required" })
+    .regex(uuidRegex, "device_id must be a valid UUID"),
+});
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -45,17 +54,15 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { device_id } = await req.json();
+    const body = await req.json();
+    const parsed = StartSessionSchema.safeParse(body);
 
-    if (!device_id || typeof device_id !== "string" || device_id.length > 36) {
-      return json({ error: "Valid device_id is required" }, 400);
+    if (!parsed.success) {
+      const message = parsed.error.issues.map((i) => i.message).join("; ");
+      return json({ error: message }, 400);
     }
 
-    // Basic UUID format check
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (!uuidRegex.test(device_id)) {
-      return json({ error: "Invalid device_id format" }, 400);
-    }
+    const { device_id } = parsed.data;
 
     // Verify device exists and user has access
     const { data: device, error: devErr } = await supabaseUser

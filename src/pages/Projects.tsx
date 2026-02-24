@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Plus, FolderOpen, ArrowRight, Trash2, Search } from "lucide-react";
 import { ProjectsSkeleton } from "@/components/LoadingSkeletons";
 import type { Tables } from "@/integrations/supabase/types";
+import { projectNameSchema } from "@/lib/validations";
 
 export default function Projects() {
   const { user } = useAuth();
@@ -34,11 +35,19 @@ export default function Projects() {
     if (user) loadProjects();
   }, [user]);
 
+  const [nameError, setNameError] = useState("");
+
   const createProject = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || !newName.trim()) return;
+    if (!user) return;
+    const result = projectNameSchema.safeParse(newName);
+    if (!result.success) {
+      setNameError(result.error.issues[0].message);
+      return;
+    }
+    setNameError("");
     setLoading(true);
-    const { error } = await supabase.from("projects").insert({ name: newName.trim(), owner_id: user.id });
+    const { error } = await supabase.from("projects").insert({ name: result.data, owner_id: user.id });
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
@@ -79,7 +88,10 @@ export default function Projects() {
                 <DialogTitle>Create Project</DialogTitle>
               </DialogHeader>
               <form onSubmit={createProject} className="space-y-4">
-                <Input placeholder="Project name" value={newName} onChange={(e) => setNewName(e.target.value)} required />
+                <div>
+                  <Input placeholder="Project name" value={newName} onChange={(e) => { setNewName(e.target.value); setNameError(""); }} required maxLength={100} />
+                  {nameError && <p className="text-xs text-destructive mt-1">{nameError}</p>}
+                </div>
                 <Button type="submit" className="w-full" disabled={loading}>
                   {loading ? "Creating..." : "Create"}
                 </Button>
