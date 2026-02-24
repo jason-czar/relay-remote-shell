@@ -26,6 +26,7 @@ export type Database = {
           project_id: string
           status: Database["public"]["Enums"]["device_status"]
           updated_at: string
+          workdir: string | null
         }
         Insert: {
           created_at?: string
@@ -38,6 +39,7 @@ export type Database = {
           project_id: string
           status?: Database["public"]["Enums"]["device_status"]
           updated_at?: string
+          workdir?: string | null
         }
         Update: {
           created_at?: string
@@ -50,6 +52,7 @@ export type Database = {
           project_id?: string
           status?: Database["public"]["Enums"]["device_status"]
           updated_at?: string
+          workdir?: string | null
         }
         Relationships: [
           {

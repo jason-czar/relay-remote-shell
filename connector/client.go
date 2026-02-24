@@ -216,6 +216,19 @@ func (c *RelayClient) handleMessage(msg Message) {
 	case "hello_ok":
 		log.Println("✓ Authenticated with relay")
 		c.authenticated = true
+		// Check if relay sent a workdir override from device config
+		var helloOkData struct {
+			Workdir string `json:"workdir"`
+		}
+		if msg.Data != nil {
+			if err := json.Unmarshal(msg.Data, &helloOkData); err == nil && helloOkData.Workdir != "" {
+				log.Printf("  Remote workdir configured: %s", helloOkData.Workdir)
+				if c.workdir == "" {
+					// Only override if no local --workdir flag was set
+					c.workdir = helloOkData.Workdir
+				}
+			}
+		}
 
 	case "session_start":
 		var data SessionStartData

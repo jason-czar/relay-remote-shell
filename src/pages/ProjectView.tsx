@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/StatusBadge";
 import { useToast } from "@/hooks/use-toast";
 import { ProjectViewSkeleton } from "@/components/LoadingSkeletons";
-import { Plus, Monitor, Terminal, Copy, Users, ArrowLeft, Mail, UserMinus, Clock, Pencil, Trash2, RefreshCw, MoreVertical, Play } from "lucide-react";
+import { Plus, Monitor, Terminal, Copy, Users, ArrowLeft, Mail, UserMinus, Clock, Pencil, Trash2, RefreshCw, MoreVertical, Play, Settings } from "lucide-react";
 import { SetupWizard } from "@/components/SetupWizard";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useProjectRole } from "@/hooks/useProjectRole";
@@ -36,6 +36,8 @@ export default function ProjectView() {
   const [renameDeviceId, setRenameDeviceId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const [deleteDeviceId, setDeleteDeviceId] = useState<string | null>(null);
+  const [configDeviceId, setConfigDeviceId] = useState<string | null>(null);
+  const [workdirValue, setWorkdirValue] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteLoading, setInviteLoading] = useState(false);
@@ -147,6 +149,17 @@ export default function ProjectView() {
       toast({ title: "Device renamed" });
       setRenameDeviceId(null);
       setRenameValue("");
+      load();
+    }
+  };
+
+  const saveDeviceWorkdir = async (deviceId: string) => {
+    const { error } = await supabase.from("devices").update({ workdir: workdirValue.trim() || null } as any).eq("id", deviceId);
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Device settings saved" });
+      setConfigDeviceId(null);
       load();
     }
   };
@@ -367,6 +380,9 @@ export default function ProjectView() {
                               <DropdownMenuItem onClick={() => regeneratePairingCode(device.id)}>
                                 <RefreshCw className="h-4 w-4 mr-2" /> Regenerate Pairing Code
                               </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => { setConfigDeviceId(device.id); setWorkdirValue((device as any).workdir || ""); }}>
+                                <Settings className="h-4 w-4 mr-2" /> Configure
+                              </DropdownMenuItem>
                               <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => setDeleteDeviceId(device.id)}>
                                 <Trash2 className="h-4 w-4 mr-2" /> Delete Device
                               </DropdownMenuItem>
@@ -578,6 +594,27 @@ export default function ProjectView() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* Configure Device Dialog */}
+        <Dialog open={configDeviceId !== null} onOpenChange={(open) => { if (!open) setConfigDeviceId(null); }}>
+          <DialogContent>
+            <DialogHeader><DialogTitle>Configure Device</DialogTitle></DialogHeader>
+            <form onSubmit={(e) => { e.preventDefault(); if (configDeviceId) saveDeviceWorkdir(configDeviceId); }} className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Working Directory</label>
+                <Input
+                  value={workdirValue}
+                  onChange={(e) => setWorkdirValue(e.target.value)}
+                  placeholder="e.g. /home/user/projects (default: home directory)"
+                />
+                <p className="text-xs text-muted-foreground">
+                  The directory where terminal sessions will start. Leave empty to use the home directory.
+                </p>
+              </div>
+              <Button type="submit" className="w-full">Save</Button>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
     </AppLayout>
   );
