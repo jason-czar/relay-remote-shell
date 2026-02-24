@@ -1,7 +1,7 @@
 ---
-name: remote-relay
+name: privaclaw
 description: Secure outbound-only relay for remote OpenClaw control — no exposed ports, no SSH, no Telegram.
-homepage: https://github.com/openclaw/remote-relay
+homepage: https://github.com/openclaw/privaclaw
 metadata:
   clawdbot:
     emoji: "🔒"
@@ -121,7 +121,7 @@ No other external endpoints are contacted. All network activity is limited to th
 
 **Easiest way — use the visual setup wizard:**
 
-👉 Open your dashboard and go to **[/skill/remote-relay](/skill/remote-relay)** to configure everything through the UI — generate a node ID, test your connection, and export your config in one place.
+👉 Open your dashboard and go to **[/skill/privaclaw](/skill/privaclaw)** to configure everything through the UI — generate a node ID, test your connection, and export your config in one place.
 
 **Or configure manually:**
 

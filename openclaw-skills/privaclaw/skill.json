@@ -1,5 +1,5 @@
 {
-  "slug": "private-bridge",
+  "slug": "privaclaw",
   "display_name": "PrivaClaw",
   "version": "1.0.1",
   "description": "Enables secure remote communication between OpenClaw and a relay server without exposing ports.",

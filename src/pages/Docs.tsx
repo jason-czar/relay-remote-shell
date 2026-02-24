@@ -91,7 +91,7 @@ const sections: Section[] = [
     ],
   },
   {
-    id: "private-bridge",
+    id: "privaclaw",
     title: "PrivaClaw Skill",
     icon: Plug,
     subsections: [
@@ -517,7 +517,7 @@ export default function Docs() {
             <div className="flex flex-wrap gap-2 mt-6">
               <a href="#getting-started"><Badge variant="outline" className="cursor-pointer hover:bg-muted gap-1"><Rocket className="h-3 w-3" /> Quick Start</Badge></a>
               <a href="#connector"><Badge variant="outline" className="cursor-pointer hover:bg-muted gap-1"><Download className="h-3 w-3" /> Install Connector</Badge></a>
-              <a href="#private-bridge"><Badge variant="outline" className="cursor-pointer hover:bg-muted gap-1"><Plug className="h-3 w-3" /> PrivaClaw</Badge></a>
+              <a href="#privaclaw"><Badge variant="outline" className="cursor-pointer hover:bg-muted gap-1"><Plug className="h-3 w-3" /> PrivaClaw</Badge></a>
               <a href="#api-reference"><Badge variant="outline" className="cursor-pointer hover:bg-muted gap-1"><Code className="h-3 w-3" /> API Reference</Badge></a>
             </div>
             <div className="mt-4 flex flex-col gap-1">
@@ -847,7 +847,7 @@ GOOS=linux GOARCH=arm GOARM=7 go build -o relay-connector-pi .`}</CodeBlock>
           <Separator className="my-10" />
 
           {/* ─── PRIVACLAW SKILL ─── */}
-          <Heading id="private-bridge" level={2}>PrivaClaw Skill (OpenClaw)</Heading>
+          <Heading id="privaclaw" level={2}>PrivaClaw Skill (OpenClaw)</Heading>
 
           <Heading id="skill-overview" level={3}>Overview</Heading>
           <p className="text-sm text-muted-foreground leading-relaxed mb-4">
@@ -856,7 +856,7 @@ GOOS=linux GOARCH=arm GOARM=7 go build -o relay-connector-pi .`}</CodeBlock>
             channel for remote AI agent control.
           </p>
           <InfoBox variant="info">
-            Configure the skill through the visual setup wizard at <a href="/skill/private-bridge" className="text-primary hover:underline">/skill/private-bridge</a>.
+            Configure the skill through the visual setup wizard at <a href="/skill/privaclaw" className="text-primary hover:underline">/skill/privaclaw</a>.
             Your configurations are saved to your account and accessible from any device.
           </InfoBox>
 
@@ -1307,7 +1307,7 @@ fly deploy`}</CodeBlock>
               <Button variant="outline" size="sm" onClick={() => navigate("/auth")} className="gap-1.5">
                 <ArrowRight className="h-3.5 w-3.5" /> Get Started
               </Button>
-              <a href="https://clawhub.ai/skills/private-bridge" target="_blank" rel="noopener noreferrer">
+              <a href="https://clawhub.ai/skills/privaclaw" target="_blank" rel="noopener noreferrer">
                 <Button variant="outline" size="sm" className="gap-1.5">
                   <ExternalLink className="h-3.5 w-3.5" /> ClawHub
                 </Button>

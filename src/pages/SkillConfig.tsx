@@ -78,7 +78,7 @@ export default function SkillConfig() {
         .from("skill_configs")
         .select("*")
         .eq("user_id", user.id)
-        .eq("skill_slug", "private-bridge") as any;
+        .eq("skill_slug", "privaclaw") as any;
       const nodes: SavedNode[] = (data ?? []).map((row: any) => ({
         id: row.id,
         node_id: row.node_id,
@@ -232,7 +232,7 @@ export default function SkillConfig() {
       .from("skill_configs")
       .upsert([{
         user_id: user.id,
-        skill_slug: "private-bridge",
+        skill_slug: "privaclaw",
         node_id: config.nodeId,
         name: config.nodeName,
         config: JSON.parse(JSON.stringify(config)),
@@ -331,7 +331,7 @@ export default function SkillConfig() {
           </div>
           <div className="flex items-center gap-2">
             <a
-              href="https://clawhub.ai/skills/private-bridge"
+              href="https://clawhub.ai/skills/privaclaw"
               target="_blank"
               rel="noopener noreferrer"
             >
@@ -689,7 +689,7 @@ export default function SkillConfig() {
             <div className="rounded-lg border border-border bg-card p-4 space-y-3">
               <p className="text-sm font-medium text-foreground">How to connect</p>
               <ol className="text-sm text-muted-foreground space-y-2 list-decimal list-inside">
-                <li>Install the <code className="bg-muted px-1.5 py-0.5 rounded text-xs">private-bridge</code> skill in your OpenClaw instance</li>
+                <li>Install the <code className="bg-muted px-1.5 py-0.5 rounded text-xs">privaclaw</code> skill in your OpenClaw instance</li>
                 <li>Paste the config above into your skill configuration</li>
                 <li>Start OpenClaw — it will connect to the relay automatically</li>
                 <li>Use this page to monitor connection status</li>
