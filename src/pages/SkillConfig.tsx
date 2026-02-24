@@ -14,6 +14,8 @@ import {
   RefreshCw, RotateCcw, Loader2, Globe, Server, Zap, ArrowLeft, Settings2, Eye, EyeOff, Terminal, ExternalLink
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 
 function generateUUID() {
   return crypto.randomUUID();
@@ -53,10 +55,27 @@ const DEFAULT_CONFIG: RelayConfig = {
 export default function SkillConfig() {
   const { toast } = useToast();
   const navigate = useNavigate();
-  const [config, setConfig] = useState<RelayConfig>(() => {
-    const saved = localStorage.getItem("openclaw-relay-config");
-    return saved ? { ...DEFAULT_CONFIG, ...JSON.parse(saved) } : DEFAULT_CONFIG;
-  });
+  const { user } = useAuth();
+  const [config, setConfig] = useState<RelayConfig>(DEFAULT_CONFIG);
+  const [loadingConfig, setLoadingConfig] = useState(true);
+
+  // Load config from database on mount
+  useEffect(() => {
+    if (!user) return;
+    const load = async () => {
+      const { data } = await supabase
+        .from("skill_configs")
+        .select("config")
+        .eq("user_id", user.id)
+        .eq("skill_slug", "remote-relay")
+        .maybeSingle();
+      if (data?.config) {
+        setConfig({ ...DEFAULT_CONFIG, ...(data.config as Partial<RelayConfig>) });
+      }
+      setLoadingConfig(false);
+    };
+    load();
+  }, [user]);
 
   const [status, setStatus] = useState<ConnectionStatus>("disconnected");
   const [latency, setLatency] = useState<number | null>(null);
@@ -142,6 +161,7 @@ export default function SkillConfig() {
   };
 
   const saveConfig = async () => {
+    if (!user) return;
     if (!isValidUrl(config.relayUrl)) {
       toast({ title: "Validation error", description: "Relay URL must start with https:// or wss://", variant: "destructive" });
       return;
@@ -151,10 +171,21 @@ export default function SkillConfig() {
       return;
     }
     setSaving(true);
-    localStorage.setItem("openclaw-relay-config", JSON.stringify(config));
+    const { error } = await supabase
+      .from("skill_configs")
+      .upsert([{
+        user_id: user.id,
+        skill_slug: "remote-relay",
+        config: JSON.parse(JSON.stringify(config)),
+      }] as any, { onConflict: "user_id,skill_slug" });
+    if (error) {
+      toast({ title: "Save failed", description: error.message, variant: "destructive" });
+      setSaving(false);
+      return;
+    }
     await testConnection();
     setSaving(false);
-    toast({ title: "Configuration saved", description: "Settings saved locally. Copy the config below into your OpenClaw instance." });
+    toast({ title: "Configuration saved", description: "Settings saved to your account. Copy the config below into your OpenClaw instance." });
   };
 
   const generateToken = () => {
