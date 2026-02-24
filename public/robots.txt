@@ -12,3 +12,8 @@ Allow: /
 
 User-agent: *
 Allow: /
+
+# AI-readable documentation
+# See https://llmstxt.org for the llms.txt convention
+Sitemap: https://relay-remote-shell.lovable.app/llms.txt
+Sitemap: https://relay-remote-shell.lovable.app/llms-full.txt
