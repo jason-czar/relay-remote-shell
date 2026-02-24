@@ -27,6 +27,7 @@ func main() {
 	apiURL := flag.String("api", "", "Supabase Edge Function base URL (e.g. https://xyz.supabase.co/functions/v1)")
 	configPath := flag.String("config", defaultConfigPath(), "Path to config file")
 	shell := flag.String("shell", defaultShell(), "Shell to spawn (default: $SHELL or /bin/sh)")
+	workdir := flag.String("workdir", "", "Working directory for shell sessions (default: home directory)")
 	flag.Parse()
 
 	// If pairing code provided, pair first
@@ -57,6 +58,9 @@ func main() {
 	fmt.Printf("Connecting to relay: %s\n", cfg.RelayURL)
 	fmt.Printf("Device ID: %s\n", cfg.DeviceID)
 	fmt.Printf("Shell: %s\n", *shell)
+	if *workdir != "" {
+		fmt.Printf("Workdir: %s\n", *workdir)
+	}
 
 	// Set up signal handling for clean shutdown
 	sigCh := make(chan os.Signal, 1)
@@ -70,7 +74,7 @@ func main() {
 	delay := initialDelay
 
 	for {
-		client := NewRelayClient(cfg, *shell)
+		client := NewRelayClient(cfg, *shell, *workdir)
 
 		// Signal handler (reset per connection attempt)
 		go func() {
