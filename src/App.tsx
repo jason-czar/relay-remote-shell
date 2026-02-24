@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
+import { useInactivityTimeout } from "@/hooks/useInactivityTimeout";
 import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
 import Landing from "./pages/Landing";
@@ -21,11 +22,16 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
+function InactivityGuard({ children }: { children: React.ReactNode }) {
+  useInactivityTimeout();
+  return <>{children}</>;
+}
+
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   if (loading) return <div className="flex min-h-screen items-center justify-center bg-background"><p className="text-muted-foreground">Loading...</p></div>;
   if (!user) return <Navigate to="/auth" replace />;
-  return <>{children}</>;
+  return <InactivityGuard>{children}</InactivityGuard>;
 }
 
 function AuthRoute({ children }: { children: React.ReactNode }) {
