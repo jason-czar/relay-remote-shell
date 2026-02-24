@@ -245,25 +245,25 @@ export default function ProjectView() {
   return (
     <AppLayout>
       <div className="space-y-6">
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
           <Button variant="ghost" size="icon" onClick={() => navigate("/projects")}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">{project.name}</h1>
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight truncate">{project.name}</h1>
             <p className="text-muted-foreground text-sm">Project overview</p>
           </div>
         </div>
 
         <Tabs defaultValue="devices">
-          <TabsList>
-            <TabsTrigger value="devices" className="gap-1">
+          <TabsList className="w-full sm:w-auto grid grid-cols-3 sm:inline-flex">
+            <TabsTrigger value="devices" className="gap-1 text-xs sm:text-sm">
               <Monitor className="h-3 w-3" /> Devices
             </TabsTrigger>
-            <TabsTrigger value="sessions" className="gap-1">
+            <TabsTrigger value="sessions" className="gap-1 text-xs sm:text-sm">
               <Terminal className="h-3 w-3" /> Sessions
             </TabsTrigger>
-            <TabsTrigger value="team" className="gap-1">
+            <TabsTrigger value="team" className="gap-1 text-xs sm:text-sm">
               <Users className="h-3 w-3" /> Team
             </TabsTrigger>
           </TabsList>
@@ -313,12 +313,12 @@ export default function ProjectView() {
               <div className="space-y-3">
                 {devices.map((device) => (
                   <Card key={device.id}>
-                    <CardContent className="flex items-center justify-between p-4">
-                      <div className="flex items-center gap-4">
-                        <Monitor className="h-5 w-5 text-muted-foreground" />
-                        <div>
-                          <p className="font-medium">{device.name}</p>
-                          <div className="flex items-center gap-3 mt-1">
+                    <CardContent className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4">
+                      <div className="flex items-start sm:items-center gap-3 min-w-0">
+                        <Monitor className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5 sm:mt-0" />
+                        <div className="min-w-0">
+                          <p className="font-medium truncate">{device.name}</p>
+                          <div className="flex flex-wrap items-center gap-2 mt-1">
                             <StatusBadge status={device.status} />
                             {device.pairing_code && !device.paired && (
                               <>
@@ -333,7 +333,7 @@ export default function ProjectView() {
                                   }}
                                   className="inline-flex items-center gap-1 text-xs bg-primary/10 text-primary px-2 py-0.5 rounded hover:bg-primary/20 transition-colors"
                                 >
-                                  <Copy className="h-3 w-3" /> Copy pair command
+                                  <Copy className="h-3 w-3" /> <span className="hidden sm:inline">Copy pair command</span><span className="sm:hidden">Pair cmd</span>
                                 </button>
                                 <button
                                   onClick={() => { setWizardDevice(device); setShowWizard(true); }}
@@ -426,14 +426,14 @@ export default function ProjectView() {
                       : `${duration}s`;
                   return (
                     <Card key={s.id}>
-                      <CardContent className="flex items-center justify-between p-4">
-                        <div>
-                          <p className="text-sm font-medium">{dev?.name ?? s.device_id.slice(0, 8)}</p>
-                          <p className="text-xs text-muted-foreground">
+                      <CardContent className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-4">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium truncate">{dev?.name ?? s.device_id.slice(0, 8)}</p>
+                          <p className="text-xs text-muted-foreground truncate">
                             {new Date(s.started_at).toLocaleString()} · {durationStr}
                           </p>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 shrink-0">
                           <StatusBadge status={s.status} />
                           {s.status === "active" && dev && (
                             <Button size="sm" variant="outline" className="gap-1 h-7" onClick={() => navigate(`/terminal/${dev.id}?session=${s.id}`)}>

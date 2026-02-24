@@ -81,11 +81,12 @@ export default function TerminalSession() {
   useEffect(() => {
     if (!deviceId || !user || !terminalContainerRef.current) return;
 
+    const isMobile = window.innerWidth < 640;
     const term = new Terminal({
       cursorBlink: true,
       cursorStyle: "bar",
       fontFamily: "'JetBrains Mono', monospace",
-      fontSize: 14,
+      fontSize: isMobile ? 12 : 14,
       lineHeight: 1.4,
       theme: {
         background: "#080c14",
