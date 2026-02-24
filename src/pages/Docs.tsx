@@ -520,9 +520,12 @@ export default function Docs() {
               <a href="#remote-relay"><Badge variant="outline" className="cursor-pointer hover:bg-muted gap-1"><Plug className="h-3 w-3" /> Remote Relay</Badge></a>
               <a href="#api-reference"><Badge variant="outline" className="cursor-pointer hover:bg-muted gap-1"><Code className="h-3 w-3" /> API Reference</Badge></a>
             </div>
-            <div className="mt-4">
+            <div className="mt-4 flex flex-col gap-1">
               <a href="/llms.txt" target="_blank" rel="noopener" className="text-xs text-muted-foreground hover:text-foreground transition-colors inline-flex items-center gap-1">
-                <Cpu className="h-3 w-3" /> AI agents: machine-readable version at <code className="bg-muted px-1 py-0.5 rounded font-mono">/llms.txt</code>
+                <Cpu className="h-3 w-3" /> AI agents: compact docs at <code className="bg-muted px-1 py-0.5 rounded font-mono">/llms.txt</code>
+              </a>
+              <a href="/llms-full.txt" target="_blank" rel="noopener" className="text-xs text-muted-foreground hover:text-foreground transition-colors inline-flex items-center gap-1">
+                <FileText className="h-3 w-3" /> Full version with protocol specs at <code className="bg-muted px-1 py-0.5 rounded font-mono">/llms-full.txt</code>
               </a>
             </div>
           </div>
