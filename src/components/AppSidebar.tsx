@@ -1,4 +1,4 @@
-import { Terminal, LayoutDashboard, FolderOpen, Settings, LogOut, Sun, Moon, Plug, BookOpen } from "lucide-react";
+import { Terminal, LayoutDashboard, FolderOpen, Settings, LogOut, Sun, Moon, Plug, BookOpen, Columns2 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import { useTheme } from "next-themes";
@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 const navItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Projects", url: "/projects", icon: FolderOpen },
+  { title: "Multi-Session", url: "/multi-session", icon: Columns2 },
   { title: "Remote Relay", url: "/skill/remote-relay", icon: Plug },
   { title: "Docs", url: "/docs", icon: BookOpen },
   { title: "Settings", url: "/settings", icon: Settings },
