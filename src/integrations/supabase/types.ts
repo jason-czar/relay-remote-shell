@@ -182,6 +182,27 @@ export type Database = {
         }
         Relationships: []
       }
+      rate_limit_pairing: {
+        Row: {
+          attempted_code: string | null
+          created_at: string
+          id: string
+          ip_address: string
+        }
+        Insert: {
+          attempted_code?: string | null
+          created_at?: string
+          id?: string
+          ip_address: string
+        }
+        Update: {
+          attempted_code?: string | null
+          created_at?: string
+          id?: string
+          ip_address?: string
+        }
+        Relationships: []
+      }
       sessions: {
         Row: {
           device_id: string
