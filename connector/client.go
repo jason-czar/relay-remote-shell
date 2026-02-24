@@ -514,6 +514,11 @@ func (c *RelayClient) startSession(data SessionStartData) {
 	cmd := exec.Command(c.shell)
 	cmd.Env = append(os.Environ(), "TERM=xterm-256color")
 
+	// Start shell in user's home directory, not the connector's CWD
+	if home, err := os.UserHomeDir(); err == nil {
+		cmd.Dir = home
+	}
+
 	winSize := &pty.Winsize{
 		Cols: uint16(data.Cols),
 		Rows: uint16(data.Rows),
