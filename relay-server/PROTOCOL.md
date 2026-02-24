@@ -147,3 +147,69 @@ Requires `Authorization: Bearer <supabase-jwt>` header.
   }
 }
 ```
+
+## WebSocket Proxy
+
+The relay tunnels WebSocket connections from the browser to the remote device's localhost, enabling HMR/live-reload for dev servers.
+
+### Endpoint (WS upgrade)
+```
+ws(s)://relay/ws-proxy/:deviceId/:host/:port/path?token=jwt
+```
+
+Auth is via `token` query parameter (since WS upgrades cannot use Authorization headers).
+
+### Relay → Connector: `ws_open`
+```json
+{
+  "type": "ws_open",
+  "data": {
+    "tunnel_id": "uuid",
+    "url": "ws://localhost:3000/ws",
+    "protocols": ["vite-hmr"]
+  }
+}
+```
+
+### Connector → Relay: `ws_opened`
+```json
+{
+  "type": "ws_opened",
+  "data": { "tunnel_id": "uuid" }
+}
+```
+
+### Bidirectional: `ws_frame`
+```json
+{
+  "type": "ws_frame",
+  "data": {
+    "tunnel_id": "uuid",
+    "data_b64": "base64-encoded-frame",
+    "binary": false
+  }
+}
+```
+
+### Either direction: `ws_close`
+```json
+{
+  "type": "ws_close",
+  "data": {
+    "tunnel_id": "uuid",
+    "code": 1000,
+    "reason": "normal closure"
+  }
+}
+```
+
+### Connector → Relay: `ws_error`
+```json
+{
+  "type": "ws_error",
+  "data": {
+    "tunnel_id": "uuid",
+    "message": "connection refused"
+  }
+}
+```

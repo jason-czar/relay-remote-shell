@@ -1,6 +1,6 @@
 import "dotenv/config";
 import { createServer } from "http";
-import { WebSocketServer } from "ws";
+import { WebSocketServer, WebSocket } from "ws";
 import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "crypto";
 
@@ -31,6 +31,9 @@ const MAX_RECORDING_BYTES = 5 * 1024 * 1024; // 5MB limit per session
 const pendingProxyRequests = new Map();
 const PROXY_TIMEOUT_MS = 30000;
 
+// tunnel_id → browser WebSocket for WS proxy tunnels
+const wsTunnels = new Map();
+
 // ─── HTTP Server ─────────────────────────────────────────────────────
 const server = createServer(async (req, res) => {
   // CORS headers for all HTTP endpoints
@@ -54,8 +57,9 @@ const server = createServer(async (req, res) => {
       uptime_seconds: Math.floor((Date.now() - startedAt) / 1000),
       connectors: connectors.size,
       sessions: browserSessions.size,
+      ws_tunnels: wsTunnels.size,
       memory_mb: Math.round(mem.rss / 1024 / 1024),
-      version: "1.1.0",
+      version: "1.2.0",
       timestamp: new Date().toISOString(),
     }));
     return;
@@ -175,6 +179,7 @@ const server = createServer(async (req, res) => {
 // ─── WebSocket Servers ───────────────────────────────────────────────
 const connectorWSS = new WebSocketServer({ noServer: true });
 const browserWSS = new WebSocketServer({ noServer: true });
+const wsProxyWSS = new WebSocketServer({ noServer: true });
 
 server.on("upgrade", (req, socket, head) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
@@ -186,6 +191,11 @@ server.on("upgrade", (req, socket, head) => {
   } else if (url.pathname === "/session") {
     browserWSS.handleUpgrade(req, socket, head, (ws) => {
       browserWSS.emit("connection", ws, req);
+    });
+  } else if (url.pathname.startsWith("/ws-proxy/")) {
+    // WebSocket proxy: /ws-proxy/:deviceId/:host/:port/path?token=jwt
+    wsProxyWSS.handleUpgrade(req, socket, head, (ws) => {
+      wsProxyWSS.emit("connection", ws, req);
     });
   } else {
     socket.destroy();
@@ -268,6 +278,51 @@ connectorWSS.on("connection", (ws) => {
       return;
     }
 
+    // ── ws_frame from connector → browser (WS proxy) ──
+    if (msg.type === "ws_frame") {
+      const tunnelId = msg.data?.tunnel_id;
+      const tunnel = wsTunnels.get(tunnelId);
+      if (tunnel?.readyState === WebSocket.OPEN) {
+        if (msg.data.binary) {
+          tunnel.send(Buffer.from(msg.data.data_b64, "base64"));
+        } else {
+          tunnel.send(Buffer.from(msg.data.data_b64, "base64").toString("utf-8"));
+        }
+      }
+      return;
+    }
+
+    // ── ws_opened from connector (WS proxy tunnel confirmed) ──
+    if (msg.type === "ws_opened") {
+      const tunnelId = msg.data?.tunnel_id;
+      console.log(`[ws-proxy] tunnel ${tunnelId?.slice(0, 8)} opened on connector`);
+      return;
+    }
+
+    // ── ws_close from connector (remote WS closed) ──
+    if (msg.type === "ws_close") {
+      const tunnelId = msg.data?.tunnel_id;
+      const tunnel = wsTunnels.get(tunnelId);
+      if (tunnel) {
+        console.log(`[ws-proxy] tunnel ${tunnelId?.slice(0, 8)} closed by connector`);
+        tunnel.close(1000, msg.data?.reason || "remote closed");
+        wsTunnels.delete(tunnelId);
+      }
+      return;
+    }
+
+    // ── ws_error from connector ──
+    if (msg.type === "ws_error") {
+      const tunnelId = msg.data?.tunnel_id;
+      const tunnel = wsTunnels.get(tunnelId);
+      if (tunnel) {
+        console.log(`[ws-proxy] tunnel ${tunnelId?.slice(0, 8)} error: ${msg.data?.message}`);
+        tunnel.close(1011, msg.data?.message || "remote error");
+        wsTunnels.delete(tunnelId);
+      }
+      return;
+    }
+
     // ── Forwarded messages from connector → browser ──
     if (msg.type === "stdout" || msg.type === "session_started" || msg.type === "session_end") {
       const sessionId = msg.data?.session_id;
@@ -325,10 +380,101 @@ connectorWSS.on("connection", (ws) => {
           browserSessions.delete(sessionId);
         }
       }
+
+      // Close all WS proxy tunnels for this device
+      for (const [tunnelId, tunnel] of wsTunnels) {
+        // We store device_id on the tunnel object
+        if (tunnel._deviceId === deviceId) {
+          tunnel.close(1001, "connector_disconnected");
+          wsTunnels.delete(tunnelId);
+        }
+      }
     }
   });
 
   ws.on("error", (err) => console.error(`[connector] error:`, err.message));
+});
+
+// ─── WebSocket Proxy Connections ─────────────────────────────────────
+wsProxyWSS.on("connection", async (ws, req) => {
+  const url = new URL(req.url, `http://${req.headers.host}`);
+  // Path: /ws-proxy/:deviceId/:hostPort/rest/of/path
+  const pathParts = url.pathname.replace(/^\/ws-proxy\//, "").split("/");
+  const deviceId = pathParts[0];
+  const remaining = pathParts.slice(1).join("/");
+  const token = url.searchParams.get("token");
+
+  if (!token || !deviceId || !remaining) {
+    ws.close(4000, "Missing token, deviceId, or target path");
+    return;
+  }
+
+  // Authenticate JWT
+  const { data: { user }, error: authErr } = await supabase.auth.getUser(token);
+  if (authErr || !user) {
+    ws.close(4001, "Invalid auth token");
+    return;
+  }
+
+  // Check connector is online
+  const connectorWs = connectors.get(deviceId);
+  if (!connectorWs || connectorWs.readyState !== 1) {
+    ws.close(4003, "Connector offline");
+    return;
+  }
+
+  // Create tunnel
+  const tunnelId = randomUUID();
+  ws._deviceId = deviceId;
+  wsTunnels.set(tunnelId, ws);
+
+  // Construct the target local WebSocket URL
+  // remaining = "localhost:3000/path" → ws://localhost:3000/path
+  const targetUrl = `ws://${remaining}`;
+
+  // Collect protocols from the browser WebSocket request
+  const protocols = req.headers["sec-websocket-protocol"] || "";
+
+  console.log(`[ws-proxy] tunnel ${tunnelId.slice(0, 8)}: ${user.email} → ${deviceId.slice(0, 8)} → ${targetUrl}`);
+
+  // Tell connector to open a local WebSocket
+  send(connectorWs, {
+    type: "ws_open",
+    data: {
+      tunnel_id: tunnelId,
+      url: targetUrl,
+      protocols: protocols ? protocols.split(",").map(s => s.trim()) : [],
+    },
+  });
+
+  // Forward browser → connector frames
+  ws.on("message", (data, isBinary) => {
+    const cws = connectors.get(deviceId);
+    if (cws?.readyState === 1) {
+      const payload = {
+        tunnel_id: tunnelId,
+        data_b64: Buffer.from(data).toString("base64"),
+        binary: isBinary,
+      };
+      send(cws, { type: "ws_frame", data: payload });
+    }
+  });
+
+  ws.on("close", (code, reason) => {
+    wsTunnels.delete(tunnelId);
+    const cws = connectors.get(deviceId);
+    if (cws?.readyState === 1) {
+      send(cws, {
+        type: "ws_close",
+        data: { tunnel_id: tunnelId, code, reason: reason?.toString() || "" },
+      });
+    }
+    console.log(`[ws-proxy] tunnel ${tunnelId.slice(0, 8)} browser closed`);
+  });
+
+  ws.on("error", (err) => {
+    console.error(`[ws-proxy] tunnel ${tunnelId.slice(0, 8)} error:`, err.message);
+  });
 });
 
 // ─── Browser Connections ─────────────────────────────────────────────
@@ -496,7 +642,8 @@ server.listen(PORT, () => {
   console.log(`[relay] listening on port ${PORT}`);
   console.log(`[relay] connector endpoint: ws://localhost:${PORT}/connect`);
   console.log(`[relay] browser endpoint:   ws://localhost:${PORT}/session`);
-  console.log(`[relay] proxy endpoint:     http://localhost:${PORT}/proxy/:deviceId/...`);
+  console.log(`[relay] HTTP proxy:         http://localhost:${PORT}/proxy/:deviceId/...`);
+  console.log(`[relay] WS proxy:           ws://localhost:${PORT}/ws-proxy/:deviceId/...`);
 });
 
 // Graceful shutdown
@@ -507,6 +654,9 @@ process.on("SIGTERM", () => {
   }
   for (const [id, session] of browserSessions) {
     session.browser?.close(1001, "Server shutting down");
+  }
+  for (const [id, tunnel] of wsTunnels) {
+    tunnel.close(1001, "Server shutting down");
   }
   server.close(() => process.exit(0));
 });
