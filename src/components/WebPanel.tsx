@@ -144,6 +144,77 @@ function buildInterceptScript(relayHttpUrl: string, relayWsUrl: string, deviceId
     attributes: true,
     attributeFilter: ['src', 'href', 'data']
   });
+
+  // --- Stylesheet @import / url() rewriting ---
+  function rewriteCssText(cssText) {
+    // Rewrite url(...) references pointing to localhost
+    cssText = cssText.replace(/url\\(\\s*["']?([^)"']+)["']?\\s*\\)/gi, function(match, rawUrl) {
+      var rewritten = rewriteHttpUrl(rawUrl);
+      if (rewritten) {
+        console.log('[css-proxy] rewriting url() ' + rawUrl);
+        return 'url("' + rewritten + '")';
+      }
+      return match;
+    });
+    // Rewrite @import "..." or @import url(...)
+    cssText = cssText.replace(/@import\\s+["']([^"']+)["']/gi, function(match, rawUrl) {
+      var rewritten = rewriteHttpUrl(rawUrl);
+      if (rewritten) {
+        console.log('[css-proxy] rewriting @import ' + rawUrl);
+        return '@import "' + rewritten + '"';
+      }
+      return match;
+    });
+    return cssText;
+  }
+
+  // Intercept CSSStyleSheet.insertRule to rewrite url()/\@import in dynamically added rules
+  var origInsertRule = CSSStyleSheet.prototype.insertRule;
+  CSSStyleSheet.prototype.insertRule = function(rule, index) {
+    return origInsertRule.call(this, rewriteCssText(rule), index);
+  };
+
+  // Intercept setting .cssText on CSSStyleDeclaration (inline styles)
+  var cssTextDesc = Object.getOwnPropertyDescriptor(CSSStyleDeclaration.prototype, 'cssText');
+  if (cssTextDesc && cssTextDesc.set) {
+    Object.defineProperty(CSSStyleDeclaration.prototype, 'cssText', {
+      set: function(val) { cssTextDesc.set.call(this, rewriteCssText(val)); },
+      get: cssTextDesc.get,
+      configurable: true
+    });
+  }
+
+  // Intercept .textContent and .innerHTML on <style> elements
+  function patchStyleProperty(prop) {
+    var origDesc = Object.getOwnPropertyDescriptor(HTMLElement.prototype, prop)
+                || Object.getOwnPropertyDescriptor(Element.prototype, prop)
+                || Object.getOwnPropertyDescriptor(Node.prototype, prop);
+    if (!origDesc || !origDesc.set) return;
+    Object.defineProperty(HTMLStyleElement.prototype, prop, {
+      set: function(val) {
+        origDesc.set.call(this, rewriteCssText(val));
+      },
+      get: origDesc.get,
+      configurable: true
+    });
+  }
+  patchStyleProperty('textContent');
+  patchStyleProperty('innerHTML');
+
+  // Scan existing <style> tags on load
+  setTimeout(function() {
+    var styles = document.querySelectorAll('style');
+    for (var i = 0; i < styles.length; i++) {
+      var original = styles[i].textContent;
+      if (!original) continue;
+      var rewritten = rewriteCssText(original);
+      if (rewritten !== original) {
+        // Use the raw descriptor to avoid infinite loop
+        var rawDesc = Object.getOwnPropertyDescriptor(Node.prototype, 'textContent');
+        if (rawDesc && rawDesc.set) rawDesc.set.call(styles[i], rewritten);
+      }
+    }
+  }, 0);
 })();
 </script>`;
 }
