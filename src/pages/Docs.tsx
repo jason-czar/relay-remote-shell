@@ -91,8 +91,8 @@ const sections: Section[] = [
     ],
   },
   {
-    id: "remote-relay",
-    title: "Remote Relay Skill",
+    id: "private-bridge",
+    title: "PrivateBridge Skill",
     icon: Plug,
     subsections: [
       { id: "skill-overview", title: "Overview" },
@@ -502,7 +502,7 @@ export default function Docs() {
           <div className="sr-only" aria-hidden="true" data-ai-docs="/llms.txt">
             Machine-readable documentation available at /llms.txt in plain Markdown format.
             This page contains full documentation for Relay Terminal Cloud including architecture,
-            API reference, relay protocol, connector agent, remote relay skill, security model,
+            API reference, relay protocol, connector agent, PrivateBridge skill, security model,
             and troubleshooting guides.
           </div>
 
@@ -517,7 +517,7 @@ export default function Docs() {
             <div className="flex flex-wrap gap-2 mt-6">
               <a href="#getting-started"><Badge variant="outline" className="cursor-pointer hover:bg-muted gap-1"><Rocket className="h-3 w-3" /> Quick Start</Badge></a>
               <a href="#connector"><Badge variant="outline" className="cursor-pointer hover:bg-muted gap-1"><Download className="h-3 w-3" /> Install Connector</Badge></a>
-              <a href="#remote-relay"><Badge variant="outline" className="cursor-pointer hover:bg-muted gap-1"><Plug className="h-3 w-3" /> Remote Relay</Badge></a>
+              <a href="#private-bridge"><Badge variant="outline" className="cursor-pointer hover:bg-muted gap-1"><Plug className="h-3 w-3" /> PrivateBridge</Badge></a>
               <a href="#api-reference"><Badge variant="outline" className="cursor-pointer hover:bg-muted gap-1"><Code className="h-3 w-3" /> API Reference</Badge></a>
             </div>
             <div className="mt-4 flex flex-col gap-1">
@@ -585,8 +585,8 @@ export default function Docs() {
                 <tr className="border-b border-border"><td className="p-3 font-medium">Connector</td><td className="p-3 text-muted-foreground">A Go binary that runs on the target machine, spawning PTY shells on demand.</td></tr>
                 <tr className="border-b border-border"><td className="p-3 font-medium">Session</td><td className="p-3 text-muted-foreground">An active terminal connection between a browser and a device through the relay.</td></tr>
                 <tr className="border-b border-border"><td className="p-3 font-medium">Relay Server</td><td className="p-3 text-muted-foreground">The WebSocket hub that bridges browser clients and connector agents.</td></tr>
-                <tr className="border-b border-border"><td className="p-3 font-medium">Remote Relay Skill</td><td className="p-3 text-muted-foreground">An OpenClaw skill that connects AI agents to the relay for remote prompting and control.</td></tr>
-                <tr><td className="p-3 font-medium">Node</td><td className="p-3 text-muted-foreground">A configured OpenClaw instance connected via the remote-relay skill.</td></tr>
+                <tr className="border-b border-border"><td className="p-3 font-medium">PrivateBridge Skill</td><td className="p-3 text-muted-foreground">An OpenClaw skill that connects AI agents to the relay for remote prompting and control.</td></tr>
+                <tr><td className="p-3 font-medium">Node</td><td className="p-3 text-muted-foreground">A configured OpenClaw instance connected via the PrivateBridge skill.</td></tr>
               </tbody>
             </table>
           </div>
@@ -846,17 +846,17 @@ GOOS=linux GOARCH=arm GOARM=7 go build -o relay-connector-pi .`}</CodeBlock>
 
           <Separator className="my-10" />
 
-          {/* ─── REMOTE RELAY SKILL ─── */}
-          <Heading id="remote-relay" level={2}>Remote Relay Skill (OpenClaw)</Heading>
+          {/* ─── PRIVATEBRIDGE SKILL ─── */}
+          <Heading id="private-bridge" level={2}>PrivateBridge Skill (OpenClaw)</Heading>
 
           <Heading id="skill-overview" level={3}>Overview</Heading>
           <p className="text-sm text-muted-foreground leading-relaxed mb-4">
-            The <strong>remote-relay</strong> skill (v1.0.1) enables secure remote communication between an OpenClaw instance
+            The <strong>PrivateBridge</strong> skill (v1.0.1) enables secure remote communication between an OpenClaw instance
             and the relay server. It replaces external messaging layers (Telegram, Discord) with a native, encrypted WebSocket
             channel for remote AI agent control.
           </p>
           <InfoBox variant="info">
-            Configure the skill through the visual setup wizard at <a href="/skill/remote-relay" className="text-primary hover:underline">/skill/remote-relay</a>.
+            Configure the skill through the visual setup wizard at <a href="/skill/private-bridge" className="text-primary hover:underline">/skill/private-bridge</a>.
             Your configurations are saved to your account and accessible from any device.
           </InfoBox>
 
@@ -1284,7 +1284,7 @@ fly deploy`}</CodeBlock>
               <p className="text-sm text-muted-foreground">By default, it uses the <code className="text-xs bg-muted px-1 py-0.5 rounded font-mono">$SHELL</code> environment variable, falling back to <code className="text-xs bg-muted px-1 py-0.5 rounded font-mono">/bin/sh</code>. Override with the <code className="text-xs bg-muted px-1 py-0.5 rounded font-mono">--shell</code> flag.</p>
             </div>
             <div>
-              <p className="font-semibold text-sm mb-1">Q: Can I use the remote-relay skill without the web app?</p>
+              <p className="font-semibold text-sm mb-1">Q: Can I use the PrivateBridge skill without the web app?</p>
               <p className="text-sm text-muted-foreground">Yes. The skill is a standalone OpenClaw component. You can configure it manually using the JSON config format without the web UI, though the visual wizard is recommended.</p>
             </div>
             <div>
@@ -1307,7 +1307,7 @@ fly deploy`}</CodeBlock>
               <Button variant="outline" size="sm" onClick={() => navigate("/auth")} className="gap-1.5">
                 <ArrowRight className="h-3.5 w-3.5" /> Get Started
               </Button>
-              <a href="https://clawhub.ai/skills/remote-relay" target="_blank" rel="noopener noreferrer">
+              <a href="https://clawhub.ai/skills/private-bridge" target="_blank" rel="noopener noreferrer">
                 <Button variant="outline" size="sm" className="gap-1.5">
                   <ExternalLink className="h-3.5 w-3.5" /> ClawHub
                 </Button>

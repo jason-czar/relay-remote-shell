@@ -345,7 +345,7 @@ export default function Dashboard() {
                 <CardTitle className="text-base">Your Node Configurations</CardTitle>
                 <CardDescription>Saved relay configs for your OpenClaw nodes ({skillConfigs.length})</CardDescription>
               </div>
-              <Button variant="outline" size="sm" className="gap-1.5" onClick={() => navigate("/skill/remote-relay")}>
+              <Button variant="outline" size="sm" className="gap-1.5" onClick={() => navigate("/skill/private-bridge")}>
                 <Plus className="h-3.5 w-3.5" /> Add Node
               </Button>
             </CardHeader>
@@ -354,7 +354,7 @@ export default function Dashboard() {
                 <div className="text-center py-6">
                   <Settings2 className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
                   <p className="text-sm text-muted-foreground">No node configurations yet</p>
-                  <Button variant="link" size="sm" className="mt-1" onClick={() => navigate("/skill/remote-relay")}>
+                  <Button variant="link" size="sm" className="mt-1" onClick={() => navigate("/skill/private-bridge")}>
                     Configure your first node →
                   </Button>
                 </div>
@@ -373,7 +373,7 @@ export default function Dashboard() {
                             </p>
                           </div>
                         </div>
-                        <Button size="sm" variant="outline" className="gap-1.5" onClick={() => navigate("/skill/remote-relay")}>
+                        <Button size="sm" variant="outline" className="gap-1.5" onClick={() => navigate("/skill/private-bridge")}>
                           <Settings2 className="h-3 w-3" /> Configure
                         </Button>
                       </div>
@@ -400,8 +400,8 @@ export default function Dashboard() {
                 <div className="text-center py-6">
                   <Plug className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
                   <p className="text-sm text-muted-foreground">No nodes connected to the relay</p>
-                  <Button variant="link" size="sm" className="mt-1" onClick={() => navigate("/skill/remote-relay")}>
-                    Configure Remote Relay →
+                  <Button variant="link" size="sm" className="mt-1" onClick={() => navigate("/skill/private-bridge")}>
+                    Configure PrivateBridge →
                   </Button>
                 </div>
               ) : (

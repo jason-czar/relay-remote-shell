@@ -78,7 +78,7 @@ export default function SkillConfig() {
         .from("skill_configs")
         .select("*")
         .eq("user_id", user.id)
-        .eq("skill_slug", "remote-relay") as any;
+        .eq("skill_slug", "private-bridge") as any;
       const nodes: SavedNode[] = (data ?? []).map((row: any) => ({
         id: row.id,
         node_id: row.node_id,
@@ -232,7 +232,7 @@ export default function SkillConfig() {
       .from("skill_configs")
       .upsert([{
         user_id: user.id,
-        skill_slug: "remote-relay",
+        skill_slug: "private-bridge",
         node_id: config.nodeId,
         name: config.nodeName,
         config: JSON.parse(JSON.stringify(config)),
@@ -331,7 +331,7 @@ export default function SkillConfig() {
           </div>
           <div className="flex items-center gap-2">
             <a
-              href="https://clawhub.ai/skills/remote-relay"
+              href="https://clawhub.ai/skills/private-bridge"
               target="_blank"
               rel="noopener noreferrer"
             >
