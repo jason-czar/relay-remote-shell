@@ -255,7 +255,7 @@ Owners can remove members and cancel pending invitations. Members cannot transfe
 
 The PrivaClaw skill (v1.0.1) enables secure remote communication between OpenClaw instances and the relay server. Replaces Telegram/Discord with native encrypted WebSocket channel.
 
-Configure at `/skill/private-bridge`.
+Configure at `/skill/privaclaw`.
 
 ### Capabilities
 
@@ -652,7 +652,7 @@ Go to `/settings`.
 | `/projects` | Project list | Yes |
 | `/project/:id` | Project detail (devices, team, sessions) | Yes |
 | `/terminal/:deviceId/:sessionId` | Live terminal session | Yes |
-| `/skill/private-bridge` | PrivaClaw skill configuration | Yes |
+| `/skill/privaclaw` | PrivaClaw skill configuration | Yes |
 | `/settings` | User profile and account settings | Yes |
 
 ---

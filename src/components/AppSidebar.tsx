@@ -22,7 +22,7 @@ const navItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Projects", url: "/projects", icon: FolderOpen },
   { title: "Multi-Session", url: "/multi-session", icon: Columns2 },
-  { title: "PrivaClaw", url: "/skill/private-bridge", icon: Plug },
+  { title: "PrivaClaw", url: "/skill/privaclaw", icon: Plug },
   { title: "Docs", url: "/docs", icon: BookOpen },
   { title: "Settings", url: "/settings", icon: Settings },
 ];

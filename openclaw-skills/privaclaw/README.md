@@ -1,7 +1,7 @@
 # 🔒 PrivaClaw
 
-[![ClawHub](https://img.shields.io/badge/ClawHub-private--bridge-blue)](https://clawhub.ai/skills/private-bridge)
-[![Version](https://img.shields.io/badge/version-1.0.1-green)](https://github.com/openclaw/remote-relay)
+[![ClawHub](https://img.shields.io/badge/ClawHub-privaclaw-blue)](https://clawhub.ai/skills/privaclaw)
+[![Version](https://img.shields.io/badge/version-1.0.1-green)](https://github.com/openclaw/privaclaw)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 **Secure outbound-only relay for remote OpenClaw control — no exposed ports, no SSH, no Telegram.**
@@ -20,13 +20,13 @@ All without opening ports, configuring firewalls, or setting up SSH tunnels.
 ## Installation
 
 ```bash
-openclaw skill install remote-relay
+openclaw skill install privaclaw
 ```
 
 Or install from ClawHub:
 
 ```bash
-clawhub install remote-relay
+clawhub install privaclaw
 ```
 
 ## Configuration
