@@ -17,6 +17,7 @@ import TerminalSession from "./pages/TerminalSession";
 import SessionPlayback from "./pages/SessionPlayback";
 import Settings from "./pages/Settings";
 import SkillConfig from "./pages/SkillConfig";
+import MultiSession from "./pages/MultiSession";
 import Docs from "./pages/Docs";
 import NotFound from "./pages/NotFound";
 
@@ -61,6 +62,7 @@ const App = () => (
                 <Route path="/playback/:sessionId" element={<ProtectedRoute><SessionPlayback /></ProtectedRoute>} />
                 <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
                 <Route path="/skill/remote-relay" element={<ProtectedRoute><SkillConfig /></ProtectedRoute>} />
+                <Route path="/multi-session" element={<ProtectedRoute><MultiSession /></ProtectedRoute>} />
                 <Route path="/docs" element={<Docs />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
