@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/StatusBadge";
-import { Monitor, Wifi, Activity, Plus, Terminal, ArrowRight, Plug, RefreshCw, Clock, Settings2, HeartPulse, Server, MemoryStick } from "lucide-react";
+import { Monitor, Wifi, Activity, Plus, Terminal, ArrowRight, Plug, RefreshCw, Clock, Settings2, HeartPulse, Server, MemoryStick, Play } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { DashboardSkeleton } from "@/components/LoadingSkeletons";
 import { OnboardingTour } from "@/components/OnboardingTour";
@@ -321,6 +321,11 @@ export default function Dashboard() {
                             {session.status === "active" && device && (
                               <Button size="sm" variant="ghost" className="gap-1 h-7" onClick={() => navigate(`/terminal/${device.id}`)}>
                                 <Terminal className="h-3 w-3" /> Rejoin
+                              </Button>
+                            )}
+                            {session.status === "ended" && (
+                              <Button size="sm" variant="ghost" className="gap-1 h-7" onClick={() => navigate(`/playback/${session.id}`)}>
+                                <Play className="h-3 w-3" /> Replay
                               </Button>
                             )}
                           </div>

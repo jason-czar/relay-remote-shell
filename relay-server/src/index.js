@@ -22,6 +22,9 @@ const connectors = new Map();
 const connectorMeta = new Map();
 // session_id → { browser: ws, device_id: string }
 const browserSessions = new Map();
+// session_id → { frames: [{t, d}], startedAt: number }
+const sessionRecordings = new Map();
+const MAX_RECORDING_BYTES = 5 * 1024 * 1024; // 5MB limit per session
 
 // ─── HTTP Server ─────────────────────────────────────────────────────
 const server = createServer((req, res) => {
@@ -167,9 +170,21 @@ connectorWSS.on("connection", (ws) => {
         send(session.browser, msg);
       }
 
-      // If session ended, clean up
+      // ── Record stdout frames ──
+      if (msg.type === "stdout" && sessionId && msg.data?.data_b64) {
+        const rec = sessionRecordings.get(sessionId);
+        if (rec && rec.sizeBytes < MAX_RECORDING_BYTES) {
+          const frame = { t: Date.now() - rec.startedAt, d: msg.data.data_b64 };
+          const frameSize = msg.data.data_b64.length;
+          rec.frames.push(frame);
+          rec.sizeBytes += frameSize;
+        }
+      }
+
+      // If session ended, clean up and save recording
       if (msg.type === "session_end" && sessionId) {
         browserSessions.delete(sessionId);
+        await saveRecording(sessionId);
         // Update DB
         await supabase
           .from("sessions")
@@ -268,6 +283,15 @@ browserWSS.on("connection", (ws) => {
       authenticated = true;
       browserSessions.set(session_id, { browser: ws, device_id });
 
+      // Initialize recording buffer
+      if (!sessionRecordings.has(session_id)) {
+        sessionRecordings.set(session_id, {
+          frames: [],
+          startedAt: Date.now(),
+          sizeBytes: 0,
+        });
+      }
+
       console.log(`[browser] session ${session_id.slice(0, 8)} → device ${device_id.slice(0, 8)}`);
       send(ws, { type: "auth_ok" });
       return;
@@ -307,6 +331,7 @@ browserWSS.on("connection", (ws) => {
       }
 
       browserSessions.delete(sessionId);
+      await saveRecording(sessionId);
 
       // Update DB
       await supabase
@@ -324,6 +349,40 @@ function send(ws, msg) {
   if (ws.readyState === 1) {
     ws.send(JSON.stringify(msg));
   }
+}
+
+async function saveRecording(sessionId) {
+  const rec = sessionRecordings.get(sessionId);
+  if (!rec || rec.frames.length === 0) {
+    sessionRecordings.delete(sessionId);
+    return;
+  }
+
+  const durationMs = rec.frames.length > 0
+    ? rec.frames[rec.frames.length - 1].t
+    : 0;
+
+  try {
+    const { error } = await supabase
+      .from("session_recordings")
+      .upsert({
+        session_id: sessionId,
+        frames: rec.frames,
+        frame_count: rec.frames.length,
+        size_bytes: rec.sizeBytes,
+        duration_ms: durationMs,
+      }, { onConflict: "session_id" });
+
+    if (error) {
+      console.error(`[recording] failed to save ${sessionId.slice(0, 8)}:`, error.message);
+    } else {
+      console.log(`[recording] saved ${sessionId.slice(0, 8)}: ${rec.frames.length} frames, ${Math.round(rec.sizeBytes / 1024)}KB, ${Math.round(durationMs / 1000)}s`);
+    }
+  } catch (err) {
+    console.error(`[recording] error saving ${sessionId.slice(0, 8)}:`, err.message);
+  }
+
+  sessionRecordings.delete(sessionId);
 }
 
 // ─── Start ───────────────────────────────────────────────────────────
