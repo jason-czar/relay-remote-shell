@@ -205,11 +205,102 @@ function InfoBox({ children, variant = "info" }: { children: React.ReactNode; va
   );
 }
 
+type SearchResult = {
+  sectionId: string;
+  sectionTitle: string;
+  subsectionId?: string;
+  subsectionTitle?: string;
+  snippet: string;
+};
+
+function buildSearchIndex(): { id: string; parentId: string; title: string; text: string }[] {
+  const index: { id: string; parentId: string; title: string; text: string }[] = [];
+  for (const section of sections) {
+    // Index main section
+    const sectionEl = document.getElementById(section.id);
+    if (sectionEl) {
+      // Grab text between this heading and next h2
+      let text = "";
+      let sibling = sectionEl.nextElementSibling;
+      while (sibling && sibling.tagName !== "H2") {
+        if (sibling.tagName !== "H3") {
+          text += " " + (sibling.textContent || "");
+        }
+        sibling = sibling.nextElementSibling;
+      }
+      index.push({ id: section.id, parentId: section.id, title: section.title, text: text.slice(0, 2000) });
+    }
+    // Index subsections
+    for (const sub of section.subsections || []) {
+      const subEl = document.getElementById(sub.id);
+      if (subEl) {
+        let text = "";
+        let sibling = subEl.nextElementSibling;
+        while (sibling && sibling.tagName !== "H2" && sibling.tagName !== "H3") {
+          text += " " + (sibling.textContent || "");
+          sibling = sibling.nextElementSibling;
+        }
+        index.push({ id: sub.id, parentId: section.id, title: sub.title, text: text.slice(0, 2000) });
+      }
+    }
+  }
+  return index;
+}
+
+function getSnippet(text: string, query: string, contextChars = 80): string {
+  const lower = text.toLowerCase();
+  const idx = lower.indexOf(query.toLowerCase());
+  if (idx === -1) return text.slice(0, contextChars * 2).trim() + "…";
+  const start = Math.max(0, idx - contextChars);
+  const end = Math.min(text.length, idx + query.length + contextChars);
+  let snippet = text.slice(start, end).trim();
+  if (start > 0) snippet = "…" + snippet;
+  if (end < text.length) snippet = snippet + "…";
+  return snippet;
+}
+
 export default function Docs() {
   const navigate = useNavigate();
   const location = useLocation();
   const [search, setSearch] = useState("");
   const [activeSection, setActiveSection] = useState("overview");
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [searchIndex, setSearchIndex] = useState<ReturnType<typeof buildSearchIndex>>([]);
+  const [showResults, setShowResults] = useState(false);
+
+  // Build search index after render
+  useEffect(() => {
+    const timer = setTimeout(() => setSearchIndex(buildSearchIndex()), 500);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Perform content search
+  useEffect(() => {
+    if (!search.trim() || search.trim().length < 2) {
+      setSearchResults([]);
+      setShowResults(false);
+      return;
+    }
+    const q = search.trim().toLowerCase();
+    const results: SearchResult[] = [];
+    for (const entry of searchIndex) {
+      const titleMatch = entry.title.toLowerCase().includes(q);
+      const textMatch = entry.text.toLowerCase().includes(q);
+      if (titleMatch || textMatch) {
+        const parentSection = sections.find(s => s.id === entry.parentId);
+        const isSubsection = entry.id !== entry.parentId;
+        results.push({
+          sectionId: entry.parentId,
+          sectionTitle: parentSection?.title || entry.parentId,
+          subsectionId: isSubsection ? entry.id : undefined,
+          subsectionTitle: isSubsection ? entry.title : undefined,
+          snippet: getSnippet(entry.text, search.trim()),
+        });
+      }
+    }
+    setSearchResults(results.slice(0, 15));
+    setShowResults(true);
+  }, [search, searchIndex]);
 
   // Scroll to hash on load
   useEffect(() => {
@@ -241,9 +332,18 @@ export default function Docs() {
   const filteredSections = search
     ? sections.filter(s =>
         s.title.toLowerCase().includes(search.toLowerCase()) ||
-        s.subsections?.some(sub => sub.title.toLowerCase().includes(search.toLowerCase()))
+        s.subsections?.some(sub => sub.title.toLowerCase().includes(search.toLowerCase())) ||
+        searchResults.some(r => r.sectionId === s.id)
       )
     : sections;
+
+  const handleResultClick = (result: SearchResult) => {
+    const targetId = result.subsectionId || result.sectionId;
+    const el = document.getElementById(targetId);
+    if (el) el.scrollIntoView({ behavior: "smooth" });
+    setShowResults(false);
+    setSearch("");
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -271,16 +371,58 @@ export default function Docs() {
         {/* Sidebar Nav */}
         <aside className="hidden lg:block w-64 shrink-0 sticky top-14 h-[calc(100vh-3.5rem)] border-r border-border">
           <ScrollArea className="h-full py-6 px-4">
-            <div className="mb-4">
+            <div className="mb-4 relative">
               <div className="relative">
                 <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
                 <Input
-                  placeholder="Search docs..."
+                  placeholder="Search all content..."
                   value={search}
                   onChange={e => setSearch(e.target.value)}
+                  onFocus={() => search.trim().length >= 2 && setShowResults(true)}
+                  onBlur={() => setTimeout(() => setShowResults(false), 200)}
                   className="pl-8 h-9 text-sm"
                 />
+                {search && (
+                  <button
+                    onClick={() => { setSearch(""); setShowResults(false); }}
+                    className="absolute right-2.5 top-2.5 text-muted-foreground hover:text-foreground"
+                  >
+                    <span className="text-xs">✕</span>
+                  </button>
+                )}
               </div>
+              {showResults && searchResults.length > 0 && (
+                <div className="absolute z-50 top-full left-0 right-0 mt-1 rounded-lg border border-border bg-popover shadow-lg max-h-80 overflow-y-auto">
+                  <div className="p-2 text-xs text-muted-foreground border-b border-border">
+                    {searchResults.length} result{searchResults.length !== 1 ? "s" : ""} found
+                  </div>
+                  {searchResults.map((result, i) => (
+                    <button
+                      key={`${result.sectionId}-${result.subsectionId}-${i}`}
+                      onClick={() => handleResultClick(result)}
+                      className="w-full text-left px-3 py-2.5 hover:bg-muted/50 transition-colors border-b border-border/50 last:border-0"
+                    >
+                      <div className="flex items-center gap-1.5 mb-0.5">
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4">{result.sectionTitle}</Badge>
+                        {result.subsectionTitle && (
+                          <>
+                            <ChevronRight className="h-2.5 w-2.5 text-muted-foreground" />
+                            <span className="text-xs font-medium text-foreground">{result.subsectionTitle}</span>
+                          </>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-muted-foreground line-clamp-2 leading-relaxed mt-1">
+                        {result.snippet}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {showResults && search.trim().length >= 2 && searchResults.length === 0 && (
+                <div className="absolute z-50 top-full left-0 right-0 mt-1 rounded-lg border border-border bg-popover shadow-lg p-4 text-center">
+                  <p className="text-sm text-muted-foreground">No results for "{search}"</p>
+                </div>
+              )}
             </div>
             <nav className="space-y-1">
               {filteredSections.map(section => (
