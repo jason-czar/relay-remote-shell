@@ -39,6 +39,7 @@ Flags:
   --api <url>       Edge Function base URL (required for pairing)
   --config <path>   Config file path (default: ~/.relay-connector.json)
   --shell <path>    Shell to spawn (default: $SHELL or /bin/sh)
+  --workdir <path>  Working directory for sessions (default: home directory)
 ```
 
 ## How It Works

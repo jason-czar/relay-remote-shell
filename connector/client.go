@@ -100,6 +100,7 @@ type WSTunnel struct {
 type RelayClient struct {
 	config        *Config
 	shell         string
+	workdir       string
 	conn          *websocket.Conn
 	sessions      map[string]*PTYSession
 	wsTunnels     map[string]*WSTunnel
@@ -117,10 +118,11 @@ type PTYSession struct {
 }
 
 // NewRelayClient creates a new relay client.
-func NewRelayClient(cfg *Config, shell string) *RelayClient {
+func NewRelayClient(cfg *Config, shell, workdir string) *RelayClient {
 	return &RelayClient{
 		config:    cfg,
 		shell:     shell,
+		workdir:   workdir,
 		sessions:  make(map[string]*PTYSession),
 		wsTunnels: make(map[string]*WSTunnel),
 		done:      make(chan struct{}),
@@ -514,8 +516,10 @@ func (c *RelayClient) startSession(data SessionStartData) {
 	cmd := exec.Command(c.shell)
 	cmd.Env = append(os.Environ(), "TERM=xterm-256color")
 
-	// Start shell in user's home directory, not the connector's CWD
-	if home, err := os.UserHomeDir(); err == nil {
+	// Set working directory: prefer --workdir flag, fallback to home directory
+	if c.workdir != "" {
+		cmd.Dir = c.workdir
+	} else if home, err := os.UserHomeDir(); err == nil {
 		cmd.Dir = home
 	}
 
