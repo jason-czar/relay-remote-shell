@@ -27,7 +27,7 @@ const sections: Section[] = [
     title: "Overview",
     icon: BookOpen,
     subsections: [
-      { id: "what-is-relay", title: "What is Relay Terminal?" },
+      { id: "what-is-relay", title: "What is PrivaClaw?" },
       { id: "architecture", title: "Architecture" },
       { id: "key-concepts", title: "Key Concepts" },
     ],
@@ -92,7 +92,7 @@ const sections: Section[] = [
   },
   {
     id: "private-bridge",
-    title: "Private Bridge Skill",
+    title: "PrivaClaw Skill",
     icon: Plug,
     subsections: [
       { id: "skill-overview", title: "Overview" },
@@ -276,20 +276,20 @@ export default function Docs() {
     jsonLd.textContent = JSON.stringify({
       "@context": "https://schema.org",
       "@type": "TechArticle",
-      "name": "Relay Terminal Cloud Documentation",
-      "description": "Complete documentation for Relay Terminal Cloud — secure browser-based terminal access to remote machines via outbound-only WebSocket relay.",
-      "url": "https://relay-remote-shell.lovable.app/docs",
+      "name": "PrivaClaw Documentation",
+      "description": "Complete documentation for PrivaClaw — secure browser-based terminal access to remote machines via outbound-only WebSocket relay.",
+      "url": "https://privaclaw.com/docs",
       "about": {
         "@type": "SoftwareApplication",
-        "name": "Relay Terminal Cloud",
+        "name": "PrivaClaw",
         "applicationCategory": "DeveloperApplication",
         "operatingSystem": "Web, Linux, macOS, Windows",
       },
       "mainEntity": {
         "@type": "WebAPI",
-        "name": "Relay Terminal API",
-        "documentation": "https://relay-remote-shell.lovable.app/docs#api-reference",
-        "provider": { "@type": "Organization", "name": "Relay Terminal Cloud" },
+        "name": "PrivaClaw API",
+        "documentation": "https://privaclaw.com/docs#api-reference",
+        "provider": { "@type": "Organization", "name": "PrivaClaw" },
       },
       "alternativeHeadline": "AI-readable docs available at /llms.txt",
     });
@@ -395,7 +395,7 @@ export default function Docs() {
             </Button>
             <div className="flex items-center gap-2">
               <Terminal className="h-5 w-5 text-primary" />
-              <span className="font-bold tracking-tight">Relay Terminal</span>
+              <span className="font-bold tracking-tight">PrivaClaw</span>
               <Badge variant="secondary" className="text-xs">Docs</Badge>
             </div>
           </div>
@@ -501,8 +501,8 @@ export default function Docs() {
           {/* Machine-readable hint for crawlers */}
           <div className="sr-only" aria-hidden="true" data-ai-docs="/llms.txt">
             Machine-readable documentation available at /llms.txt in plain Markdown format.
-            This page contains full documentation for Relay Terminal Cloud including architecture,
-            API reference, relay protocol, connector agent, Private Bridge skill, security model,
+            This page contains full documentation for PrivaClaw including architecture,
+             API reference, relay protocol, connector agent, PrivaClaw skill, security model,
             and troubleshooting guides.
           </div>
 
@@ -511,13 +511,13 @@ export default function Docs() {
           <div className="mb-12">
             <h1 className="text-4xl font-bold tracking-tight mb-4">Documentation</h1>
             <p className="text-lg text-muted-foreground leading-relaxed max-w-2xl">
-              Everything you need to set up, configure, and operate Relay Terminal Cloud —
+              Everything you need to set up, configure, and operate PrivaClaw —
               from your first device to advanced OpenClaw relay integrations.
             </p>
             <div className="flex flex-wrap gap-2 mt-6">
               <a href="#getting-started"><Badge variant="outline" className="cursor-pointer hover:bg-muted gap-1"><Rocket className="h-3 w-3" /> Quick Start</Badge></a>
               <a href="#connector"><Badge variant="outline" className="cursor-pointer hover:bg-muted gap-1"><Download className="h-3 w-3" /> Install Connector</Badge></a>
-              <a href="#private-bridge"><Badge variant="outline" className="cursor-pointer hover:bg-muted gap-1"><Plug className="h-3 w-3" /> Private Bridge</Badge></a>
+              <a href="#private-bridge"><Badge variant="outline" className="cursor-pointer hover:bg-muted gap-1"><Plug className="h-3 w-3" /> PrivaClaw</Badge></a>
               <a href="#api-reference"><Badge variant="outline" className="cursor-pointer hover:bg-muted gap-1"><Code className="h-3 w-3" /> API Reference</Badge></a>
             </div>
             <div className="mt-4 flex flex-col gap-1">
@@ -535,9 +535,9 @@ export default function Docs() {
           {/* ─── OVERVIEW ─── */}
           <Heading id="overview" level={2}>Overview</Heading>
 
-          <Heading id="what-is-relay" level={3}>What is Relay Terminal?</Heading>
+          <Heading id="what-is-relay" level={3}>What is PrivaClaw?</Heading>
           <p className="text-sm text-muted-foreground leading-relaxed mb-4">
-            Relay Terminal Cloud is a platform for secure, browser-based terminal access to remote machines.
+            PrivaClaw is a platform for secure, browser-based terminal access to remote machines.
             It eliminates the need for VPNs, SSH key management, or exposed ports by using an <strong>outbound-only
             WebSocket relay</strong> architecture. Your machines connect <em>out</em> to the relay — nothing listens inbound.
           </p>
@@ -585,8 +585,8 @@ export default function Docs() {
                 <tr className="border-b border-border"><td className="p-3 font-medium">Connector</td><td className="p-3 text-muted-foreground">A Go binary that runs on the target machine, spawning PTY shells on demand.</td></tr>
                 <tr className="border-b border-border"><td className="p-3 font-medium">Session</td><td className="p-3 text-muted-foreground">An active terminal connection between a browser and a device through the relay.</td></tr>
                 <tr className="border-b border-border"><td className="p-3 font-medium">Relay Server</td><td className="p-3 text-muted-foreground">The WebSocket hub that bridges browser clients and connector agents.</td></tr>
-                <tr className="border-b border-border"><td className="p-3 font-medium">Private Bridge Skill</td><td className="p-3 text-muted-foreground">An OpenClaw skill that connects AI agents to the relay for remote prompting and control.</td></tr>
-                <tr><td className="p-3 font-medium">Node</td><td className="p-3 text-muted-foreground">A configured OpenClaw instance connected via the Private Bridge skill.</td></tr>
+                <tr className="border-b border-border"><td className="p-3 font-medium">PrivaClaw Skill</td><td className="p-3 text-muted-foreground">An OpenClaw skill that connects AI agents to the relay for remote prompting and control.</td></tr>
+                <tr><td className="p-3 font-medium">Node</td><td className="p-3 text-muted-foreground">A configured OpenClaw instance connected via the PrivaClaw skill.</td></tr>
               </tbody>
             </table>
           </div>
@@ -703,7 +703,7 @@ go build -o relay-connector .`}</CodeBlock>
           <CodeBlock>{`{
   "device_id": "uuid",
   "token": "device-auth-token",
-  "relay_url": "wss://relay-terminal-cloud.fly.dev"
+  "relay_url": "wss://privaclaw.fly.dev"
 }`}</CodeBlock>
 
           <Heading id="connector-cross-compile" level={3}>Cross-Compilation</Heading>
@@ -846,12 +846,12 @@ GOOS=linux GOARCH=arm GOARM=7 go build -o relay-connector-pi .`}</CodeBlock>
 
           <Separator className="my-10" />
 
-          {/* ─── PRIVATE BRIDGE SKILL ─── */}
-          <Heading id="private-bridge" level={2}>Private Bridge Skill (OpenClaw)</Heading>
+          {/* ─── PRIVACLAW SKILL ─── */}
+          <Heading id="private-bridge" level={2}>PrivaClaw Skill (OpenClaw)</Heading>
 
           <Heading id="skill-overview" level={3}>Overview</Heading>
           <p className="text-sm text-muted-foreground leading-relaxed mb-4">
-            The <strong>Private Bridge</strong> skill (v1.0.1) enables secure remote communication between an OpenClaw instance
+            The <strong>PrivaClaw</strong> skill (v1.0.1) enables secure remote communication between an OpenClaw instance
             and the relay server. It replaces external messaging layers (Telegram, Discord) with a native, encrypted WebSocket
             channel for remote AI agent control.
           </p>
@@ -902,7 +902,7 @@ GOOS=linux GOARCH=arm GOARM=7 go build -o relay-connector-pi .`}</CodeBlock>
             The config UI generates a JSON snippet you can paste into your OpenClaw skill config:
           </p>
           <CodeBlock>{`{
-  "relay_url": "wss://relay-terminal-cloud.fly.dev",
+  "relay_url": "wss://privaclaw.fly.dev",
   "node_id": "your-node-uuid",
   "auth_token": "your-secret-token"
 }`}</CodeBlock>
@@ -1067,7 +1067,7 @@ GOOS=linux GOARCH=arm GOARM=7 go build -o relay-connector-pi .`}</CodeBlock>
 {
   "device_id": "uuid",
   "token": "device-auth-token",
-  "relay_url": "wss://relay-terminal-cloud.fly.dev"
+  "relay_url": "wss://privaclaw.fly.dev"
 }`}</CodeBlock>
 
           <Heading id="api-start-session" level={3}>POST /start-session</Heading>
@@ -1212,7 +1212,7 @@ fly secrets set SUPABASE_URL=https://your-project.supabase.co
 fly secrets set SUPABASE_SERVICE_ROLE_KEY=your-key
 fly deploy`}</CodeBlock>
           <InfoBox variant="info">
-            The default public relay is at <code className="text-xs bg-muted px-1 py-0.5 rounded font-mono">wss://relay-terminal-cloud.fly.dev</code>. For production use,
+            The default public relay is at <code className="text-xs bg-muted px-1 py-0.5 rounded font-mono">wss://privaclaw.fly.dev</code>. For production use,
             we recommend deploying your own relay server for full control.
           </InfoBox>
 
@@ -1284,12 +1284,12 @@ fly deploy`}</CodeBlock>
               <p className="text-sm text-muted-foreground">By default, it uses the <code className="text-xs bg-muted px-1 py-0.5 rounded font-mono">$SHELL</code> environment variable, falling back to <code className="text-xs bg-muted px-1 py-0.5 rounded font-mono">/bin/sh</code>. Override with the <code className="text-xs bg-muted px-1 py-0.5 rounded font-mono">--shell</code> flag.</p>
             </div>
             <div>
-              <p className="font-semibold text-sm mb-1">Q: Can I use the Private Bridge skill without the web app?</p>
+              <p className="font-semibold text-sm mb-1">Q: Can I use the PrivaClaw skill without the web app?</p>
               <p className="text-sm text-muted-foreground">Yes. The skill is a standalone OpenClaw component. You can configure it manually using the JSON config format without the web UI, though the visual wizard is recommended.</p>
             </div>
             <div>
               <p className="font-semibold text-sm mb-1">Q: What is the default relay server URL?</p>
-              <p className="text-sm text-muted-foreground"><code className="text-xs bg-muted px-1 py-0.5 rounded font-mono">wss://relay-terminal-cloud.fly.dev</code> — operated by the project maintainers. For production, deploy your own.</p>
+              <p className="text-sm text-muted-foreground"><code className="text-xs bg-muted px-1 py-0.5 rounded font-mono">wss://privaclaw.fly.dev</code> — operated by the project maintainers. For production, deploy your own.</p>
             </div>
             <div>
               <p className="font-semibold text-sm mb-1">Q: How do I update my profile or change my password?</p>
@@ -1313,7 +1313,7 @@ fly deploy`}</CodeBlock>
                 </Button>
               </a>
             </div>
-            <p className="text-xs text-muted-foreground mt-6">© {new Date().getFullYear()} Relay Terminal Cloud. All rights reserved.</p>
+            <p className="text-xs text-muted-foreground mt-6">© {new Date().getFullYear()} PrivaClaw. All rights reserved.</p>
           </div>
           </article>
         </main>

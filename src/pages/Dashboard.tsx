@@ -401,7 +401,7 @@ export default function Dashboard() {
                   <Plug className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
                   <p className="text-sm text-muted-foreground">No nodes connected to the relay</p>
                   <Button variant="link" size="sm" className="mt-1" onClick={() => navigate("/skill/private-bridge")}>
-                    Configure Private Bridge →
+                    Configure PrivaClaw →
                   </Button>
                 </div>
               ) : (

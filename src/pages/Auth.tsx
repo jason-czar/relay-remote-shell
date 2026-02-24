@@ -142,7 +142,7 @@ export default function Auth() {
             {isLogin ? "Welcome back" : "Create account"}
           </CardTitle>
           <CardDescription>
-            {isLogin ? "Sign in to Relay Terminal Cloud" : "Get started with Relay Terminal Cloud"}
+            {isLogin ? "Sign in to PrivaClaw" : "Get started with PrivaClaw"}
           </CardDescription>
         </CardHeader>
         <CardContent>

@@ -11,13 +11,13 @@ metadata:
     files: ["relayClient.ts", "config.ts", "capabilities.ts", "index.ts"]
 ---
 
-# Private Bridge
+# PrivaClaw
 
 Enables secure remote communication between an OpenClaw instance and a relay server without exposing ports, requiring SSH, or relying on Telegram/Discord.
 
 ## Description
 
-The Private Bridge skill registers your local OpenClaw instance as a **managed remote node** on a relay network. Once connected, the node can receive prompts, execute workflows, report health, and be restarted — all through a secure, outbound-only WebSocket channel.
+The PrivaClaw skill registers your local OpenClaw instance as a **managed remote node** on a relay network. Once connected, the node can receive prompts, execute workflows, report health, and be restarted — all through a secure, outbound-only WebSocket channel.
 
 This skill replaces external messaging-based control layers such as Telegram or Discord with a native, secure relay channel for OpenClaw interaction.
 
@@ -108,7 +108,7 @@ No other external endpoints are contacted. All network activity is limited to th
 
 ## Trust Statement
 
-> **By installing this skill, you are connecting your OpenClaw instance to an external relay server at the configured `relay_url`.** Prompt content and response tokens are transmitted through this relay in real time. Only install this skill if you trust the operator of the relay server. The default relay (`wss://relay-terminal-cloud.fly.dev`) is operated by the project maintainers.
+> **By installing this skill, you are connecting your OpenClaw instance to an external relay server at the configured `relay_url`.** Prompt content and response tokens are transmitted through this relay in real time. Only install this skill if you trust the operator of the relay server. The default relay (`wss://privaclaw.fly.dev`) is operated by the project maintainers.
 
 ## Operational Guarantees
 

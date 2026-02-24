@@ -57,7 +57,7 @@ export function TerminalPanel({ deviceId, deviceName, onClose }: TerminalPanelPr
   }, []);
 
   const connectWebSocket = async (term: Terminal, sessionId: string) => {
-    const relayUrl = import.meta.env.VITE_RELAY_URL || "wss://relay-terminal-cloud.fly.dev";
+    const relayUrl = import.meta.env.VITE_RELAY_URL || "wss://privaclaw.fly.dev";
     const { data: { session: authSession } } = await supabase.auth.getSession();
     const jwt = authSession?.access_token;
     if (!jwt) { term.writeln(`\x1b[31m✗ No auth session\x1b[0m`); setConnectionStatus("offline"); return; }

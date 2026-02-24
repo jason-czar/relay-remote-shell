@@ -21,7 +21,7 @@ const navItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Projects", url: "/projects", icon: FolderOpen },
   { title: "Multi-Session", url: "/multi-session", icon: Columns2 },
-  { title: "Private Bridge", url: "/skill/private-bridge", icon: Plug },
+  { title: "PrivaClaw", url: "/skill/private-bridge", icon: Plug },
   { title: "Docs", url: "/docs", icon: BookOpen },
   { title: "Settings", url: "/settings", icon: Settings },
 ];
@@ -49,7 +49,7 @@ export function AppSidebar() {
           <SidebarGroupLabel>
             <div className="flex items-center gap-2">
               <Terminal className="h-4 w-4 text-primary" />
-              {!collapsed && <span className="font-mono text-sm font-bold">Relay Terminal</span>}
+              {!collapsed && <span className="font-mono text-sm font-bold">PrivaClaw</span>}
             </div>
           </SidebarGroupLabel>
           <SidebarGroupContent>

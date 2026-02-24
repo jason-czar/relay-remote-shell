@@ -16,7 +16,7 @@ interface TourStep {
 
 const steps: TourStep[] = [
   {
-    title: "Welcome to Relay Terminal! 👋",
+    title: "Welcome to PrivaClaw! 👋",
     description:
       "Let's walk you through getting set up. In under a minute, you'll have browser-based terminal access to any machine.",
     icon: Sparkles,

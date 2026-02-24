@@ -1,4 +1,4 @@
-# Relay Terminal Cloud — WebSocket Relay Server
+# PrivaClaw — WebSocket Relay Server
 
 A stateful WebSocket relay that bridges browser terminal sessions to Go connectors.
 
@@ -22,13 +22,13 @@ npm install
 
 # Install Fly CLI: https://fly.io/docs/getting-started/installing-flyctl/
 fly auth login
-fly launch --name relay-terminal-cloud
+fly launch --name privaclaw
 fly secrets set SUPABASE_URL=https://psmglvwvoygaadjajvoq.supabase.co
 fly secrets set SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 fly deploy
 ```
 
-Your relay URL will be: `wss://relay-terminal-cloud.fly.dev`
+Your relay URL will be: `wss://privaclaw.fly.dev`
 
 ## Local development
 

@@ -580,7 +580,7 @@ serve(async (req) => {
     const smartScript = `#!/bin/bash
 set -e
 
-echo "📦 Relay Terminal Connector — Smart Installer"
+echo "📦 PrivaClaw Connector — Smart Installer"
 echo ""
 
 # Detect OS
@@ -655,7 +655,7 @@ fi
   if (url.searchParams.get("install") === "ps") {
     const baseUrl = `${SUPABASE_URL}/storage/v1/object/public/connector-binaries`;
     const psScript = `
-Write-Host "📦 Relay Terminal Connector — Smart Installer" -ForegroundColor Cyan
+Write-Host "📦 PrivaClaw Connector — Smart Installer" -ForegroundColor Cyan
 Write-Host ""
 
 $arch = if ([System.Environment]::Is64BitOperatingSystem) { "amd64" } else { "386" }
@@ -699,7 +699,7 @@ try {
   const script = `#!/bin/bash
 set -e
 
-echo "📦 Downloading Relay Terminal Connector..."
+echo "📦 Downloading PrivaClaw Connector..."
 echo ""
 
 DEST="relay-connector"
