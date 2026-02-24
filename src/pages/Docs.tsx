@@ -92,7 +92,7 @@ const sections: Section[] = [
   },
   {
     id: "private-bridge",
-    title: "PrivateBridge Skill",
+    title: "Private Bridge Skill",
     icon: Plug,
     subsections: [
       { id: "skill-overview", title: "Overview" },
@@ -502,7 +502,7 @@ export default function Docs() {
           <div className="sr-only" aria-hidden="true" data-ai-docs="/llms.txt">
             Machine-readable documentation available at /llms.txt in plain Markdown format.
             This page contains full documentation for Relay Terminal Cloud including architecture,
-            API reference, relay protocol, connector agent, PrivateBridge skill, security model,
+            API reference, relay protocol, connector agent, Private Bridge skill, security model,
             and troubleshooting guides.
           </div>
 
@@ -517,7 +517,7 @@ export default function Docs() {
             <div className="flex flex-wrap gap-2 mt-6">
               <a href="#getting-started"><Badge variant="outline" className="cursor-pointer hover:bg-muted gap-1"><Rocket className="h-3 w-3" /> Quick Start</Badge></a>
               <a href="#connector"><Badge variant="outline" className="cursor-pointer hover:bg-muted gap-1"><Download className="h-3 w-3" /> Install Connector</Badge></a>
-              <a href="#private-bridge"><Badge variant="outline" className="cursor-pointer hover:bg-muted gap-1"><Plug className="h-3 w-3" /> PrivateBridge</Badge></a>
+              <a href="#private-bridge"><Badge variant="outline" className="cursor-pointer hover:bg-muted gap-1"><Plug className="h-3 w-3" /> Private Bridge</Badge></a>
               <a href="#api-reference"><Badge variant="outline" className="cursor-pointer hover:bg-muted gap-1"><Code className="h-3 w-3" /> API Reference</Badge></a>
             </div>
             <div className="mt-4 flex flex-col gap-1">
@@ -585,8 +585,8 @@ export default function Docs() {
                 <tr className="border-b border-border"><td className="p-3 font-medium">Connector</td><td className="p-3 text-muted-foreground">A Go binary that runs on the target machine, spawning PTY shells on demand.</td></tr>
                 <tr className="border-b border-border"><td className="p-3 font-medium">Session</td><td className="p-3 text-muted-foreground">An active terminal connection between a browser and a device through the relay.</td></tr>
                 <tr className="border-b border-border"><td className="p-3 font-medium">Relay Server</td><td className="p-3 text-muted-foreground">The WebSocket hub that bridges browser clients and connector agents.</td></tr>
-                <tr className="border-b border-border"><td className="p-3 font-medium">PrivateBridge Skill</td><td className="p-3 text-muted-foreground">An OpenClaw skill that connects AI agents to the relay for remote prompting and control.</td></tr>
-                <tr><td className="p-3 font-medium">Node</td><td className="p-3 text-muted-foreground">A configured OpenClaw instance connected via the PrivateBridge skill.</td></tr>
+                <tr className="border-b border-border"><td className="p-3 font-medium">Private Bridge Skill</td><td className="p-3 text-muted-foreground">An OpenClaw skill that connects AI agents to the relay for remote prompting and control.</td></tr>
+                <tr><td className="p-3 font-medium">Node</td><td className="p-3 text-muted-foreground">A configured OpenClaw instance connected via the Private Bridge skill.</td></tr>
               </tbody>
             </table>
           </div>
@@ -846,12 +846,12 @@ GOOS=linux GOARCH=arm GOARM=7 go build -o relay-connector-pi .`}</CodeBlock>
 
           <Separator className="my-10" />
 
-          {/* ─── PRIVATEBRIDGE SKILL ─── */}
-          <Heading id="private-bridge" level={2}>PrivateBridge Skill (OpenClaw)</Heading>
+          {/* ─── PRIVATE BRIDGE SKILL ─── */}
+          <Heading id="private-bridge" level={2}>Private Bridge Skill (OpenClaw)</Heading>
 
           <Heading id="skill-overview" level={3}>Overview</Heading>
           <p className="text-sm text-muted-foreground leading-relaxed mb-4">
-            The <strong>PrivateBridge</strong> skill (v1.0.1) enables secure remote communication between an OpenClaw instance
+            The <strong>Private Bridge</strong> skill (v1.0.1) enables secure remote communication between an OpenClaw instance
             and the relay server. It replaces external messaging layers (Telegram, Discord) with a native, encrypted WebSocket
             channel for remote AI agent control.
           </p>
@@ -1284,7 +1284,7 @@ fly deploy`}</CodeBlock>
               <p className="text-sm text-muted-foreground">By default, it uses the <code className="text-xs bg-muted px-1 py-0.5 rounded font-mono">$SHELL</code> environment variable, falling back to <code className="text-xs bg-muted px-1 py-0.5 rounded font-mono">/bin/sh</code>. Override with the <code className="text-xs bg-muted px-1 py-0.5 rounded font-mono">--shell</code> flag.</p>
             </div>
             <div>
-              <p className="font-semibold text-sm mb-1">Q: Can I use the PrivateBridge skill without the web app?</p>
+              <p className="font-semibold text-sm mb-1">Q: Can I use the Private Bridge skill without the web app?</p>
               <p className="text-sm text-muted-foreground">Yes. The skill is a standalone OpenClaw component. You can configure it manually using the JSON config format without the web UI, though the visual wizard is recommended.</p>
             </div>
             <div>

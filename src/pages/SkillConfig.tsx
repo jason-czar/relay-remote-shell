@@ -324,9 +324,9 @@ export default function SkillConfig() {
             <div>
               <h1 className="text-lg font-semibold text-foreground flex items-center gap-2">
                 <Settings2 className="h-5 w-5 text-muted-foreground" />
-                PrivateBridge Configuration
+                Private Bridge Configuration
               </h1>
-              <p className="text-sm text-muted-foreground">Connect your OpenClaw nodes via PrivateBridge</p>
+              <p className="text-sm text-muted-foreground">Connect your OpenClaw nodes via Private Bridge</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
