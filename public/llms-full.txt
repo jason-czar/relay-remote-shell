@@ -1,8 +1,9 @@
-# Relay Terminal Cloud — Documentation
+# Relay Terminal Cloud — Full Documentation
 
 > Machine-readable documentation for AI agents and bots.
-> Full version with all source documents: /llms-full.txt
-> Human-friendly docs available at: https://relay-remote-shell.lovable.app/docs
+> This is the extended version with full source documents included.
+> Compact version: /llms.txt
+> Human-friendly docs: https://relay-remote-shell.lovable.app/docs
 > Last updated: 2025-02-24
 
 ---
@@ -647,7 +648,9 @@ Go to `/settings`.
 | `/` | Landing page | No |
 | `/auth` | Sign in / Sign up | No |
 | `/reset-password` | Password reset | No |
-| `/docs` | Documentation (this page) | No |
+| `/docs` | Documentation | No |
+| `/llms.txt` | Machine-readable docs (compact) | No |
+| `/llms-full.txt` | Machine-readable docs (full, this file) | No |
 | `/dashboard` | Main dashboard | Yes |
 | `/projects` | Project list | Yes |
 | `/project/:id` | Project detail (devices, team, sessions) | Yes |
@@ -698,4 +701,370 @@ interface OpenClawRuntime {
 
 ---
 
-*End of machine-readable documentation. For the interactive version, visit https://relay-remote-shell.lovable.app/docs*
+# APPENDIX A: Relay Server README (Full Source)
+
+# Relay Terminal Cloud — WebSocket Relay Server
+
+A stateful WebSocket relay that bridges browser terminal sessions to Go connectors.
+
+## Architecture
+
+```
+Browser (xterm.js) ←→ WSS Relay ←→ Go Connector ←→ Local PTY
+```
+
+## How it works
+
+1. **Connectors** connect to `wss://relay.yourapp.com/connect`, send `hello` with device credentials
+2. **Browsers** connect to `wss://relay.yourapp.com/session`, send `auth` with Supabase JWT + session ID
+3. The relay routes messages between matched browser↔connector pairs
+
+## Deploy to Fly.io
+
+```bash
+cd relay-server
+npm install
+
+# Install Fly CLI: https://fly.io/docs/getting-started/installing-flyctl/
+fly auth login
+fly launch --name relay-terminal-cloud
+fly secrets set SUPABASE_URL=https://<your-project>.supabase.co
+fly secrets set SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+fly deploy
+```
+
+Your relay URL will be: `wss://relay-terminal-cloud.fly.dev`
+
+## Local development
+
+```bash
+cd relay-server
+cp .env.example .env
+# Fill in your Supabase credentials
+npm install
+npm run dev
+```
+
+## Environment variables
+
+| Variable | Description |
+|----------|-------------|
+| `PORT` | Server port (default: 8080) |
+| `SUPABASE_URL` | Your Supabase project URL |
+| `SUPABASE_SERVICE_ROLE_KEY` | Service role key for device auth |
+
+## WebSocket Endpoints
+
+| Endpoint | Client | Purpose |
+|---|---|---|
+| `wss://<relay>/connect` | Connector agent | Device authentication and PTY session bridging |
+| `wss://<relay>/session` | Browser | User authentication and terminal session |
+
+---
+
+# APPENDIX B: Relay Message Protocol (Full Source — PROTOCOL.md)
+
+All messages are JSON with this envelope:
+
+```json
+{ "type": "message_type", "data": { ... } }
+```
+
+## Connector → Relay
+
+### `hello` (on connect)
+```json
+{
+  "type": "hello",
+  "data": {
+    "device_id": "uuid",
+    "token": "device-token",
+    "meta": { "name": "My Server" }
+  }
+}
+```
+
+### `session_started` (ack after session_start)
+```json
+{
+  "type": "session_started",
+  "data": { "session_id": "uuid" }
+}
+```
+
+### `stdout` (terminal output)
+```json
+{
+  "type": "stdout",
+  "data": { "session_id": "uuid", "data_b64": "base64-encoded-bytes" }
+}
+```
+
+### `session_end` (session closed by connector)
+```json
+{
+  "type": "session_end",
+  "data": { "session_id": "uuid", "reason": "exit" }
+}
+```
+
+## Relay → Connector
+
+### `hello_ok`
+```json
+{ "type": "hello_ok" }
+```
+
+### `session_start`
+```json
+{
+  "type": "session_start",
+  "data": { "session_id": "uuid", "cols": 120, "rows": 40 }
+}
+```
+
+### `stdin` (user input from browser)
+```json
+{
+  "type": "stdin",
+  "data": { "session_id": "uuid", "data_b64": "base64-encoded-bytes" }
+}
+```
+
+### `resize`
+```json
+{
+  "type": "resize",
+  "data": { "session_id": "uuid", "cols": 120, "rows": 40 }
+}
+```
+
+### `session_end` (browser disconnected)
+```json
+{
+  "type": "session_end",
+  "data": { "session_id": "uuid", "reason": "user_disconnect" }
+}
+```
+
+## Browser → Relay
+
+### `auth` (on connect)
+```json
+{
+  "type": "auth",
+  "data": {
+    "token": "supabase-jwt",
+    "session_id": "uuid",
+    "device_id": "uuid"
+  }
+}
+```
+
+### `stdin`, `resize`, `session_end`
+Same format as Relay → Connector (forwarded directly).
+
+## Relay → Browser
+
+### `auth_ok`
+```json
+{ "type": "auth_ok" }
+```
+
+### `stdout`, `session_end`, `error`
+Same format as Connector → Relay (forwarded directly).
+
+---
+
+# APPENDIX C: Go Connector README (Full Source)
+
+# Relay Terminal — Go Connector
+
+A lightweight agent that runs on your local machine or server, pairing it with the Relay Terminal Cloud web app and spawning PTY shell sessions on demand.
+
+## Prerequisites
+
+- Go 1.22+
+- A device registered in the web app with a pairing code
+
+## Quick Start
+
+```bash
+cd connector
+go mod tidy
+
+# Step 1: Pair with your device using the code from the web UI
+go run . --pair ABCD1234 \
+         --api https://<your-project>.supabase.co/functions/v1 \
+         --name "My Server"
+
+# Step 2: Connect to the relay (uses saved config)
+go run .
+```
+
+## Build
+
+```bash
+go build -o relay-connector .
+```
+
+## Usage
+
+```
+relay-connector [flags]
+
+Flags:
+  --pair <code>     Pairing code from the web UI (pairs device, then exits)
+  --name <name>     Device name (optional, used during pairing)
+  --api <url>       Edge Function base URL (required for pairing)
+  --config <path>   Config file path (default: ~/.relay-connector.json)
+  --shell <path>    Shell to spawn (default: $SHELL or /bin/sh)
+```
+
+## How It Works
+
+1. **Pairing**: The connector calls the `pair-device` edge function with the one-time code displayed in the web UI. It receives a device ID, auth token, and relay WebSocket URL, saved to `~/.relay-connector.json`.
+
+2. **Connecting**: On subsequent runs, the connector reads its config and connects to the relay server via WebSocket, sending a `hello` message with its credentials.
+
+3. **Sessions**: When a user opens a terminal in the browser, the relay sends a `session_start` message. The connector spawns a PTY shell and bridges stdin/stdout over the WebSocket using base64-encoded messages.
+
+4. **Lifecycle**: Sessions end when the user disconnects or the shell process exits. The connector supports multiple concurrent sessions.
+
+## Configuration File
+
+Stored at `~/.relay-connector.json` (permissions: 0600):
+
+```json
+{
+  "device_id": "uuid",
+  "token": "device-auth-token",
+  "relay_url": "wss://your-relay.fly.dev"
+}
+```
+
+## Cross-Compilation
+
+```bash
+# Linux (amd64)
+GOOS=linux GOARCH=amd64 go build -o relay-connector-linux .
+
+# macOS (Apple Silicon)
+GOOS=darwin GOARCH=arm64 go build -o relay-connector-mac .
+
+# Windows
+GOOS=windows GOARCH=amd64 go build -o relay-connector.exe .
+```
+
+---
+
+# APPENDIX D: Remote Relay Skill README (Full Source)
+
+# 📡 remote-relay
+
+**Secure outbound-only relay for remote OpenClaw control — no exposed ports, no SSH, no Telegram.**
+
+## What It Does
+
+Connects your OpenClaw instance to a relay server over a single outbound WebSocket connection. Once connected, you can remotely:
+
+- 💬 **Send prompts** and stream responses in real time
+- 📊 **Check health** — uptime, active tasks, last error
+- 🔄 **Restart** the OpenClaw process gracefully
+- ⚡ **Trigger workflows** by name with parameters
+
+All without opening ports, configuring firewalls, or setting up SSH tunnels.
+
+## Installation
+
+```bash
+openclaw skill install remote-relay
+```
+
+Or install from ClawHub:
+
+```bash
+clawhub install remote-relay
+```
+
+## Configuration
+
+Set these environment variables or add them to your OpenClaw config:
+
+| Variable | Required | Description |
+|---|---|---|
+| `RELAY_URL` | ✅ | WebSocket URL of the relay server (e.g. `wss://relay-terminal-cloud.fly.dev`) |
+| `NODE_ID` | ✅ | Unique identifier for this node (typically your device ID) |
+| `AUTH_TOKEN` | ✅ | Secret token for relay authentication (your device token) |
+
+### Example config
+
+```json
+{
+  "relay_url": "wss://relay-terminal-cloud.fly.dev",
+  "node_id": "my-server-01",
+  "auth_token": "your-device-token-here"
+}
+```
+
+## How It Works
+
+```
+┌──────────────┐         outbound WSS         ┌──────────────┐
+│  Your Server │ ──────────────────────────▶  │ Relay Server │
+│  (OpenClaw)  │ ◀────────────────────────── │              │
+│              │    commands / responses       │              │
+└──────────────┘                               └──────────────┘
+        │                                             │
+        │  local AI execution                         │  dashboard / API
+        │  stays on your machine                      │  for remote control
+        ▼                                             ▼
+```
+
+1. OpenClaw opens an **outbound** WebSocket to the relay
+2. Authenticates with `auth_token` and `node_id`
+3. Sends heartbeats every 15 seconds
+4. Receives and executes relay commands (`prompt`, `status`, `restart`, `workflow`)
+5. Auto-reconnects with exponential backoff on disconnection
+
+## Capabilities
+
+| Capability | Description |
+|---|---|
+| `remote_chat` | Execute prompts remotely, stream tokens back |
+| `remote_status` | Report node health and connection state |
+| `remote_restart` | Gracefully restart with pending task reporting |
+| `remote_trigger` | Execute named workflows/tasks |
+
+## Security
+
+- **Outbound only** — never opens a listening port
+- **TLS encrypted** — all connections use `wss://`
+- **Capability-scoped** — only declared capabilities can be invoked remotely
+- **No data persistence** — relay forwards in real time, does not store content
+- **Local execution continues** during disconnection
+
+See [SKILL.md](./SKILL.md) for the full security & privacy disclosure.
+
+## Requirements
+
+- OpenClaw v1.0+
+- A running relay server (default: `wss://relay-terminal-cloud.fly.dev`)
+- Network access to the relay URL (outbound port 443)
+
+## Troubleshooting
+
+| Problem | Solution |
+|---|---|
+| Connection refused | Verify `RELAY_URL` is correct and reachable |
+| Auth failed | Check `AUTH_TOKEN` matches your paired device token |
+| Keeps reconnecting | Ensure the relay server is running and your network allows outbound WSS |
+| Commands not executing | Verify the node is in **Online** state (check heartbeat logs) |
+
+## License
+
+MIT
+
+---
+
+*End of full machine-readable documentation. Compact version at /llms.txt. Interactive version at https://relay-remote-shell.lovable.app/docs*
