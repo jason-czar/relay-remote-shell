@@ -61,6 +61,23 @@ function buildInterceptScript(relayHttpUrl: string, relayWsUrl: string, deviceId
   window.WebSocket.CLOSING = OrigWebSocket.CLOSING;
   window.WebSocket.CLOSED = OrigWebSocket.CLOSED;
 
+  // --- EventSource (SSE) interception ---
+  var OrigEventSource = window.EventSource;
+  if (OrigEventSource) {
+    window.EventSource = function(url, config) {
+      var rewritten = rewriteHttpUrl(url);
+      if (rewritten) {
+        console.log('[sse-proxy] intercepting ' + url);
+        return new OrigEventSource(rewritten, config);
+      }
+      return new OrigEventSource(url, config);
+    };
+    window.EventSource.prototype = OrigEventSource.prototype;
+    window.EventSource.CONNECTING = OrigEventSource.CONNECTING;
+    window.EventSource.OPEN = OrigEventSource.OPEN;
+    window.EventSource.CLOSED = OrigEventSource.CLOSED;
+  }
+
   // --- fetch() interception ---
   var origFetch = window.fetch;
   window.fetch = function(input, init) {
