@@ -78,6 +78,19 @@ function buildInterceptScript(relayHttpUrl: string, relayWsUrl: string, deviceId
     window.EventSource.CLOSED = OrigEventSource.CLOSED;
   }
 
+  // --- navigator.sendBeacon interception ---
+  var origBeacon = navigator.sendBeacon;
+  if (origBeacon) {
+    navigator.sendBeacon = function(url, data) {
+      var rewritten = rewriteHttpUrl(url);
+      if (rewritten) {
+        console.log('[beacon-proxy] intercepting ' + url);
+        return origBeacon.call(navigator, rewritten, data);
+      }
+      return origBeacon.call(navigator, url, data);
+    };
+  }
+
   // --- fetch() interception ---
   var origFetch = window.fetch;
   window.fetch = function(input, init) {
