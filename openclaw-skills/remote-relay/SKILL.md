@@ -119,6 +119,12 @@ No other external endpoints are contacted. All network activity is limited to th
 
 ## Installation
 
+**Easiest way — use the visual setup wizard:**
+
+👉 Open your dashboard and go to **[/skill/remote-relay](/skill/remote-relay)** to configure everything through the UI — generate a node ID, test your connection, and export your config in one place.
+
+**Or configure manually:**
+
 1. Add the skill to your OpenClaw instance
 2. Configure `relay_url`, `node_id`, and `auth_token`
 3. Start OpenClaw — the relay connection is established automatically
