@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/StatusBadge";
-import { ArrowLeft, RotateCcw, X, Clipboard, ClipboardPaste, Wifi } from "lucide-react";
+import { ArrowLeft, RotateCcw, X, Clipboard, ClipboardPaste, Wifi, ChevronUp, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import type { Tables } from "@/integrations/supabase/types";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
@@ -420,6 +420,68 @@ export default function TerminalSession() {
 
   const latencyColor = latency === null ? "text-muted-foreground" : latency < 100 ? "text-status-online" : latency < 300 ? "text-status-connecting" : "text-destructive";
 
+  // Mobile keyboard toolbar state
+  const [ctrlActive, setCtrlActive] = useState(false);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+
+  // Detect software keyboard on mobile
+  useEffect(() => {
+    const handler = () => {
+      // visualViewport shrinks when keyboard appears
+      const vv = window.visualViewport;
+      if (vv) {
+        setKeyboardVisible(vv.height < window.innerHeight * 0.75);
+      }
+    };
+    window.visualViewport?.addEventListener("resize", handler);
+    return () => window.visualViewport?.removeEventListener("resize", handler);
+  }, []);
+
+  const sendKey = (sequence: string) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN && sessionIdRef.current) {
+      wsRef.current.send(JSON.stringify({
+        type: "stdin",
+        data: { session_id: sessionIdRef.current, data_b64: btoa(sequence) },
+      }));
+    }
+    termRef.current?.focus();
+  };
+
+  const handleToolbarKey = (sequence: string) => {
+    if (ctrlActive) {
+      // Ctrl+key: subtract 64 from uppercase ASCII
+      const char = sequence.toUpperCase().charCodeAt(0) - 64;
+      if (char > 0) {
+        sendKey(String.fromCharCode(char));
+        setCtrlActive(false);
+        return;
+      }
+    }
+    sendKey(sequence);
+  };
+
+  type KeyDef = { label: string; seq: string; wide?: boolean; special?: boolean };
+  const keyRows: KeyDef[][] = [
+    [
+      { label: "Esc", seq: "\x1b", special: true },
+      { label: "Tab", seq: "\t", special: true },
+      { label: "↑", seq: "\x1b[A" },
+      { label: "↓", seq: "\x1b[B" },
+      { label: "←", seq: "\x1b[D" },
+      { label: "→", seq: "\x1b[C" },
+    ],
+    [
+      { label: "Ctrl", seq: "ctrl", special: true },
+      { label: "C", seq: "C" },
+      { label: "D", seq: "D" },
+      { label: "Z", seq: "Z" },
+      { label: "A", seq: "A" },
+      { label: "L", seq: "L" },
+      { label: "Home", seq: "\x01", special: true },
+      { label: "End", seq: "\x05", special: true },
+    ],
+  ];
+
   return (
     <div className="flex flex-col h-screen bg-terminal-bg">
       <div className="flex items-center justify-between px-2 sm:px-4 py-2 border-b border-border bg-card shrink-0">
@@ -464,7 +526,43 @@ export default function TerminalSession() {
         </div>
       </div>
 
-      <div ref={terminalContainerRef} className="flex-1 p-1" />
+      <div ref={terminalContainerRef} className="flex-1 p-1 min-h-0" />
+
+      {/* Mobile keyboard toolbar — shown only when soft keyboard is visible on small screens */}
+      <div className={`sm:hidden shrink-0 border-t border-border bg-card transition-all duration-200 ${keyboardVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-full pointer-events-none"}`}>
+        {keyRows.map((row, ri) => (
+          <div key={ri} className="flex items-center gap-0.5 px-1 py-0.5">
+            {row.map((k) => {
+              const isCtrlKey = k.seq === "ctrl";
+              const isActive = isCtrlKey && ctrlActive;
+              return (
+                <button
+                  key={k.label}
+                  onPointerDown={(e) => {
+                    e.preventDefault(); // prevent blur
+                    if (isCtrlKey) {
+                      setCtrlActive((v) => !v);
+                    } else {
+                      handleToolbarKey(k.seq);
+                    }
+                  }}
+                  className={[
+                    "flex-1 min-w-0 h-8 rounded text-[11px] font-mono font-medium select-none transition-colors",
+                    "flex items-center justify-center",
+                    isActive
+                      ? "bg-primary text-primary-foreground"
+                      : k.special
+                      ? "bg-muted text-muted-foreground active:bg-muted/60"
+                      : "bg-secondary text-secondary-foreground active:bg-secondary/60",
+                  ].join(" ")}
+                >
+                  {k.label}
+                </button>
+              );
+            })}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
