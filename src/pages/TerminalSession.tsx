@@ -426,18 +426,37 @@ export default function TerminalSession() {
   // Mobile keyboard toolbar state
   const [ctrlActive, setCtrlActive] = useState(false);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const [vpStyle, setVpStyle] = useState<React.CSSProperties>({});
 
-  // Detect software keyboard on mobile
+  // Detect software keyboard on mobile via visualViewport
+  // Pin the container to the visual viewport so the toolbar always sits just above the keyboard
   useEffect(() => {
-    const handler = () => {
-      // visualViewport shrinks when keyboard appears
-      const vv = window.visualViewport;
-      if (vv) {
-        setKeyboardVisible(vv.height < window.innerHeight * 0.75);
+    const vv = window.visualViewport;
+    if (!vv) return;
+
+    const update = () => {
+      const isKeyboard = vv.height < window.innerHeight * 0.75;
+      setKeyboardVisible(isKeyboard);
+      if (isKeyboard) {
+        // Position container to match the visual viewport (above the keyboard)
+        setVpStyle({
+          position: "fixed",
+          top: `${vv.offsetTop}px`,
+          left: `${vv.offsetLeft}px`,
+          width: `${vv.width}px`,
+          height: `${vv.height}px`,
+        });
+      } else {
+        setVpStyle({});
       }
     };
-    window.visualViewport?.addEventListener("resize", handler);
-    return () => window.visualViewport?.removeEventListener("resize", handler);
+
+    vv.addEventListener("resize", update);
+    vv.addEventListener("scroll", update);
+    return () => {
+      vv.removeEventListener("resize", update);
+      vv.removeEventListener("scroll", update);
+    };
   }, []);
 
   const sendKey = (sequence: string) => {
@@ -489,7 +508,7 @@ export default function TerminalSession() {
   ];
 
   return (
-    <div className="flex flex-col h-screen bg-terminal-bg">
+    <div className="flex flex-col h-screen bg-terminal-bg" style={vpStyle}>
       <div className="flex items-center justify-between px-2 sm:px-4 py-2 border-b border-border bg-card shrink-0">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => { handleDisconnect(); }}>
