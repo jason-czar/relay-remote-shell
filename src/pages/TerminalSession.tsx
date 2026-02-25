@@ -442,9 +442,12 @@ export default function TerminalSession() {
 
   const sendKey = (sequence: string) => {
     if (wsRef.current?.readyState === WebSocket.OPEN && sessionIdRef.current) {
+      // Use TextEncoder for correct UTF-8/binary safe base64
+      const bytes = new TextEncoder().encode(sequence);
+      const b64 = btoa(String.fromCharCode(...bytes));
       wsRef.current.send(JSON.stringify({
         type: "stdin",
-        data: { session_id: sessionIdRef.current, data_b64: btoa(sequence) },
+        data: { session_id: sessionIdRef.current, data_b64: b64 },
       }));
     }
     termRef.current?.focus();
@@ -540,7 +543,7 @@ export default function TerminalSession() {
       <div ref={terminalContainerRef} className="flex-1 p-1 min-h-0" />
 
       {/* Mobile keyboard toolbar — shown only when soft keyboard is visible on small screens */}
-      <div className={`sm:hidden shrink-0 border-t border-border bg-card transition-all duration-200 ${keyboardVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-full pointer-events-none"}`}>
+      <div className={`sm:hidden shrink-0 border-t border-border bg-card overflow-hidden transition-all duration-200 ${keyboardVisible ? "max-h-24 opacity-100" : "max-h-0 opacity-0 pointer-events-none"}`}>
         {keyRows.map((row, ri) => (
           <div key={ri} className="flex items-center gap-0.5 px-1 py-0.5">
             {row.map((k) => {
