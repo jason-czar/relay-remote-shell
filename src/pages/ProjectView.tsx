@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/StatusBadge";
 import { useToast } from "@/hooks/use-toast";
 import { ProjectViewSkeleton } from "@/components/LoadingSkeletons";
-import { Plus, Monitor, Terminal, Copy, Users, ArrowLeft, Mail, UserMinus, Clock, Pencil, Trash2, RefreshCw, MoreVertical, Play, Settings } from "lucide-react";
+import { Plus, Monitor, Terminal, Copy, Users, ArrowLeft, Mail, UserMinus, Clock, Pencil, Trash2, RefreshCw, MoreVertical, Play, Settings, Square } from "lucide-react";
 import { SetupWizard } from "@/components/SetupWizard";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useProjectRole } from "@/hooks/useProjectRole";
@@ -170,6 +170,22 @@ export default function ProjectView() {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
       toast({ title: "Device deleted" });
+    }
+  };
+
+  const disconnectDevice = async (deviceId: string) => {
+    // End all active sessions for this device
+    await supabase
+      .from("sessions")
+      .update({ status: "ended" as const, ended_at: new Date().toISOString() })
+      .eq("device_id", deviceId)
+      .eq("status", "active");
+    // Mark device offline
+    const { error } = await supabase.from("devices").update({ status: "offline" }).eq("id", deviceId);
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Device disconnected", description: "All active sessions ended" });
     }
   };
 
@@ -362,9 +378,28 @@ export default function ProjectView() {
                       </div>
                       <div className="flex items-center gap-2">
                         {device.status === "online" && (
-                          <Button size="sm" className="gap-1" onClick={() => navigate(`/terminal/${device.id}`)}>
-                            <Terminal className="h-3 w-3" /> Connect
-                          </Button>
+                          <>
+                            <Button size="sm" className="gap-1" onClick={() => navigate(`/terminal/${device.id}`)}>
+                              <Terminal className="h-3 w-3" /> Connect
+                            </Button>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button size="sm" variant="outline" className="gap-1 border-destructive/50 text-destructive hover:bg-destructive/10">
+                                  <Square className="h-3 w-3" /> Disconnect
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Disconnect {device.name}?</AlertDialogTitle>
+                                  <AlertDialogDescription>This will end all active sessions and mark the device as offline. The connector process on the remote machine will need to reconnect.</AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={() => disconnectDevice(device.id)}>Disconnect</AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </>
                         )}
                         {isOwner && (
                           <DropdownMenu>
