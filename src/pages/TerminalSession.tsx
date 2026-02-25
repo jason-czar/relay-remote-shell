@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/StatusBadge";
-import { ArrowLeft, RotateCcw, X, Clipboard, ClipboardPaste, Wifi, ChevronUp, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowLeft, RotateCcw, X, Clipboard, ClipboardPaste, Wifi, Loader2 } from "lucide-react";
 import type { Tables } from "@/integrations/supabase/types";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
@@ -35,6 +35,7 @@ export default function TerminalSession() {
   const [device, setDevice] = useState<Tables<"devices"> | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<"connecting" | "online" | "offline">("connecting");
   const [latency, setLatency] = useState<number | null>(null);
+  const [bgReconnecting, setBgReconnecting] = useState(false);
   const pingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pingSentAtRef = useRef<number>(0);
 
@@ -220,6 +221,7 @@ export default function TerminalSession() {
       } else {
         isHiddenRef.current = false;
         if (termRef.current && sessionIdRef.current) {
+          setBgReconnecting(true);
           intentionalCloseRef.current = false;
           connectWebSocket(termRef.current, devRef.current, sessionIdRef.current);
         }
@@ -281,6 +283,7 @@ export default function TerminalSession() {
           if (msg.type === "auth_ok") {
             term.writeln(`\x1b[32m✓ Authenticated with relay\x1b[0m`);
             setConnectionStatus("online");
+            setBgReconnecting(false);
             reconnectDelayRef.current = 1000;
             ws.send(JSON.stringify({
               type: "session_start",
@@ -525,6 +528,14 @@ export default function TerminalSession() {
           </Button>
         </div>
       </div>
+
+      {/* Background reconnect banner */}
+      {bgReconnecting && (
+        <div className="shrink-0 flex items-center justify-center gap-2 px-3 py-1.5 bg-status-connecting/10 border-b border-status-connecting/30 text-status-connecting text-xs font-medium">
+          <Loader2 className="h-3 w-3 animate-spin" />
+          Reconnecting...
+        </div>
+      )}
 
       <div ref={terminalContainerRef} className="flex-1 p-1 min-h-0" />
 
