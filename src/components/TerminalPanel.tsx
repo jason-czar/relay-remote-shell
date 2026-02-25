@@ -28,6 +28,7 @@ export function TerminalPanel({ deviceId, deviceName, onClose }: TerminalPanelPr
   const wsRef = useRef<WebSocket | null>(null);
   const sessionIdRef = useRef<string | null>(null);
   const intentionalCloseRef = useRef(false);
+  const isHiddenRef = useRef(false);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectDelayRef = useRef(1000);
   const pingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -156,7 +157,6 @@ export function TerminalPanel({ deviceId, deviceName, onClose }: TerminalPanelPr
       const { data: dev } = await supabase.from("devices").select("*").eq("id", deviceId).single();
       if (dev) setDisplayName(dev.name);
 
-      // Check for active session
       const { data: activeSessions } = await supabase.from("sessions").select("id")
         .eq("device_id", deviceId).eq("user_id", user!.id).eq("status", "active")
         .order("started_at", { ascending: false }).limit(1);
@@ -181,9 +181,27 @@ export function TerminalPanel({ deviceId, deviceName, onClose }: TerminalPanelPr
 
     init();
 
+    // When user switches away, just drop WS (don't end session in DB), reconnect on return
+    const handleVisibility = () => {
+      if (document.hidden) {
+        isHiddenRef.current = true;
+        intentionalCloseRef.current = true;
+        if (pingTimerRef.current) { clearInterval(pingTimerRef.current); pingTimerRef.current = null; }
+        if (wsRef.current) { wsRef.current.close(); wsRef.current = null; }
+      } else {
+        isHiddenRef.current = false;
+        if (termRef.current && sessionIdRef.current) {
+          intentionalCloseRef.current = false;
+          connectWebSocket(termRef.current, sessionIdRef.current);
+        }
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+
     return () => {
+      document.removeEventListener("visibilitychange", handleVisibility);
       resizeObserver.disconnect();
-      endSessionInDb();
+      if (!isHiddenRef.current) endSessionInDb();
       cleanup();
     };
   }, [deviceId, user]);

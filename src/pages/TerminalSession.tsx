@@ -28,6 +28,7 @@ export default function TerminalSession() {
   const fitRef = useRef<FitAddon | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const sessionIdRef = useRef<string | null>(null);
+  const devRef = useRef<Tables<"devices"> | null>(null);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectDelayRef = useRef(1000);
   const intentionalCloseRef = useRef(false);
@@ -36,6 +37,9 @@ export default function TerminalSession() {
   const [latency, setLatency] = useState<number | null>(null);
   const pingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pingSentAtRef = useRef<number>(0);
+
+  // Whether we're currently hidden (app switched away)
+  const isHiddenRef = useRef(false);
 
   // Clean up terminal + websocket
   const cleanup = useCallback(() => {
@@ -120,10 +124,22 @@ export default function TerminalSession() {
     termRef.current = term;
     fitRef.current = fit;
 
+    // Native paste handler: catches Cmd+V and mobile long-press paste on the terminal container
+    const handleNativePaste = (e: ClipboardEvent) => {
+      const text = e.clipboardData?.getData("text");
+      if (text && wsRef.current?.readyState === WebSocket.OPEN && sessionIdRef.current) {
+        e.preventDefault();
+        wsRef.current.send(JSON.stringify({
+          type: "stdin",
+          data: { session_id: sessionIdRef.current, data_b64: btoa(unescape(encodeURIComponent(text))) },
+        }));
+      }
+    };
+    terminalContainerRef.current.addEventListener("paste", handleNativePaste);
+
     // Resize observer
     const resizeObserver = new ResizeObserver(() => {
       fit.fit();
-      // Send resize to relay if connected
       if (wsRef.current?.readyState === WebSocket.OPEN && sessionIdRef.current) {
         wsRef.current.send(JSON.stringify({
           type: "resize",
@@ -136,6 +152,7 @@ export default function TerminalSession() {
     // Load device and start/resume session
     const init = async () => {
       const { data: dev } = await supabase.from("devices").select("*").eq("id", deviceId).single();
+      devRef.current = dev;
       setDevice(dev);
 
       let sessionId = resumeSessionId;
@@ -192,9 +209,31 @@ export default function TerminalSession() {
 
     init();
 
+    // Visibility change: reconnect when coming back, but DON'T end session when hiding
+    const handleVisibility = () => {
+      if (document.hidden) {
+        isHiddenRef.current = true;
+        // Just close the WS transport; keep session alive in DB
+        intentionalCloseRef.current = true;
+        if (pingTimerRef.current) { clearInterval(pingTimerRef.current); pingTimerRef.current = null; }
+        if (wsRef.current) { wsRef.current.close(); wsRef.current = null; }
+      } else {
+        isHiddenRef.current = false;
+        if (termRef.current && sessionIdRef.current) {
+          intentionalCloseRef.current = false;
+          connectWebSocket(termRef.current, devRef.current, sessionIdRef.current);
+        }
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+
     return () => {
+      document.removeEventListener("visibilitychange", handleVisibility);
       resizeObserver.disconnect();
-      endSessionInDb();
+      terminalContainerRef.current?.removeEventListener("paste", handleNativePaste);
+      if (!isHiddenRef.current) {
+        endSessionInDb();
+      }
       cleanup();
     };
   }, [deviceId, user]);
@@ -368,14 +407,14 @@ export default function TerminalSession() {
     try {
       const text = await navigator.clipboard.readText();
       if (text && wsRef.current?.readyState === WebSocket.OPEN && sessionIdRef.current) {
-        const b64 = btoa(text);
+        const b64 = btoa(unescape(encodeURIComponent(text)));
         wsRef.current.send(JSON.stringify({
           type: "stdin",
           data: { session_id: sessionIdRef.current, data_b64: b64 },
         }));
       }
     } catch {
-      // Clipboard access denied
+      // Clipboard access denied — iOS requires user gesture; the native paste listener handles that case
     }
   };
 
