@@ -48,15 +48,17 @@ export default function Dashboard() {
   const fetchNodes = useCallback(async () => {
     setNodesLoading(true);
     try {
-      const [nodesRes, healthRes] = await Promise.all([
+      const [nodesRes, healthRes] = await Promise.allSettled([
         supabase.functions.invoke("relay-nodes"),
         supabase.functions.invoke("relay-health"),
       ]);
-      if (!nodesRes.error && nodesRes.data?.nodes) {
-        setNodes(nodesRes.data.nodes);
+      if (nodesRes.status === "fulfilled" && !nodesRes.value.error && nodesRes.value.data?.nodes) {
+        setNodes(nodesRes.value.data.nodes);
       }
-      if (!healthRes.error && healthRes.data) {
-        setHealth(healthRes.data as RelayHealth);
+      if (healthRes.status === "fulfilled" && !healthRes.value.error && healthRes.value.data) {
+        setHealth(healthRes.value.data as RelayHealth);
+      } else if (healthRes.status === "rejected" || (healthRes.status === "fulfilled" && healthRes.value.error)) {
+        setHealth({ status: "unreachable", error: "Relay is starting up or unreachable" });
       }
     } catch {
       setHealth({ status: "unreachable", error: "Failed to reach relay" });
