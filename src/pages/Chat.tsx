@@ -279,7 +279,7 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
 export default function Chat() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const { conversations, setConversations, activeConvId, setActiveConvId, registerNewCallback, addJob, removeJob } = useChatContext();
+  const { conversations, setConversations, activeConvId, setActiveConvId, registerNewCallback, addJob, removeJob, activeJobs } = useChatContext();
   // Keep a ref so async callbacks can always read the latest active conversation
   const activeConvIdRef = useRef<string | null>(null);
   useEffect(() => { activeConvIdRef.current = activeConvId; }, [activeConvId]);
@@ -347,6 +347,24 @@ export default function Chat() {
     const conv = conversations.find((c) => c.id === activeConvId);
     if (conv) setAgent(conv.agent as "openclaw" | "claude");
   }, [activeConvId]);
+
+  // ── Reload messages when a background job for the active conv finishes ──
+  const prevJobsRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!activeConvId) return;
+    const wasRunning = prevJobsRef.current.has(activeConvId);
+    const isRunning = activeJobs.has(activeConvId);
+    // Job just finished for the active conversation → reload from DB
+    if (wasRunning && !isRunning) {
+      supabase
+        .from("chat_messages")
+        .select("id, role, content")
+        .eq("conversation_id", activeConvId)
+        .order("created_at", { ascending: true })
+        .then(({ data }) => { if (data) setMessages(data as Message[]); });
+    }
+    prevJobsRef.current = new Set(activeJobs);
+  }, [activeJobs, activeConvId]);
 
   // ── Auto-scroll ───────────────────────────────────────────────────────
   useEffect(() => {
