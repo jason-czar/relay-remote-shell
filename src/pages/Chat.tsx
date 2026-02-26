@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { AppLayout } from "@/components/AppLayout";
-import { ChatSidebar, type Conversation } from "@/components/ChatSidebar";
 import { ChatMessage } from "@/components/ChatMessage";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -11,12 +10,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Send, Monitor } from "lucide-react";
 import type { Tables } from "@/integrations/supabase/types";
+import { useChatContext } from "@/contexts/ChatContext";
 
 interface Message {
   id?: string;
@@ -93,10 +92,9 @@ function ComposerBox({ textareaRef, input, setInput, onKeyDown, onSend, disabled
 export default function Chat() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { conversations, setConversations, activeConvId, setActiveConvId, registerNewCallback } = useChatContext();
 
   // ── State ──────────────────────────────────────────────────────────────
-  const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [activeConvId, setActiveConvId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [agent, setAgent] = useState<"openclaw" | "claude">("openclaw");
   const [devices, setDevices] = useState<Tables<"devices">[]>([]);
@@ -108,18 +106,8 @@ export default function Chat() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // ── Load conversations ────────────────────────────────────────────────
-  useEffect(() => {
-    if (!user) return;
-    supabase
-      .from("chat_conversations")
-      .select("id, title, agent, created_at")
-      .eq("user_id", user.id)
-      .order("updated_at", { ascending: false })
-      .then(({ data }) => {
-        if (data) setConversations(data as Conversation[]);
-      });
-  }, [user]);
+  // ── Load conversations (now handled by ChatContext) ────────────────────
+  // (removed — context loads them)
 
   // ── Load devices ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -181,7 +169,7 @@ export default function Chat() {
       toast({ title: "Error", description: error?.message, variant: "destructive" });
       return null;
     }
-    setConversations((prev) => [data as Conversation, ...prev]);
+    setConversations((prev) => [data as import("@/contexts/ChatContext").Conversation, ...prev]);
     setActiveConvId(data.id);
     return data.id;
   }, [user, selectedDeviceId, toast]);
@@ -449,23 +437,17 @@ export default function Chat() {
     }
   }, [input, thinking, selectedDeviceId, activeConvId, agent, createConversation, buildCommand, sendViaRelay, toast]);
 
-  // ── Delete conversation ───────────────────────────────────────────────
-  const handleDelete = useCallback(async (id: string) => {
-    await supabase.from("chat_conversations").delete().eq("id", id);
-    setConversations((prev) => prev.filter((c) => c.id !== id));
-    if (activeConvId === id) {
-      setActiveConvId(null);
-      setMessages([]);
-    }
-  }, [activeConvId]);
-
   // ── New conversation ───────────────────────────────────────────────────
-  const handleNew = () => {
-    setActiveConvId(null);
+  const handleNew = useCallback(() => {
     setMessages([]);
     setInput("");
     setTimeout(() => textareaRef.current?.focus(), 50);
-  };
+  }, []);
+
+  // Register handleNew with context so sidebar "New" button triggers it
+  useEffect(() => {
+    registerNewCallback(handleNew);
+  }, [handleNew, registerNewCallback]);
 
   // ── Agent toggle ───────────────────────────────────────────────────────
   const handleAgentChange = (value: string) => {
@@ -488,22 +470,8 @@ export default function Chat() {
 
   return (
     <AppLayout>
-
       <div className="flex h-full overflow-hidden">
-        {/* Chat sidebar */}
-        <ChatSidebar
-          conversations={conversations}
-          activeId={activeConvId}
-          onSelect={(id) => {
-            setActiveConvId(id);
-            const conv = conversations.find((c) => c.id === id);
-            if (conv) setAgent(conv.agent as "openclaw" | "claude");
-          }}
-          onNew={handleNew}
-          onDelete={handleDelete}
-        />
-
-        {/* Main chat area */}
+        {/* Main chat area — sidebar is now in AppSidebar */}
         <div className="flex flex-col flex-1 min-w-0 h-full relative">
 
           {/* Session header */}
@@ -651,6 +619,7 @@ export default function Chat() {
                 <Button size="sm" onClick={() => {
                   setAgent(agentSwitchPending!);
                   setAgentSwitchPending(null);
+                  setActiveConvId(null);
                   handleNew();
                 }}>
                   Start New Chat

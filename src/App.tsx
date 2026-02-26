@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
+import { ChatProvider } from "@/contexts/ChatContext";
 import { useInactivityTimeout } from "@/hooks/useInactivityTimeout";
 import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
@@ -47,6 +48,7 @@ const App = () => (
   <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
+        <ChatProvider>
         <TooltipProvider>
           <ErrorBoundary>
             <Toaster />
@@ -71,6 +73,7 @@ const App = () => (
             </BrowserRouter>
           </ErrorBoundary>
         </TooltipProvider>
+        </ChatProvider>
       </AuthProvider>
     </QueryClientProvider>
   </ThemeProvider>
