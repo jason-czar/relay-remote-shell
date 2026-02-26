@@ -1323,7 +1323,7 @@ export default function Chat() {
                         </div>
                       </div>
                       <h3 className="font-semibold text-foreground mb-2 text-lg animate-fade-in" style={{ animationDelay: "120ms", animationFillMode: "both" }}>
-                        {agent === "openclaw" ? "OpenClaw Agent" : "Claude Code"}
+                        {agent === "openclaw" ? "Remote OpenClaw" : "Remote Claude Code"}
                       </h3>
                       <p className="text-sm text-muted-foreground max-w-sm leading-relaxed mb-8 animate-fade-in" style={{ animationDelay: "220ms", animationFillMode: "both" }}>
                         {agent === "openclaw"
