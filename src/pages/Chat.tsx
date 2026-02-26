@@ -33,7 +33,7 @@ interface RelayMsg {
 }
 
 const RELAY_TIMEOUT_MS = 60000;
-const SILENCE_MS = 3000;
+const SILENCE_MS = 8000;
 
 // ── Slash commands ───────────────────────────────────────────────────────────
 interface SlashCommand {
