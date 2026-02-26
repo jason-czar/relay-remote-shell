@@ -1312,11 +1312,11 @@ export default function Chat() {
                     /* ── Has device, no messages: normal empty state ────── */
                     <>
                       <div className="relative mb-6 animate-fade-in" style={{ animationDelay: "0ms", animationFillMode: "both" }}>
-                        <div className="absolute inset-0 rounded-3xl bg-primary/20 blur-xl scale-110" />
-                        <div className="relative w-24 h-24 rounded-3xl flex items-center justify-center ring-1 ring-primary/30"
-                          style={{
-                            background: "linear-gradient(135deg, hsl(var(--primary) / 0.18) 0%, hsl(var(--primary) / 0.08) 100%)",
-                            boxShadow: "0 8px 32px hsl(var(--primary) / 0.25), inset 0 1px 0 rgba(255,255,255,0.12)",
+                        <div className="absolute inset-0 rounded-3xl blur-xl scale-110" style={{ background: "#DA5048", opacity: 0.3 }} />
+                        <div className="relative w-24 h-24 rounded-3xl flex items-center justify-center" style={{
+                            background: "linear-gradient(135deg, rgba(218,80,72,0.35) 0%, rgba(218,80,72,0.15) 100%)",
+                            boxShadow: "0 8px 32px rgba(218,80,72,0.35), inset 0 1px 0 rgba(255,255,255,0.12)",
+                            outline: "1px solid rgba(218,80,72,0.3)",
                           }}
                         >
                           <img src={agent === "openclaw" ? openclawImg : claudecodeImg} alt={agent} className="w-full h-full object-cover rounded-3xl" />
