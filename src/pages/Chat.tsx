@@ -253,6 +253,19 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
           className="resize-none text-sm min-h-[40px] max-h-[200px] flex-1 bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none px-2 py-2.5 overflow-y-auto placeholder:text-muted-foreground/40"
         />
 
+        {/* Waveform — shown while dictating */}
+        {isDictating && (
+          <div className="shrink-0 flex items-center gap-[3px] px-1" aria-hidden>
+            <div className="waveform-bar" />
+            <div className="waveform-bar" />
+            <div className="waveform-bar" />
+            <div className="waveform-bar" />
+            <div className="waveform-bar" />
+            <div className="waveform-bar" />
+            <div className="waveform-bar" />
+          </div>
+        )}
+
         {/* Agent badge */}
         <div className="shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-full bg-muted/60 text-xs font-medium text-muted-foreground border border-border/40 select-none">
           {agent === "openclaw" ? (
