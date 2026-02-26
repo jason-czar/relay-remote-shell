@@ -1312,15 +1312,20 @@ export default function Chat() {
                     /* ── Has device, no messages: normal empty state ────── */
                     <>
                       <div className="relative mb-6 animate-fade-in" style={{ animationDelay: "0ms", animationFillMode: "both" }}>
-                        <div className="absolute inset-0 rounded-3xl blur-xl scale-110" style={{ background: "#DA5048", opacity: 0.3 }} />
-                        <div className="relative w-24 h-24 rounded-3xl flex items-center justify-center" style={{
-                            background: "linear-gradient(135deg, rgba(218,80,72,0.35) 0%, rgba(218,80,72,0.15) 100%)",
-                            boxShadow: "0 8px 32px rgba(218,80,72,0.35), inset 0 1px 0 rgba(255,255,255,0.12)",
-                            outline: "1px solid rgba(218,80,72,0.3)",
-                          }}
-                        >
-                          <img src={agent === "openclaw" ? openclawImg : claudecodeImg} alt={agent} className="w-full h-full object-cover rounded-3xl" />
-                        </div>
+                        {(() => {
+                          const tileColor = agent === "openclaw" ? "#DA5048" : "#D37551";
+                          const [r, g, b] = agent === "openclaw" ? [218,80,72] : [211,117,81];
+                          return <>
+                            <div className="absolute inset-0 rounded-3xl blur-xl scale-110" style={{ background: tileColor, opacity: 0.3 }} />
+                            <div className="relative w-24 h-24 rounded-3xl flex items-center justify-center" style={{
+                              background: `linear-gradient(135deg, rgba(${r},${g},${b},0.35) 0%, rgba(${r},${g},${b},0.15) 100%)`,
+                              boxShadow: `0 8px 32px rgba(${r},${g},${b},0.35), inset 0 1px 0 rgba(255,255,255,0.12)`,
+                              outline: `1px solid rgba(${r},${g},${b},0.3)`,
+                            }}>
+                              <img src={agent === "openclaw" ? openclawImg : claudecodeImg} alt={agent} className="w-full h-full object-cover rounded-3xl" />
+                            </div>
+                          </>;
+                        })()}
                       </div>
                       <h3 className="font-semibold text-foreground mb-2 text-lg animate-fade-in" style={{ animationDelay: "120ms", animationFillMode: "both" }}>
                         {agent === "openclaw" ? "Remote OpenClaw" : "Remote Claude Code"}
