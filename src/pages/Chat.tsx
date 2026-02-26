@@ -6,10 +6,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Send, ChevronDown, Paperclip, X, FileText, Image } from "lucide-react";
+import { Send, ChevronDown, Paperclip, X, FileText, Image, Plus, Monitor, Terminal } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { Tables } from "@/integrations/supabase/types";
 import { useChatContext } from "@/contexts/ChatContext";
+import { SetupWizard } from "@/components/SetupWizard";
 
 interface AttachedFile {
   name: string;
@@ -178,6 +180,8 @@ export default function Chat() {
   const [streamingMsgIndex, setStreamingMsgIndex] = useState<number | null>(null);
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [showWizard, setShowWizard] = useState(false);
+  const [projectId, setProjectId] = useState<string>("");
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -193,18 +197,21 @@ export default function Chat() {
   // ── Load devices ──────────────────────────────────────────────────────
   useEffect(() => {
     if (!user) return;
-    supabase
-      .from("devices")
-      .select("id, name, status, project_id")
-      .then(({ data }) => {
-        if (data) {
-          setDevices(data as Tables<"devices">[]);
-          if (data.length > 0 && !selectedDeviceId) {
-            const online = data.find((d) => d.status === "online");
-            setSelectedDeviceId((online ?? data[0]).id);
-          }
+    // Load devices + first project in parallel
+    Promise.all([
+      supabase.from("devices").select("id, name, status, project_id"),
+      supabase.from("projects").select("id").limit(1).single(),
+    ]).then(([devRes, projRes]) => {
+      const data = devRes.data;
+      if (data) {
+        setDevices(data as Tables<"devices">[]);
+        if (data.length > 0 && !selectedDeviceId) {
+          const online = data.find((d) => d.status === "online");
+          setSelectedDeviceId((online ?? data[0]).id);
         }
-      });
+      }
+      if (projRes.data) setProjectId(projRes.data.id);
+    });
   }, [user]);
 
   // ── Load messages on conversation select ──────────────────────────────
@@ -712,57 +719,107 @@ export default function Chat() {
             <div className="max-w-[720px] mx-auto px-6">
               {messages.length === 0 && !thinking && (
                 <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
-                  <div className="relative mb-6 animate-fade-in" style={{ animationDelay: "0ms", animationFillMode: "both" }}>
-                    {/* Outer glow */}
-                    <div className="absolute inset-0 rounded-3xl bg-primary/20 blur-xl scale-110" />
-                    <div className="relative w-24 h-24 rounded-3xl flex items-center justify-center ring-1 ring-primary/30"
-                      style={{
-                        background: "linear-gradient(135deg, hsl(var(--primary) / 0.18) 0%, hsl(var(--primary) / 0.08) 100%)",
-                        boxShadow: "0 8px 32px hsl(var(--primary) / 0.25), inset 0 1px 0 rgba(255,255,255,0.12)",
-                      }}
-                    >
-                      <span className="text-5xl">{agent === "openclaw" ? "🐾" : "⌨️"}</span>
+
+                  {/* ── No device paired: prominent CTA ─────────────────── */}
+                  {devices.length === 0 ? (
+                    <div className="flex flex-col items-center gap-6 max-w-sm">
+                      <div className="relative animate-fade-in" style={{ animationFillMode: "both" }}>
+                        <div className="absolute inset-0 rounded-3xl bg-primary/20 blur-xl scale-110" />
+                        <div className="relative w-24 h-24 rounded-3xl flex items-center justify-center ring-1 ring-primary/30"
+                          style={{
+                            background: "linear-gradient(135deg, hsl(var(--primary) / 0.18) 0%, hsl(var(--primary) / 0.08) 100%)",
+                            boxShadow: "0 8px 32px hsl(var(--primary) / 0.25), inset 0 1px 0 rgba(255,255,255,0.12)",
+                          }}
+                        >
+                          <Monitor className="w-10 h-10 text-primary/70" />
+                        </div>
+                      </div>
+
+                      <div className="animate-fade-in" style={{ animationDelay: "100ms", animationFillMode: "both" }}>
+                        <h3 className="font-semibold text-foreground text-lg mb-2">No device connected</h3>
+                        <p className="text-sm text-muted-foreground leading-relaxed">
+                          Pair your first machine to start running commands and chatting with AI agents directly on your device.
+                        </p>
+                      </div>
+
+                      <div className="flex flex-col items-center gap-3 w-full animate-fade-in" style={{ animationDelay: "200ms", animationFillMode: "both" }}>
+                        <Button
+                          size="lg"
+                          className="w-full gap-2 text-sm font-medium"
+                          onClick={() => setShowWizard(true)}
+                        >
+                          <Plus className="h-4 w-4" />
+                          Pair your first device
+                        </Button>
+                        <p className="text-xs text-muted-foreground/50">Takes about 60 seconds · runs a single bash command</p>
+                      </div>
+
+                      {/* How it works */}
+                      <div className="grid grid-cols-3 gap-3 w-full mt-2 animate-fade-in" style={{ animationDelay: "300ms", animationFillMode: "both" }}>
+                        {[
+                          { icon: "1", label: "Name device" },
+                          { icon: "2", label: "Run installer" },
+                          { icon: "3", label: "Start chatting" },
+                        ].map(({ icon, label }) => (
+                          <div key={label} className="flex flex-col items-center gap-1.5 rounded-xl border border-border/30 bg-card/30 py-3 px-2">
+                            <span className="w-6 h-6 rounded-full bg-primary/15 text-primary text-xs font-bold flex items-center justify-center">{icon}</span>
+                            <span className="text-xs text-muted-foreground text-center leading-tight">{label}</span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                  <h3 className="font-semibold text-foreground mb-2 text-lg animate-fade-in" style={{ animationDelay: "120ms", animationFillMode: "both" }}>
-                    {agent === "openclaw" ? "OpenClaw Agent" : "Claude Code"}
-                  </h3>
-                  <p className="text-sm text-muted-foreground max-w-sm leading-relaxed mb-8 animate-fade-in" style={{ animationDelay: "220ms", animationFillMode: "both" }}>
-                    {agent === "openclaw"
-                      ? "Ask your local OpenClaw agent anything. Commands run on your selected device."
-                      : "Send prompts directly to Claude Code running on your device."}
-                  </p>
 
-                  {/* Starter prompt cards */}
-                  <div className="grid grid-cols-2 gap-2.5 w-full max-w-lg mx-auto animate-fade-in" style={{ animationDelay: "340ms", animationFillMode: "both" }}>
-                    {(agent === "openclaw" ? [
-                      { icon: "📂", title: "List files", prompt: "List all files in the current directory" },
-                      { icon: "🔍", title: "Search code", prompt: "Search for TODO comments in the codebase" },
-                      { icon: "💻", title: "System info", prompt: "Show system info: OS, CPU, memory usage" },
-                      { icon: "🌿", title: "Git status", prompt: "Show the current git status and recent commits" },
-                    ] : [
-                      { icon: "🐛", title: "Debug code", prompt: "Help me debug an issue in my code" },
-                      { icon: "✍️", title: "Write tests", prompt: "Write unit tests for the current file" },
-                      { icon: "♻️", title: "Refactor", prompt: "Refactor this code to be cleaner and more readable" },
-                      { icon: "📖", title: "Explain code", prompt: "Explain what this code does" },
-                    ]).map(({ icon, title, prompt }, i) => (
-                      <button
-                        key={title}
-                        onClick={() => setInput(prompt)}
-                        disabled={!selectedDeviceId}
-                        className="animate-fade-in group flex flex-col gap-2 px-5 py-4 rounded-xl border border-border/40 bg-card/40 hover:bg-card/80 hover:border-border/80 transition-all duration-200 text-left disabled:opacity-40 disabled:cursor-not-allowed"
-                        style={{ animationDelay: `${420 + i * 80}ms`, animationFillMode: "both", boxShadow: "0 0 0 0 transparent" }}
-                        onMouseEnter={e => (e.currentTarget.style.boxShadow = "0 0 18px 2px hsl(var(--primary) / 0.08), 0 2px 12px rgba(0,0,0,0.15)")}
-                        onMouseLeave={e => (e.currentTarget.style.boxShadow = "0 0 0 0 transparent")}
-                      >
-                        <span className="text-xs font-semibold text-foreground">{title}</span>
-                        <span className="text-xs text-muted-foreground/80 leading-snug line-clamp-2">{prompt}</span>
-                      </button>
-                    ))}
-                  </div>
+                  ) : (
+                    /* ── Has device, no messages: normal empty state ────── */
+                    <>
+                      <div className="relative mb-6 animate-fade-in" style={{ animationDelay: "0ms", animationFillMode: "both" }}>
+                        <div className="absolute inset-0 rounded-3xl bg-primary/20 blur-xl scale-110" />
+                        <div className="relative w-24 h-24 rounded-3xl flex items-center justify-center ring-1 ring-primary/30"
+                          style={{
+                            background: "linear-gradient(135deg, hsl(var(--primary) / 0.18) 0%, hsl(var(--primary) / 0.08) 100%)",
+                            boxShadow: "0 8px 32px hsl(var(--primary) / 0.25), inset 0 1px 0 rgba(255,255,255,0.12)",
+                          }}
+                        >
+                          <span className="text-5xl">{agent === "openclaw" ? "🐾" : "⌨️"}</span>
+                        </div>
+                      </div>
+                      <h3 className="font-semibold text-foreground mb-2 text-lg animate-fade-in" style={{ animationDelay: "120ms", animationFillMode: "both" }}>
+                        {agent === "openclaw" ? "OpenClaw Agent" : "Claude Code"}
+                      </h3>
+                      <p className="text-sm text-muted-foreground max-w-sm leading-relaxed mb-8 animate-fade-in" style={{ animationDelay: "220ms", animationFillMode: "both" }}>
+                        {agent === "openclaw"
+                          ? "Ask your local OpenClaw agent anything. Commands run on your selected device."
+                          : "Send prompts directly to Claude Code running on your device."}
+                      </p>
 
-                  {!selectedDeviceId && (
-                    <p className="text-xs text-destructive mt-5">Select a device above to start</p>
+                      {/* Starter prompt cards */}
+                      <div className="grid grid-cols-2 gap-2.5 w-full max-w-lg mx-auto animate-fade-in" style={{ animationDelay: "340ms", animationFillMode: "both" }}>
+                        {(agent === "openclaw" ? [
+                          { icon: "📂", title: "List files", prompt: "List all files in the current directory" },
+                          { icon: "🔍", title: "Search code", prompt: "Search for TODO comments in the codebase" },
+                          { icon: "💻", title: "System info", prompt: "Show system info: OS, CPU, memory usage" },
+                          { icon: "🌿", title: "Git status", prompt: "Show the current git status and recent commits" },
+                        ] : [
+                          { icon: "🐛", title: "Debug code", prompt: "Help me debug an issue in my code" },
+                          { icon: "✍️", title: "Write tests", prompt: "Write unit tests for the current file" },
+                          { icon: "♻️", title: "Refactor", prompt: "Refactor this code to be cleaner and more readable" },
+                          { icon: "📖", title: "Explain code", prompt: "Explain what this code does" },
+                        ]).map(({ icon, title, prompt }, i) => (
+                          <button
+                            key={title}
+                            onClick={() => setInput(prompt)}
+                            disabled={!selectedDeviceId}
+                            className="animate-fade-in group flex flex-col gap-2 px-5 py-4 rounded-xl border border-border/40 bg-card/40 hover:bg-card/80 hover:border-border/80 transition-all duration-200 text-left disabled:opacity-40 disabled:cursor-not-allowed"
+                            style={{ animationDelay: `${420 + i * 80}ms`, animationFillMode: "both", boxShadow: "0 0 0 0 transparent" }}
+                            onMouseEnter={e => (e.currentTarget.style.boxShadow = "0 0 18px 2px hsl(var(--primary) / 0.08), 0 2px 12px rgba(0,0,0,0.15)")}
+                            onMouseLeave={e => (e.currentTarget.style.boxShadow = "0 0 0 0 transparent")}
+                          >
+                            <span className="text-xs font-semibold text-foreground">{title}</span>
+                            <span className="text-xs text-muted-foreground/80 leading-snug line-clamp-2">{prompt}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </>
                   )}
                 </div>
               )}
@@ -832,6 +889,35 @@ export default function Chat() {
           </div>
         )}
       </div>
+
+      {/* Device pairing wizard dialog */}
+      <Dialog open={showWizard} onOpenChange={setShowWizard}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Terminal className="h-4 w-4 text-primary" />
+              Pair a device
+            </DialogTitle>
+          </DialogHeader>
+          {projectId && (
+            <SetupWizard
+              projectId={projectId}
+              onComplete={() => {
+                setShowWizard(false);
+                // Reload devices after pairing
+                supabase.from("devices").select("id, name, status, project_id").then(({ data }) => {
+                  if (data) {
+                    setDevices(data as Tables<"devices">[]);
+                    const online = data.find((d) => d.status === "online");
+                    if (online ?? data[0]) setSelectedDeviceId((online ?? data[0]).id);
+                  }
+                });
+              }}
+              onSkip={() => setShowWizard(false)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 }
