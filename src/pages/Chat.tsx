@@ -387,27 +387,41 @@ export default function Chat() {
   // ── Send message ──────────────────────────────────────────────────────
   const handleSend = useCallback(async () => {
     const text = input.trim();
-    if (!text || thinking) return;
+    if ((!text && attachedFiles.length === 0) || thinking) return;
     if (!selectedDeviceId) {
       toast({ title: "Select a device first", variant: "destructive" });
       return;
     }
 
+    // Build full message: user text + file contents appended
+    let fullText = text;
+    if (attachedFiles.length > 0) {
+      const fileSection = attachedFiles.map((f) => {
+        if (f.isText) {
+          return `\n\n<file name="${f.name}">\n${f.content}\n</file>`;
+        } else {
+          return `\n\n<file name="${f.name}" type="${f.type}" encoding="base64">\n${f.content}\n</file>`;
+        }
+      }).join("");
+      fullText = text ? text + fileSection : fileSection.trim();
+    }
+
     setInput("");
-    const userMsg: Message = { role: "user", content: text };
+    setAttachedFiles([]);
+    const userMsg: Message = { role: "user", content: text || `[${attachedFiles.map(f => f.name).join(", ")}]` };
     setMessages((prev) => [...prev, userMsg]);
     setThinking(true);
 
     let convId = activeConvId;
     if (!convId) {
-      convId = await createConversation(text, agent);
+      convId = await createConversation(fullText, agent);
       if (!convId) { setThinking(false); return; }
     }
 
-    await saveMessage(convId, "user", text);
+    await saveMessage(convId, "user", fullText);
 
     try {
-      const command = await buildCommand(text, convId);
+      const command = await buildCommand(fullText, convId);
       const stdout = await sendViaRelay(command, agent === "openclaw");
 
       // Debug: log raw stdout so we can inspect the payload shape
@@ -565,7 +579,7 @@ export default function Chat() {
       if (streamIntervalRef.current) { clearInterval(streamIntervalRef.current); streamIntervalRef.current = null; }
       setTimeout(() => textareaRef.current?.focus(), 50);
     }
-  }, [input, thinking, selectedDeviceId, activeConvId, agent, createConversation, buildCommand, sendViaRelay, toast]);
+  }, [input, attachedFiles, thinking, selectedDeviceId, activeConvId, agent, createConversation, buildCommand, sendViaRelay, toast]);
 
   // ── New conversation ───────────────────────────────────────────────────
   const handleNew = useCallback(() => {
@@ -618,7 +632,20 @@ export default function Chat() {
     <AppLayout>
       <div className="flex h-full overflow-hidden">
         {/* Main chat area — sidebar is now in AppSidebar */}
-        <div className="flex flex-col flex-1 min-w-0 h-full relative">
+        <div
+          className={`flex flex-col flex-1 min-w-0 h-full relative transition-all duration-150 ${isDragOver ? "ring-2 ring-primary/40 ring-inset" : ""}`}
+          onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
+          onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setIsDragOver(false); }}
+          onDrop={(e) => { e.preventDefault(); setIsDragOver(false); if (e.dataTransfer.files.length) processFiles(e.dataTransfer.files); }}
+        >
+          {isDragOver && (
+            <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
+              <div className="rounded-2xl border-2 border-dashed border-primary/50 bg-primary/5 px-10 py-8 text-center backdrop-blur-sm">
+                <p className="text-sm font-medium text-primary">Drop files to attach</p>
+                <p className="text-xs text-muted-foreground mt-1">Text files will be sent as context</p>
+              </div>
+            </div>
+          )}
 
           {/* Top header bar */}
           <div className="shrink-0 h-12 border-b border-border/30 flex items-center px-6 relative">
@@ -774,18 +801,6 @@ export default function Chat() {
                 attachedFiles={attachedFiles}
                 onRemoveFile={(i) => setAttachedFiles((prev) => prev.filter((_, idx) => idx !== i))}
                 onFileSelect={processFiles}
-              />
-                input={input}
-                setInput={setInput}
-                onKeyDown={handleKeyDown}
-                onSend={handleSend}
-                disabled={thinking || !selectedDeviceId}
-                sendDisabled={thinking || !input.trim() || !selectedDeviceId}
-                placeholder={
-                  selectedDeviceId
-                    ? `Message ${agent === "openclaw" ? "OpenClaw" : "Claude Code"}…`
-                    : "Select a device first…"
-                }
               />
               <p className="text-center text-[10px] text-muted-foreground/30 mt-2">
                 Enter to send · Shift+Enter for newline · Commands run on your device
