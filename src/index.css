@@ -111,3 +111,24 @@
     font-family: 'JetBrains Mono', monospace;
   }
 }
+
+/* ── Waveform dictation bars ── */
+@keyframes waveform-bar {
+  0%, 100% { transform: scaleY(0.15); }
+  50%       { transform: scaleY(1); }
+}
+
+.waveform-bar {
+  width: 3px;
+  border-radius: 9999px;
+  background-color: hsl(var(--primary));
+  transform-origin: center;
+  animation: waveform-bar 0.8s ease-in-out infinite;
+}
+.waveform-bar:nth-child(1) { animation-delay: 0s;     height: 18px; }
+.waveform-bar:nth-child(2) { animation-delay: 0.12s;  height: 24px; }
+.waveform-bar:nth-child(3) { animation-delay: 0.24s;  height: 16px; }
+.waveform-bar:nth-child(4) { animation-delay: 0.08s;  height: 22px; }
+.waveform-bar:nth-child(5) { animation-delay: 0.20s;  height: 14px; }
+.waveform-bar:nth-child(6) { animation-delay: 0.16s;  height: 20px; }
+.waveform-bar:nth-child(7) { animation-delay: 0.04s;  height: 18px; }
