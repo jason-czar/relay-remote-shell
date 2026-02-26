@@ -1,5 +1,5 @@
-import { useState, useRef, useCallback } from "react";
-import { Plus, Trash2, Search, MessageSquare, ChevronLeft, GripVertical } from "lucide-react";
+import { useState, useRef, useCallback, useEffect } from "react";
+import { Plus, Trash2, Search, MessageSquare, ChevronLeft, Pencil, Check, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   AlertDialog,
@@ -25,19 +25,24 @@ interface ChatSidebarProps {
   onSelect: (id: string) => void;
   onNew: () => void;
   onDelete: (id: string) => void;
+  onRename: (id: string, title: string) => void;
 }
 
 const MIN_WIDTH = 180;
 const MAX_WIDTH = 400;
 const DEFAULT_WIDTH = 256;
 
-export function ChatSidebar({ conversations, activeId, onSelect, onNew, onDelete }: ChatSidebarProps) {
+export function ChatSidebar({ conversations, activeId, onSelect, onNew, onDelete, onRename }: ChatSidebarProps) {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [agentFilter, setAgentFilter] = useState<"all" | "openclaw" | "claude">("all");
   const [collapsed, setCollapsed] = useState(false);
   const [width, setWidth] = useState(DEFAULT_WIDTH);
+  // Inline rename state
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState("");
+  const editInputRef = useRef<HTMLInputElement>(null);
   const dragging = useRef(false);
   const startX = useRef(0);
   const startWidth = useRef(DEFAULT_WIDTH);
@@ -47,6 +52,28 @@ export function ChatSidebar({ conversations, activeId, onSelect, onNew, onDelete
     const matchesAgent = agentFilter === "all" || c.agent === agentFilter;
     return matchesSearch && matchesAgent;
   });
+
+  // Focus input when entering edit mode
+  useEffect(() => {
+    if (editingId) {
+      setTimeout(() => editInputRef.current?.focus(), 0);
+    }
+  }, [editingId]);
+
+  const startEdit = (e: React.MouseEvent, conv: Conversation) => {
+    e.stopPropagation();
+    setEditingId(conv.id);
+    setEditValue(conv.title);
+  };
+
+  const commitEdit = () => {
+    if (editingId && editValue.trim()) {
+      onRename(editingId, editValue.trim());
+    }
+    setEditingId(null);
+  };
+
+  const cancelEdit = () => setEditingId(null);
 
   const onMouseDown = useCallback((e: React.MouseEvent) => {
     dragging.current = true;
@@ -113,10 +140,7 @@ export function ChatSidebar({ conversations, activeId, onSelect, onNew, onDelete
   }
 
   return (
-    <div
-      className="flex h-full relative shrink-0"
-      style={{ width }}
-    >
+    <div className="flex h-full relative shrink-0" style={{ width }}>
       <div
         className="flex flex-col h-full w-full border-r border-border/30 overflow-hidden"
         style={{ background: "rgba(255,255,255,0.015)" }}
@@ -188,32 +212,75 @@ export function ChatSidebar({ conversations, activeId, onSelect, onNew, onDelete
             <div
               key={conv.id}
               className={cn(
-                "group flex items-center gap-2 rounded-lg px-2.5 py-2 cursor-pointer transition-all duration-150",
+                "group flex items-center gap-1.5 rounded-lg px-2 py-2 cursor-pointer transition-all duration-150",
                 activeId === conv.id
                   ? "bg-accent/60 text-foreground"
                   : "text-muted-foreground hover:bg-accent/30 hover:text-foreground"
               )}
-              onClick={() => onSelect(conv.id)}
+              onClick={() => editingId !== conv.id && onSelect(conv.id)}
               onMouseEnter={() => setHoveredId(conv.id)}
               onMouseLeave={() => setHoveredId(null)}
             >
-              <span className="flex-1 truncate text-xs">{conv.title}</span>
-              <span className={cn(
-                "text-[9px] px-1.5 py-0.5 rounded font-mono shrink-0 whitespace-nowrap",
-                conv.agent === "openclaw"
-                  ? "bg-primary/10 text-primary"
-                  : "bg-warning/10 text-warning"
-              )}>
-                {conv.agent === "openclaw" ? "OpenClaw" : "Claude"}
-              </span>
-              {(hoveredId === conv.id || activeId === conv.id) && (
-                <button
-                  className="shrink-0 p-0.5 rounded opacity-0 group-hover:opacity-100 hover:text-destructive transition-all duration-150"
-                  onClick={(e) => { e.stopPropagation(); setDeleteId(conv.id); }}
-                  aria-label="Delete"
-                >
-                  <Trash2 className="h-3 w-3" />
-                </button>
+              {editingId === conv.id ? (
+                /* ── Inline rename input ── */
+                <div className="flex items-center gap-1 flex-1 min-w-0" onClick={(e) => e.stopPropagation()}>
+                  <input
+                    ref={editInputRef}
+                    value={editValue}
+                    onChange={(e) => setEditValue(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") commitEdit();
+                      if (e.key === "Escape") cancelEdit();
+                    }}
+                    onBlur={commitEdit}
+                    className="flex-1 min-w-0 bg-background/60 border border-primary/40 rounded px-1.5 py-0.5 text-xs text-foreground outline-none focus:border-primary/80 transition-colors"
+                  />
+                  <button
+                    onMouseDown={(e) => { e.preventDefault(); commitEdit(); }}
+                    className="shrink-0 p-0.5 rounded text-primary hover:bg-primary/10 transition-colors"
+                    title="Save"
+                  >
+                    <Check className="h-3 w-3" />
+                  </button>
+                  <button
+                    onMouseDown={(e) => { e.preventDefault(); cancelEdit(); }}
+                    className="shrink-0 p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-accent/60 transition-colors"
+                    title="Cancel"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ) : (
+                /* ── Normal row ── */
+                <>
+                  <span className="flex-1 truncate text-xs">{conv.title}</span>
+                  <span className={cn(
+                    "text-[9px] px-1.5 py-0.5 rounded font-mono shrink-0 whitespace-nowrap",
+                    conv.agent === "openclaw"
+                      ? "bg-primary/10 text-primary"
+                      : "bg-warning/10 text-warning"
+                  )}>
+                    {conv.agent === "openclaw" ? "OC" : "CC"}
+                  </span>
+                  <div className="shrink-0 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                    <button
+                      className="p-0.5 rounded hover:text-foreground hover:bg-accent/60 transition-colors"
+                      onClick={(e) => startEdit(e, conv)}
+                      aria-label="Rename"
+                      title="Rename"
+                    >
+                      <Pencil className="h-3 w-3" />
+                    </button>
+                    <button
+                      className="p-0.5 rounded hover:text-destructive hover:bg-destructive/10 transition-colors"
+                      onClick={(e) => { e.stopPropagation(); setDeleteId(conv.id); }}
+                      aria-label="Delete"
+                      title="Delete"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  </div>
+                </>
               )}
             </div>
           ))}

@@ -16,6 +16,7 @@ interface ChatContextValue {
   activeConvId: string | null;
   setActiveConvId: (id: string | null) => void;
   handleDelete: (id: string) => Promise<void>;
+  handleRename: (id: string, title: string) => Promise<void>;
   handleNew: () => void;
   onNewCallback: (() => void) | null;
   registerNewCallback: (fn: () => void) => void;
@@ -52,6 +53,11 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     if (activeConvId === id) setActiveConvId(null);
   }, [activeConvId]);
 
+  const handleRename = useCallback(async (id: string, title: string) => {
+    await supabase.from("chat_conversations").update({ title }).eq("id", id);
+    setConversations((prev) => prev.map((c) => c.id === id ? { ...c, title } : c));
+  }, []);
+
   const handleNew = useCallback(() => {
     setActiveConvId(null);
     newCallback?.();
@@ -76,6 +82,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       activeConvId,
       setActiveConvId,
       handleDelete,
+      handleRename,
       handleNew,
       onNewCallback: newCallback,
       registerNewCallback,
