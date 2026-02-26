@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useScribe } from "@elevenlabs/react";
+import { cn } from "@/lib/utils";
 import { AppLayout } from "@/components/AppLayout";
 import { ChatMessage } from "@/components/ChatMessage";
 import { Button } from "@/components/ui/button";
@@ -6,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Send, ChevronDown, Paperclip, X, FileText, Image, Plus, Monitor, Terminal, Loader2, WifiOff, Square } from "lucide-react";
+import { Send, ChevronDown, Paperclip, X, FileText, Image, Plus, Monitor, Terminal, Loader2, WifiOff, Square, Mic, ArrowUp } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { Tables } from "@/integrations/supabase/types";
@@ -113,165 +115,189 @@ interface ComposerBoxProps {
 function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, onSend, disabled, sendDisabled, placeholder, attachedFiles, onRemoveFile, onFileSelect, agent, onSlashCommand }: ComposerBoxProps) {
   const [focused, setFocused] = useState(false);
   const [slashIdx, setSlashIdx] = useState(0);
+  const [isDictating, setIsDictating] = useState(false);
+  const [dictateError, setDictateError] = useState<string | null>(null);
 
-  // Slash menu: show when input starts with "/"
-  const slashQuery = input.startsWith("/") ? input.slice(1).toLowerCase() : null;
-  const filteredCmds = slashQuery !== null
-    ? SLASH_COMMANDS.filter((c) => {
-        const forAgent = c.agents.includes("both") || c.agents.includes(agent);
-        return forAgent && c.name.startsWith(slashQuery);
-      })
-    : [];
-  const showSlash = filteredCmds.length > 0;
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+  const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
 
-  // Reset selection when query changes
-  useEffect(() => { setSlashIdx(0); }, [slashQuery]);
+  const scribe = useScribe({
+    modelId: "scribe_v2_realtime" as any,
+    commitStrategy: "vad" as any,
+    onPartialTranscript: (data: any) => {
+      setInput(data.text ?? "");
+    },
+    onCommittedTranscript: (data: any) => {
+      const incoming = (data.text ?? "").trim();
+      setInput(incoming);
+    },
+  });
 
-  const handleSlashKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (showSlash) {
-      if (e.key === "ArrowDown") { e.preventDefault(); setSlashIdx((i) => (i + 1) % filteredCmds.length); return; }
-      if (e.key === "ArrowUp") { e.preventDefault(); setSlashIdx((i) => (i - 1 + filteredCmds.length) % filteredCmds.length); return; }
-      if (e.key === "Tab" || (e.key === "Enter" && !e.shiftKey)) {
-        e.preventDefault();
-        const cmd = filteredCmds[slashIdx];
-        if (cmd) { setInput(""); onSlashCommand(cmd); }
-        return;
-      }
-      if (e.key === "Escape") { setInput(""); return; }
+  const toggleDictation = useCallback(async () => {
+    if (scribe.isConnected) {
+      scribe.disconnect();
+      setIsDictating(false);
+      return;
     }
-    onKeyDown(e);
+    setDictateError(null);
+    try {
+      await navigator.mediaDevices.getUserMedia({ audio: true });
+      const resp = await fetch(`${supabaseUrl}/functions/v1/elevenlabs-scribe-token`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${supabaseKey}`,
+        },
+      });
+      const { token, error } = await resp.json();
+      if (!token) throw new Error(error ?? "No token received");
+      await scribe.connect({ token, microphone: { echoCancellation: true, noiseSuppression: true } });
+      setIsDictating(true);
+    } catch (e) {
+      setDictateError(e instanceof Error ? e.message : "Mic error");
+      setIsDictating(false);
+    }
+  }, [scribe, supabaseUrl, supabaseKey]);
+
+  // Sync isDictating with actual connection
+  useEffect(() => {
+    setIsDictating(scribe.isConnected);
+  }, [scribe.isConnected]);
+
+  // Slash command filtering
+  const slashQuery = input.startsWith("/") ? input.slice(1).toLowerCase() : null;
+  const slashMatches = slashQuery !== null
+    ? SLASH_COMMANDS.filter((c) => c.name.toLowerCase().startsWith(slashQuery) || c.description.toLowerCase().includes(slashQuery))
+    : [];
+
+  // Auto-resize textarea
+  const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setInput(e.target.value);
+    const el = e.target;
+    el.style.height = "40px";
+    el.style.height = Math.min(el.scrollHeight, 200) + "px";
+    el.style.overflowY = el.scrollHeight > 200 ? "auto" : "hidden";
   };
 
-  // Auto-resize
-  useEffect(() => {
-    const el = textareaRef.current;
-    if (!el) return;
-    el.style.height = "auto";
-    el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
-  }, [input, textareaRef]);
-
-  const isImage = (type: string) => type.startsWith("image/");
-
   return (
-    <div className="relative">
-      {/* Slash command palette */}
-      {showSlash && (
+    <div className="relative w-full">
+      {/* Slash command menu */}
+      {slashMatches.length > 0 && (
         <div className="absolute bottom-full mb-2 left-0 right-0 rounded-xl overflow-hidden z-30 bg-popover border border-border shadow-xl">
-          <div className="px-3 pt-2.5 pb-1.5 flex items-center gap-2 border-b border-border/60">
-            <span className="text-[10px] font-semibold text-primary uppercase tracking-wider">Commands</span>
-            <span className="text-[10px] text-muted-foreground/50">Tab or Enter to select · Esc to dismiss</span>
-          </div>
-          {filteredCmds.map((cmd, i) => (
+          {slashMatches.map((cmd, i) => (
             <button
               key={cmd.name}
-              type="button"
-              onMouseDown={(e) => { e.preventDefault(); setInput(""); onSlashCommand(cmd); }}
-              onMouseEnter={() => setSlashIdx(i)}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors ${i === slashIdx ? "bg-accent" : "hover:bg-accent/50"}`}
-            >
-              <span className="shrink-0 w-6 h-6 rounded-md bg-primary/10 text-primary flex items-center justify-center text-xs font-bold font-mono">
-                /
-              </span>
-              <div className="min-w-0 flex-1">
-                <span className="text-sm font-medium text-foreground">{cmd.name}</span>
-                <span className="text-xs text-muted-foreground ml-2">{cmd.description}</span>
-              </div>
-              {i === slashIdx && (
-                <kbd className="shrink-0 text-[10px] text-muted-foreground border border-border rounded px-1.5 py-0.5">↵</kbd>
+              onMouseDown={(e) => { e.preventDefault(); onSlashCommand(cmd); }}
+              className={cn(
+                "w-full text-left px-4 py-2.5 text-sm flex items-center gap-3 hover:bg-accent transition-colors",
+                i === slashIdx && "bg-accent"
               )}
+            >
+              <span className="font-mono text-primary">/{cmd.name}</span>
+              <span className="text-muted-foreground">{cmd.description}</span>
             </button>
           ))}
         </div>
       )}
 
-      {/* Composer shell */}
-      <div
-        className="flex flex-col rounded-2xl transition-all duration-200 bg-card border"
-        style={{
-          borderColor: focused
-            ? "hsl(var(--primary) / 0.5)"
-            : "hsl(var(--border))",
-          boxShadow: focused
-            ? "0 0 0 3px hsl(var(--primary) / 0.10), 0 4px 24px hsl(var(--background) / 0.6)"
-            : "0 2px 12px hsl(var(--background) / 0.4)",
-        }}
-      >
-        {/* File attachment chips */}
-        {attachedFiles.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 px-3 pt-3 pb-0">
-            {attachedFiles.map((f, i) => (
-              <div
-                key={i}
-                className="flex items-center gap-1.5 rounded-lg bg-muted border border-border px-2 py-1 text-xs max-w-[180px]"
-              >
-                {isImage(f.type) ? (
-                  <Image className="h-3 w-3 text-primary shrink-0" />
-                ) : (
-                  <FileText className="h-3 w-3 text-primary shrink-0" />
-                )}
-                <span className="truncate text-foreground/80">{f.name}</span>
-                <span className="text-muted-foreground shrink-0">
-                  {f.size < 1024 ? `${f.size}B` : `${(f.size / 1024).toFixed(0)}K`}
-                </span>
-                <button
-                  onClick={() => onRemoveFile(i)}
-                  className="shrink-0 text-muted-foreground hover:text-destructive transition-colors"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Input row */}
-        <div className="flex items-end gap-1 p-1.5">
-          {/* Attach button */}
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={disabled}
-            className="shrink-0 h-9 w-9 rounded-xl flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent transition-all duration-150 disabled:opacity-30 disabled:cursor-not-allowed"
-            title="Attach file"
-          >
-            <Paperclip className="h-3.5 w-3.5" />
-          </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            multiple
-            className="hidden"
-            onChange={(e) => e.target.files && onFileSelect(e.target.files)}
-          />
-
-          <Textarea
-            ref={textareaRef}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleSlashKeyDown}
-            onFocus={() => setFocused(true)}
-            onBlur={() => setFocused(false)}
-            placeholder={placeholder}
-            disabled={disabled}
-            rows={1}
-            style={{ height: "40px", overflowY: "hidden" }}
-            className="resize-none text-sm min-h-[40px] max-h-[200px] flex-1 bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none px-2 py-2.5 overflow-y-auto placeholder:text-muted-foreground/50"
-          />
-
-          {/* Send button */}
-          <button
-            onClick={onSend}
-            disabled={sendDisabled}
-            className={`shrink-0 h-9 w-9 rounded-xl flex items-center justify-center transition-all duration-150 ${
-              sendDisabled
-                ? "text-muted-foreground/30 cursor-not-allowed"
-                : "bg-primary text-primary-foreground hover:bg-primary/90 active:scale-95 shadow-sm"
-            }`}
-          >
-            <Send className="h-3.5 w-3.5" />
-          </button>
+      {/* File attachment chips */}
+      {attachedFiles.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mb-2 px-1">
+          {attachedFiles.map((f, i) => (
+            <div key={i} className="flex items-center gap-1 bg-accent/50 rounded-full px-2.5 py-1 text-xs text-foreground/80 border border-border/50">
+              <span className="max-w-[120px] truncate">{f.name}</span>
+              <button onClick={() => onRemoveFile(i)} className="text-muted-foreground hover:text-foreground ml-0.5">×</button>
+            </div>
+          ))}
         </div>
+      )}
+
+      {/* Main pill bar */}
+      <div
+        className={cn(
+          "flex items-center gap-1 rounded-full border bg-background/80 backdrop-blur-sm px-3 py-1.5 transition-all duration-200",
+          focused ? "border-primary/50 shadow-[0_0_0_3px_hsl(var(--primary)/0.12)]" : "border-border/60 shadow-sm",
+          disabled && "opacity-60 pointer-events-none"
+        )}
+      >
+        {/* Attach button */}
+        <button
+          type="button"
+          title="Attach file"
+          onClick={() => fileInputRef.current?.click()}
+          className="shrink-0 p-1.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-accent/60 transition-colors"
+        >
+          <Paperclip size={16} />
+        </button>
+        <input ref={fileInputRef} type="file" className="hidden" multiple onChange={(e) => { if (e.target.files) onFileSelect(e.target.files); }} />
+
+        {/* Textarea */}
+        <textarea
+          ref={textareaRef}
+          value={input}
+          onChange={handleInput}
+          onKeyDown={(e) => {
+            if (slashMatches.length > 0) {
+              if (e.key === "ArrowDown") { e.preventDefault(); setSlashIdx((p) => Math.min(p + 1, slashMatches.length - 1)); return; }
+              if (e.key === "ArrowUp") { e.preventDefault(); setSlashIdx((p) => Math.max(p - 1, 0)); return; }
+              if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onSlashCommand(slashMatches[slashIdx]); return; }
+            }
+            onKeyDown(e);
+          }}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          placeholder={placeholder}
+          disabled={disabled}
+          rows={1}
+          style={{ height: "40px", overflowY: "hidden" }}
+          className="resize-none text-sm min-h-[40px] max-h-[200px] flex-1 bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none px-2 py-2.5 overflow-y-auto placeholder:text-muted-foreground/40"
+        />
+
+        {/* Agent badge */}
+        <div className="shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-full bg-muted/60 text-xs font-medium text-muted-foreground border border-border/40 select-none">
+          {agent === "openclaw" ? (
+            <><span className="text-primary">⬡</span> OpenClaw</>
+          ) : (
+            <><span className="text-warning">✦</span> Claude</>
+          )}
+          <ChevronDown size={11} className="opacity-50" />
+        </div>
+
+        {/* Mic / dictation button */}
+        <button
+          type="button"
+          title={isDictating ? "Stop dictation" : "Voice input"}
+          onClick={toggleDictation}
+          className={cn(
+            "shrink-0 p-2 rounded-full border transition-all duration-200",
+            isDictating
+              ? "bg-destructive/15 border-destructive/40 text-destructive animate-pulse"
+              : "bg-muted/40 border-border/40 text-muted-foreground hover:text-foreground hover:bg-accent/60"
+          )}
+        >
+          <Mic size={15} />
+        </button>
+
+        {/* Send button */}
+        <button
+          type="button"
+          onClick={onSend}
+          disabled={sendDisabled || disabled}
+          title="Send"
+          className={cn(
+            "shrink-0 p-2 rounded-full transition-all duration-200",
+            sendDisabled || disabled
+              ? "bg-muted/40 text-muted-foreground/40 cursor-not-allowed"
+              : "bg-primary text-primary-foreground hover:opacity-90 shadow-sm"
+          )}
+        >
+          <ArrowUp size={15} />
+        </button>
       </div>
+
+      {dictateError && (
+        <p className="text-xs text-destructive mt-1 pl-3">{dictateError}</p>
+      )}
     </div>
   );
 }
