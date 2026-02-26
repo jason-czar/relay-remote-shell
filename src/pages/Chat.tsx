@@ -564,8 +564,17 @@ export default function Chat() {
             <div className="max-w-[720px] mx-auto px-6">
               {messages.length === 0 && !thinking && (
                 <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
-                  <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-5 ring-1 ring-primary/20">
-                    <span className="text-3xl">🐾</span>
+                  <div className="relative mb-6">
+                    {/* Outer glow */}
+                    <div className="absolute inset-0 rounded-3xl bg-primary/20 blur-xl scale-110" />
+                    <div className="relative w-24 h-24 rounded-3xl flex items-center justify-center ring-1 ring-primary/30"
+                      style={{
+                        background: "linear-gradient(135deg, hsl(var(--primary) / 0.18) 0%, hsl(var(--primary) / 0.08) 100%)",
+                        boxShadow: "0 8px 32px hsl(var(--primary) / 0.25), inset 0 1px 0 rgba(255,255,255,0.12)",
+                      }}
+                    >
+                      <span className="text-5xl">{agent === "openclaw" ? "🐾" : "⌨️"}</span>
+                    </div>
                   </div>
                   <h3 className="font-semibold text-foreground mb-2 text-lg">
                     {agent === "openclaw" ? "OpenClaw Agent" : "Claude Code"}
