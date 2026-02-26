@@ -29,6 +29,7 @@ interface Message {
   id?: string;
   role: "user" | "assistant";
   content: string;
+  created_at?: string;
 }
 
 interface RelayMsg {
@@ -410,7 +411,7 @@ export default function Chat() {
     if (!activeConvId) { setMessages([]); return; }
     supabase
       .from("chat_messages")
-      .select("id, role, content")
+      .select("id, role, content, created_at")
       .eq("conversation_id", activeConvId)
       .order("created_at", { ascending: true })
       .then(({ data }) => {
@@ -1270,6 +1271,7 @@ export default function Chat() {
                       content={msg.content}
                       rawStdout={msg.role === "assistant" ? rawStdoutMapRef.current.get(i) : undefined}
                       streaming={i === streamingMsgIndex}
+                      createdAt={msg.created_at}
                     />
                   </div>
                 ))}
