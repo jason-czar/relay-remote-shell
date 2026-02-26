@@ -253,8 +253,8 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
       {/* Main pill bar */}
       <div
         className={cn(
-          "flex items-center gap-1 rounded-full border bg-background/80 backdrop-blur-sm px-3 py-1.5 transition-all duration-200",
-          focused ? "border-border/60" : "border-border/60 shadow-sm",
+          "flex items-center gap-1 rounded-full px-3 py-1.5 transition-all duration-200",
+          "bg-[hsl(var(--muted)/0.6)] border border-border/20",
           disabled && "opacity-60 pointer-events-none"
         )}
       >
@@ -312,10 +312,10 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
           title={isDictating ? "Stop dictation" : "Voice input"}
           onClick={toggleDictation}
           className={cn(
-            "shrink-0 p-2 rounded-full border transition-all duration-200",
+            "shrink-0 p-2 rounded-full transition-all duration-200",
             isDictating
-              ? "bg-destructive/15 border-destructive/40 text-destructive animate-pulse"
-              : "bg-muted/40 border-border/40 text-muted-foreground hover:text-foreground hover:bg-accent/60"
+              ? "text-destructive animate-pulse"
+              : "text-muted-foreground hover:text-foreground"
           )}
         >
           <Mic size={15} />
