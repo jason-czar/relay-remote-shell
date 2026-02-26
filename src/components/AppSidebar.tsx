@@ -210,40 +210,40 @@ export function AppSidebar() {
                               </button>
                             </div>
                           ) : (
-                            <>
-                              <span className="flex-1 truncate text-sm leading-snug">{conv.title}</span>
-                              {activeJobs.has(conv.id) ? (
-                                <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-primary animate-pulse" title="Running…" />
-                              ) : (
-                                <span className={cn(
-                                  "shrink-0 text-[9px] font-mono font-semibold px-1 py-0.5 rounded",
-                                  conv.agent === "openclaw"
-                                    ? "text-primary bg-primary/10"
-                                    : "text-muted-foreground/50 bg-muted/50"
-                                )}>
-                                  {conv.agent === "openclaw" ? "OC" : "CC"}
-                                </span>
-                              )}
-                              <div className={cn(
-                                "shrink-0 flex items-center gap-0.5 transition-opacity",
-                                hoveredId === conv.id ? "opacity-100" : "opacity-0 pointer-events-none"
-                              )}>
-                                <button
-                                  className="p-0.5 rounded hover:text-foreground hover:bg-accent/60 transition-colors"
-                                  onClick={e => startEdit(e, conv.id, conv.title)}
-                                  title="Rename"
-                                >
-                                  <Pencil className="h-3 w-3" />
-                                </button>
-                                <button
-                                  className="p-0.5 rounded hover:text-destructive hover:bg-destructive/10 transition-colors"
-                                  onClick={e => { e.stopPropagation(); setDeleteTargetId(conv.id); }}
-                                  title="Delete"
-                                >
-                                  <Trash2 className="h-3 w-3" />
-                                </button>
-                              </div>
-                            </>
+                              <>
+                               <span className="flex-1 truncate text-sm leading-snug">{conv.title}</span>
+                               <div className={cn(
+                                 "shrink-0 flex items-center gap-0.5 transition-opacity",
+                                 hoveredId === conv.id ? "opacity-100" : "opacity-0 pointer-events-none"
+                               )}>
+                                 <button
+                                   className="p-0.5 rounded hover:text-foreground hover:bg-accent/60 transition-colors"
+                                   onClick={e => startEdit(e, conv.id, conv.title)}
+                                   title="Rename"
+                                 >
+                                   <Pencil className="h-3 w-3" />
+                                 </button>
+                                 <button
+                                   className="p-0.5 rounded hover:text-destructive hover:bg-destructive/10 transition-colors"
+                                   onClick={e => { e.stopPropagation(); setDeleteTargetId(conv.id); }}
+                                   title="Delete"
+                                 >
+                                   <Trash2 className="h-3 w-3" />
+                                 </button>
+                               </div>
+                               {activeJobs.has(conv.id) ? (
+                                 <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-primary animate-pulse" title="Running…" />
+                               ) : (
+                                 <span className={cn(
+                                   "shrink-0 text-[9px] font-mono font-semibold px-1 py-0.5 rounded",
+                                   conv.agent === "openclaw"
+                                     ? "text-primary bg-primary/10"
+                                     : "text-muted-foreground/50 bg-muted/50"
+                                 )}>
+                                   {conv.agent === "openclaw" ? "OC" : "CC"}
+                                 </span>
+                               )}
+                             </>
                           )}
                         </div>
                       ))}
