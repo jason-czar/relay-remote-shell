@@ -6,10 +6,18 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Send, ChevronDown } from "lucide-react";
+import { Send, ChevronDown, Paperclip, X, FileText, Image } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { Tables } from "@/integrations/supabase/types";
 import { useChatContext } from "@/contexts/ChatContext";
+
+interface AttachedFile {
+  name: string;
+  type: string;
+  size: number;
+  content: string; // base64 for binary, raw text for text files
+  isText: boolean;
+}
 
 interface Message {
   id?: string;
@@ -28,6 +36,7 @@ const SILENCE_MS = 3000;
 // ── Composer component ──────────────────────────────────────────────────────
 interface ComposerBoxProps {
   textareaRef: React.RefObject<HTMLTextAreaElement>;
+  fileInputRef: React.RefObject<HTMLInputElement>;
   input: string;
   setInput: (v: string) => void;
   onKeyDown: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
@@ -35,9 +44,12 @@ interface ComposerBoxProps {
   disabled: boolean;
   sendDisabled: boolean;
   placeholder: string;
+  attachedFiles: AttachedFile[];
+  onRemoveFile: (idx: number) => void;
+  onFileSelect: (files: FileList) => void;
 }
 
-function ComposerBox({ textareaRef, input, setInput, onKeyDown, onSend, disabled, sendDisabled, placeholder }: ComposerBoxProps) {
+function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, onSend, disabled, sendDisabled, placeholder, attachedFiles, onRemoveFile, onFileSelect }: ComposerBoxProps) {
   const [focused, setFocused] = useState(false);
 
   // Auto-resize: recalculate height whenever input changes
@@ -48,9 +60,11 @@ function ComposerBox({ textareaRef, input, setInput, onKeyDown, onSend, disabled
     el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
   }, [input, textareaRef]);
 
+  const isImage = (type: string) => type.startsWith("image/");
+
   return (
     <div
-      className="flex items-end gap-2 rounded-2xl p-1.5 transition-all duration-300"
+      className="flex flex-col rounded-2xl p-1.5 transition-all duration-300"
       style={{
         background: "rgba(255,255,255,0.05)",
         backdropFilter: "blur(24px) saturate(180%)",
@@ -63,32 +77,87 @@ function ComposerBox({ textareaRef, input, setInput, onKeyDown, onSend, disabled
           : "0 4px 24px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.06)",
       }}
     >
-      <Textarea
-        ref={textareaRef}
-        value={input}
-        onChange={(e) => setInput(e.target.value)}
-        onKeyDown={onKeyDown}
-        onFocus={() => setFocused(true)}
-        onBlur={() => setFocused(false)}
-        placeholder={placeholder}
-        disabled={disabled}
-        rows={1}
-        style={{ height: "40px", overflowY: "hidden" }}
-        className="resize-none text-sm min-h-[40px] max-h-[200px] flex-1 bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none px-3 py-2.5 overflow-y-auto"
-      />
-      <button
-        onClick={onSend}
-        disabled={sendDisabled}
-        className="shrink-0 h-9 w-9 rounded-xl flex items-center justify-center transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed hover:scale-105 active:scale-95"
-        style={{
-          background: sendDisabled ? "rgba(255,255,255,0.06)" : "hsl(var(--primary))",
-          border: sendDisabled ? "1px solid rgba(255,255,255,0.08)" : "1px solid hsl(var(--primary))",
-          boxShadow: sendDisabled ? "none" : "0 2px 12px hsl(var(--primary) / 0.45), inset 0 1px 0 rgba(255,255,255,0.2)",
-          color: sendDisabled ? "rgba(255,255,255,0.3)" : "hsl(var(--primary-foreground))",
-        }}
-      >
-        <Send className="h-3.5 w-3.5" />
-      </button>
+      {/* File attachment chips */}
+      {attachedFiles.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 px-2 pt-1.5 pb-1">
+          {attachedFiles.map((f, i) => (
+            <div
+              key={i}
+              className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs max-w-[180px]"
+              style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.14)" }}
+            >
+              {isImage(f.type) ? (
+                <Image className="h-3 w-3 text-primary shrink-0" />
+              ) : (
+                <FileText className="h-3 w-3 text-primary shrink-0" />
+              )}
+              <span className="truncate text-foreground/80">{f.name}</span>
+              <span className="text-muted-foreground shrink-0">
+                {f.size < 1024 ? `${f.size}B` : `${(f.size / 1024).toFixed(0)}K`}
+              </span>
+              <button
+                onClick={() => onRemoveFile(i)}
+                className="shrink-0 hover:text-destructive transition-colors ml-0.5"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Input row */}
+      <div className="flex items-end gap-1">
+        {/* Attach button */}
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={disabled}
+          className="shrink-0 h-9 w-9 rounded-xl flex items-center justify-center transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed hover:scale-105 active:scale-95 ml-0.5"
+          style={{
+            background: "rgba(255,255,255,0.06)",
+            border: "1px solid rgba(255,255,255,0.10)",
+            color: "hsl(var(--muted-foreground))",
+          }}
+          title="Attach file"
+        >
+          <Paperclip className="h-3.5 w-3.5" />
+        </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          className="hidden"
+          onChange={(e) => e.target.files && onFileSelect(e.target.files)}
+        />
+
+        <Textarea
+          ref={textareaRef}
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={onKeyDown}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          placeholder={placeholder}
+          disabled={disabled}
+          rows={1}
+          style={{ height: "40px", overflowY: "hidden" }}
+          className="resize-none text-sm min-h-[40px] max-h-[200px] flex-1 bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none px-3 py-2.5 overflow-y-auto"
+        />
+        <button
+          onClick={onSend}
+          disabled={sendDisabled}
+          className="shrink-0 h-9 w-9 rounded-xl flex items-center justify-center transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed hover:scale-105 active:scale-95"
+          style={{
+            background: sendDisabled ? "rgba(255,255,255,0.06)" : "hsl(var(--primary))",
+            border: sendDisabled ? "1px solid rgba(255,255,255,0.08)" : "1px solid hsl(var(--primary))",
+            boxShadow: sendDisabled ? "none" : "0 2px 12px hsl(var(--primary) / 0.45), inset 0 1px 0 rgba(255,255,255,0.2)",
+            color: sendDisabled ? "rgba(255,255,255,0.3)" : "hsl(var(--primary-foreground))",
+          }}
+        >
+          <Send className="h-3.5 w-3.5" />
+        </button>
+      </div>
     </div>
   );
 }
@@ -107,11 +176,16 @@ export default function Chat() {
   const [thinking, setThinking] = useState(false);
   const [agentSwitchPending, setAgentSwitchPending] = useState<"openclaw" | "claude" | null>(null);
   const [streamingMsgIndex, setStreamingMsgIndex] = useState<number | null>(null);
-
-  const streamIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
+  const [isDragOver, setIsDragOver] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const streamIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // ── Load devices ──────────────────────────────────────────────────────
+
 
   // ── Load conversations (now handled by ChatContext) ────────────────────
   // (removed — context loads them)
@@ -516,6 +590,22 @@ export default function Chat() {
     }
   };
 
+  // ── File handling ─────────────────────────────────────────────────────
+  const processFiles = useCallback(async (files: FileList) => {
+    const processed: AttachedFile[] = [];
+    for (const file of Array.from(files)) {
+      const isText = file.type.startsWith("text/") || /\.(ts|tsx|js|jsx|json|md|txt|py|go|sh|css|html|yaml|yml|env|toml)$/i.test(file.name);
+      const content = await new Promise<string>((res) => {
+        const reader = new FileReader();
+        reader.onload = () => res(reader.result as string);
+        if (isText) reader.readAsText(file);
+        else reader.readAsDataURL(file);
+      });
+      processed.push({ name: file.name, type: file.type, size: file.size, content, isText });
+    }
+    setAttachedFiles((prev) => [...prev, ...processed]);
+  }, []);
+
   // ── Key handler ───────────────────────────────────────────────────────
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -673,6 +763,18 @@ export default function Chat() {
             <div className="max-w-[720px] mx-auto">
               <ComposerBox
                 textareaRef={textareaRef}
+                fileInputRef={fileInputRef}
+                input={input}
+                setInput={setInput}
+                onKeyDown={handleKeyDown}
+                onSend={handleSend}
+                disabled={thinking || !selectedDeviceId}
+                sendDisabled={thinking || (!input.trim() && attachedFiles.length === 0)}
+                placeholder={selectedDeviceId ? `Message ${agent === "openclaw" ? "OpenClaw" : "Claude Code"}...` : "Select a device first…"}
+                attachedFiles={attachedFiles}
+                onRemoveFile={(i) => setAttachedFiles((prev) => prev.filter((_, idx) => idx !== i))}
+                onFileSelect={processFiles}
+              />
                 input={input}
                 setInput={setInput}
                 onKeyDown={handleKeyDown}
