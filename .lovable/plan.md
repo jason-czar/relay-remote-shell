@@ -1,82 +1,85 @@
 
-# Relay Terminal Cloud — Implementation Plan
+## Plan: AI Chat Interface (OpenClaw + Claude Code)
 
-## Overview
-A production-ready SaaS web app for securely accessing terminals on remote machines via a cloud relay. We'll build the complete web application with Lovable Cloud (Supabase), with the terminal UI using xterm.js ready to connect to a real relay backend later.
+### Database migration
+One new migration creating two tables:
 
----
+```sql
+CREATE TABLE chat_conversations (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  device_id uuid REFERENCES devices(id) ON DELETE SET NULL,
+  agent text NOT NULL DEFAULT 'openclaw',          -- 'openclaw' | 'claude'
+  title text NOT NULL DEFAULT 'New Conversation',
+  openclaw_session_id text,                        -- pre-generated UUID, passed as --session-id
+  claude_session_id text,                          -- parsed from stdout
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
 
-## 1. Authentication & User Management
-- Email + password signup/login with password reset flow
-- Google OAuth sign-in
-- Session persistence across browser sessions
-- User profiles table (display name, avatar)
-- Dark mode as default theme
+CREATE TABLE chat_messages (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  conversation_id uuid NOT NULL REFERENCES chat_conversations(id) ON DELETE CASCADE,
+  role text NOT NULL,   -- 'user' | 'assistant'
+  content text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
 
-## 2. Team & Role System
-- User roles table (owner, member) per project
-- Project owners can invite team members via email
-- Members can view devices and start sessions; owners can manage devices and members
-- Role-based access enforced via RLS policies
+-- RLS on chat_conversations: user_id = auth.uid()
+-- RLS on chat_messages: via conversation ownership join
+```
 
-## 3. Projects
-- Create, rename, and delete projects
-- Each project scopes its own devices, sessions, and team members
-- Project dashboard showing device count, active sessions, and recent activity
+### Final command execution matrix
 
-## 4. Device Management
-- Add devices to a project with a name
-- Generate a one-time pairing code per device
-- Display device status (online/offline) with last-seen timestamp
-- Device list view with status indicators and quick actions
-- Edge function: `POST /pair-device` — validates pairing code and marks device as paired
+| Agent | Scenario | Command sent via relay stdin |
+|-------|----------|------------------------------|
+| OpenClaw | New conversation | `openclaw agent --agent main --session-id <pre-generated-uuid> --message "..." --json --local\n` |
+| OpenClaw | Continue | same `openclaw_session_id` stored in DB |
+| Claude | New conversation | `claude -p "..."\n` |
+| Claude | Continue | `claude -c -p "..."\n` |
 
-## 5. Pairing Flow
-- User creates a device → receives a pairing code to use on their local connector
-- Edge function accepts pairing code + device token, links the connector to the device record
-- Once paired, device status updates to reflect connection state
+Key change from ChatGPT feedback: **OpenClaw session ID is generated on the frontend (crypto.randomUUID()) before the first message is sent** — not parsed from stdout. This makes it deterministic and avoids any parsing race conditions.
 
-## 6. Sessions & Session Manager
-- Start/end session records tied to a device
-- Track session_id, device_id, user_id, status (active/ended), started_at, ended_at
-- Session history view with filtering by device and date
-- Edge functions: `POST /start-session`, `POST /end-session`, `GET /sessions`
+For Claude, stdout is still scanned for `/Session ID:\s*(\S+)/` to capture `claude_session_id` for `--resume` if needed, but `-c` (continue last) is the primary continuation mechanism.
 
-## 7. Terminal UI (xterm.js)
-- Full-screen dark terminal emulator using xterm.js
-- Supports stdin input, stdout display, and scrollback buffer
-- WebSocket connection stub — ready to plug into a real relay backend
-- Session reconnect logic (detects disconnect, offers reconnect button)
-- Fits the modern developer SaaS aesthetic
+### Relay integration (no xterm)
+Reuses the same WebSocket pattern from `TerminalSession.tsx` (`/session` endpoint, `auth` → `auth_ok` → `session_start` → `stdin` send → buffer `stdout` messages). No Terminal instance — just a string buffer. Response completion detected by 1.5s silence after last stdout chunk. 30s hard timeout with error message.
 
-## 8. Dashboard
-- Overview page showing: online devices count, active sessions, recent session history
-- Quick-launch buttons to open terminal on online devices
-- Real-time status indicators for device connectivity
+### Files to create/modify
 
-## 9. API Layer (Edge Functions)
-- `POST /pair-device` — pair a connector using a code
-- `POST /start-session` — create a new terminal session
-- `POST /end-session` — close a session
-- `GET /devices` — list devices for a project
-- `GET /sessions` — list sessions with filters
-- All endpoints authenticated via Supabase JWT
+**New files:**
+- `supabase/migrations/20260226_chat_tables.sql`
+- `src/pages/Chat.tsx` — full page: sidebar + agent toggle + device picker + message area + input
+- `src/components/ChatSidebar.tsx` — conversation list, new chat button, delete (with trash on hover)
+- `src/components/ChatMessage.tsx` — message bubbles (user right-aligned, assistant left-aligned, with `●●●` thinking indicator)
 
-## 10. Real-time Features
-- Supabase Realtime subscriptions for device status changes (online/offline)
-- Live session status updates on the dashboard
-- Terminal streaming will use WebSocket once relay backend is connected
+**Modified files:**
+- `src/App.tsx` — add `/chat` protected route
+- `src/components/AppSidebar.tsx` — add "Chat" nav item with `MessageSquare` icon (between Multi-Session and PrivaClaw)
 
-## 11. UI Pages & Navigation
-- **Login / Signup** — clean auth pages with Google OAuth button
-- **Dashboard** — project overview with stats and quick actions
-- **Project View** — devices, sessions, and team members tabs
-- **Device List** — status indicators, pairing codes, actions
-- **Terminal Session Page** — full xterm.js terminal with connection status
-- Sidebar navigation with project switcher
+### Page layout
+```
+┌─ AppLayout sidebar ─────────────────────────────────────────────┐
+│ ┌─ ChatSidebar (w-64) ──┬─ Chat area ─────────────────────────┐ │
+│ │ + New Chat            │  ┌────────────────────────────────┐  │ │
+│ │ ─────────────────     │  │  [OpenClaw ●]  [ Claude Code ] │  │ │ ← ToggleGroup centered
+│ │ > Conversation 1      │  │  Device: [picker ▾]            │  │ │
+│ │   Conversation 2      │  └────────────────────────────────┘  │ │
+│ │   Conversation 3      │                                       │ │
+│ │                       │   scroll area (messages)             │ │
+│ │                       │   ┌──────────────────────────────┐   │ │
+│ │                       │   │  [textarea]      [Send ▶]    │   │ │
+│ │                       │   └──────────────────────────────┘   │ │
+│ └───────────────────────┴───────────────────────────────────────┘ │
+└───────────────────────────────────────────────────────────────────┘
+```
 
-## 12. Branding & Design
-- Dark mode default with clean developer SaaS aesthetic
-- Monospace fonts for terminal elements
-- Status indicators: green (online/active), gray (offline), amber (connecting)
-- Minimal, professional UI with consistent spacing and typography
+### Key UX behaviours
+1. **Agent toggle** defaults to OpenClaw; switching agent on an active conversation offers "Start new conversation?"
+2. **Device picker** — dropdown of all devices the user has access to (fetched via existing RLS on `devices`); must select a device before sending
+3. **OpenClaw session ID** — `crypto.randomUUID()` generated when creating the conversation row, stored in `openclaw_session_id`, passed as `--session-id` on every turn
+4. **Auto-title** — first 40 chars of the user's first message
+5. **Thinking indicator** — `● ● ●` animated dots while awaiting response; times out at 30s
+6. **Enter to send**, Shift+Enter for newline
+7. **Conversation delete** — trash icon on hover in sidebar
+8. **Relay sessions** — a fresh relay session is created per send (lightweight); conversational state lives in DB session IDs
