@@ -201,7 +201,7 @@ export function TerminalPanel({ deviceId, deviceName, onClose }: TerminalPanelPr
     return () => {
       document.removeEventListener("visibilitychange", handleVisibility);
       resizeObserver.disconnect();
-      if (!isHiddenRef.current) endSessionInDb();
+      // Do NOT end the session on unmount — only end explicitly on close button.
       cleanup();
     };
   }, [deviceId, user]);

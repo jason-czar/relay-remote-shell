@@ -61,14 +61,21 @@ export default function TerminalSession() {
   // ── Session storage for iOS app-switch persistence ───────────────────
   const sessionStorageKey = deviceId ? `relay-session-${deviceId}` : null;
   const persistSessionId = useCallback((id: string) => {
-    if (sessionStorageKey) sessionStorage.setItem(sessionStorageKey, id);
+    if (sessionStorageKey) {
+      sessionStorage.setItem(sessionStorageKey, id);
+      localStorage.setItem(sessionStorageKey, id); // survives tab discard on iOS
+    }
   }, [sessionStorageKey]);
   const getPersistedSessionId = useCallback((): string | null => {
     if (!sessionStorageKey) return null;
-    return sessionStorage.getItem(sessionStorageKey);
+    // Prefer sessionStorage (same tab); fall back to localStorage (after reload)
+    return sessionStorage.getItem(sessionStorageKey) ?? localStorage.getItem(sessionStorageKey);
   }, [sessionStorageKey]);
   const clearPersistedSessionId = useCallback(() => {
-    if (sessionStorageKey) sessionStorage.removeItem(sessionStorageKey);
+    if (sessionStorageKey) {
+      sessionStorage.removeItem(sessionStorageKey);
+      localStorage.removeItem(sessionStorageKey);
+    }
   }, [sessionStorageKey]);
 
   // ── Elapsed timer ────────────────────────────────────────────────────
@@ -287,7 +294,8 @@ export default function TerminalSession() {
       document.removeEventListener("visibilitychange", handleVisibility);
       resizeObserver.disconnect();
       terminalContainerRef.current?.removeEventListener("paste", handleNativePaste);
-      if (!isHiddenRef.current) endSessionInDb();
+      // Do NOT end the session on unmount — user may be navigating within the app.
+      // Session is only ended explicitly via handleDisconnect.
       cleanup();
     };
   }, [deviceId, user]);
