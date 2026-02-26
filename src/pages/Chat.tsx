@@ -490,51 +490,31 @@ export default function Chat() {
         <div className="flex flex-col flex-1 min-w-0 h-full relative">
 
           {/* Top header bar */}
-          <div className="shrink-0 h-14 border-b border-border/50 flex items-center px-14 gap-4">
-            {/* Left — agent switcher + conversation title */}
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="flex items-center gap-1 p-0.5 rounded-lg bg-muted/40 shrink-0">
-                {(["openclaw", "claude"] as const).map((a) => {
-                  const active = agent === a;
-                  const label = a === "openclaw" ? "OpenClaw" : "Claude Code";
-                  return (
-                    <button
-                      key={a}
-                      onClick={() => handleAgentChange(a)}
-                      className={`px-3 py-1 text-xs font-mono font-medium rounded-md transition-all duration-200 select-none ${
-                        active
-                          ? "bg-background text-foreground shadow-sm border border-border/60"
-                          : "text-muted-foreground hover:text-foreground"
-                      }`}
-                    >
-                      {label}
-                    </button>
-                  );
-                })}
-              </div>
-              {activeConvId && (() => {
-                const title = conversations.find(c => c.id === activeConvId)?.title;
-                return title ? (
-                  <span className="text-sm text-foreground/70 font-medium truncate max-w-[280px]">{title}</span>
-                ) : null;
-              })()}
+          <div className="shrink-0 h-12 border-b border-border/30 flex items-center px-6 relative">
+            {/* Center — agent tabs */}
+            <div className="absolute left-1/2 -translate-x-1/2 flex items-center">
+              {(["openclaw", "claude"] as const).map((a) => {
+                const active = agent === a;
+                const label = a === "openclaw" ? "OpenClaw" : "Claude Code";
+                return (
+                  <button
+                    key={a}
+                    onClick={() => handleAgentChange(a)}
+                    className={`relative px-4 py-2 text-xs font-medium transition-all duration-200 select-none ${
+                      active ? "text-foreground" : "text-muted-foreground/50 hover:text-muted-foreground"
+                    }`}
+                  >
+                    {label}
+                    {active && <span className="absolute bottom-0 left-3 right-3 h-px bg-foreground/70 rounded-full" />}
+                  </button>
+                );
+              })}
             </div>
-
-            {/* Right — device selector */}
-            <div className="ml-auto flex items-center gap-2">
-              {selectedDeviceId && (() => {
-                const dev = devices.find(d => d.id === selectedDeviceId);
-                return dev ? (
-                  <span className={`inline-flex items-center gap-1.5 text-xs font-medium ${dev.status === "online" ? "text-status-online" : "text-muted-foreground/50"}`}>
-                    <span className={`w-1.5 h-1.5 rounded-full ${dev.status === "online" ? "bg-status-online animate-pulse" : "bg-muted-foreground/40"}`} />
-                    {dev.name}
-                  </span>
-                ) : null;
-              })()}
-              {/* Device pill */}
+            {/* Right — device pill */}
+            <div className="ml-auto flex items-center">
               <Popover>
                 <PopoverTrigger asChild>
-                  <button className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all duration-150 border border-border/40 bg-muted/30 hover:bg-muted/60 hover:border-border/70 text-foreground/70 hover:text-foreground">
+                  <button className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all duration-150 border border-border/30 bg-muted/20 hover:bg-muted/50 hover:border-border/60 text-muted-foreground hover:text-foreground">
                     {(() => {
                       const dev = devices.find(d => d.id === selectedDeviceId);
                       return dev ? (
@@ -543,10 +523,10 @@ export default function Chat() {
                           <span className="max-w-[120px] truncate">{dev.name}</span>
                         </>
                       ) : (
-                        <span className="text-muted-foreground/50">No device</span>
+                        <span className="opacity-50">No device</span>
                       );
                     })()}
-                    <ChevronDown className="h-3 w-3 shrink-0 opacity-50" />
+                    <ChevronDown className="h-3 w-3 shrink-0 opacity-40" />
                   </button>
                 </PopoverTrigger>
                 <PopoverContent align="end" className="w-48 p-1">
