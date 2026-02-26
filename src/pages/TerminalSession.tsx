@@ -324,7 +324,16 @@ export default function TerminalSession() {
       ws.onmessage = (event) => {
         try {
           const msg: RelayMessage = JSON.parse(event.data);
-          if (msg.type === "auth_ok") {
+          if (msg.type === "scrollback" && msg.data) {
+            const { frames } = msg.data as { frames: { t: number; d: string }[] };
+            if (frames?.length > 0) {
+              term.writeln(`\x1b[2m─── scrollback (${frames.length} frames) ───\x1b[0m`);
+              for (const frame of frames) {
+                term.write(Uint8Array.from(atob(frame.d), (c) => c.charCodeAt(0)));
+              }
+              term.writeln(`\x1b[2m─── live ───────────────────────────────\x1b[0m`);
+            }
+          } else if (msg.type === "auth_ok") {
             term.writeln(`\x1b[32m✓ Connected\x1b[0m`);
             setConnectionStatus("online");
             setBgReconnecting(false);
