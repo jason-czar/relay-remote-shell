@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, FolderOpen, Settings, LogOut, Sun, Moon, Plug, BookOpen,
-  Columns2, MessageSquare, ChevronDown, ChevronUp, Plus, Search, Trash2, User
+  Columns2, MessageSquare, ChevronDown, Plus, Search, Trash2, User
 } from "lucide-react";
 import logo from "@/assets/logo.png";
 import { NavLink } from "@/components/NavLink";
@@ -103,16 +103,10 @@ export function AppSidebar() {
           <SidebarGroup>
             <SidebarGroupLabel>
               <div className="flex items-center justify-between w-full pr-1">
-                <button
-                  onClick={() => setConvOpen(o => !o)}
-                  className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  {convOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                  Conversations
-                </button>
+                <span className="text-xs font-semibold text-foreground/70 tracking-tight">Conversations</span>
                 <button
                   onClick={() => { handleNew(); navigate("/chat"); }}
-                  className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors px-1.5 py-0.5 rounded hover:bg-accent"
+                  className="flex items-center gap-1 text-xs text-primary/80 hover:text-primary font-medium transition-colors px-2 py-0.5 rounded-md hover:bg-primary/10"
                   title="New chat"
                 >
                   <Plus className="h-3 w-3" />
@@ -124,54 +118,61 @@ export function AppSidebar() {
             {convOpen && (
               <SidebarGroupContent>
                 {/* Search */}
-                <div className="px-2 pb-2">
-                  <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-md bg-accent/30">
-                    <Search className="h-3 w-3 text-muted-foreground/50 shrink-0" />
+                <div className="px-2 pb-1">
+                  <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-muted/40 border border-border/30">
+                    <Search className="h-3 w-3 text-muted-foreground/40 shrink-0" />
                     <input
                       value={search}
                       onChange={e => setSearch(e.target.value)}
-                      placeholder="Search…"
-                      className="flex-1 bg-transparent text-xs outline-none placeholder:text-muted-foreground/40 text-foreground min-w-0"
+                      placeholder="Search conversations…"
+                      className="flex-1 bg-transparent text-xs outline-none placeholder:text-muted-foreground/30 text-foreground min-w-0"
                     />
                   </div>
                 </div>
 
                 {/* Grouped conversations */}
-                <div className="space-y-3 max-h-[40vh] overflow-y-auto px-1">
+                <div className="space-y-1 max-h-[40vh] overflow-y-auto px-1 scrollbar-thin">
                   {conversations.length === 0 && (
-                    <p className="text-xs text-muted-foreground/40 text-center py-4">No conversations yet</p>
+                    <p className="text-xs text-muted-foreground/30 text-center py-6">No conversations yet</p>
                   )}
                   {groups.map(group => (
-                    <div key={group.label}>
-                      <p className="text-[10px] font-medium text-muted-foreground/40 uppercase tracking-wider px-2 pb-1">{group.label}</p>
+                    <div key={group.label} className="mb-2">
+                      <p className="text-[10px] font-semibold text-muted-foreground/30 uppercase tracking-widest px-2 pt-2 pb-1.5">{group.label}</p>
                       {group.items.map(conv => (
                         <div
                           key={conv.id}
                           className={cn(
-                            "group flex items-center gap-1.5 rounded-md px-2 py-1.5 cursor-pointer transition-all duration-100 text-xs",
+                            "group relative flex items-center gap-2 rounded-lg px-2.5 py-2 cursor-pointer transition-all duration-100",
                             activeConvId === conv.id
-                              ? "bg-accent text-foreground"
-                              : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                              ? "bg-accent/80 text-foreground"
+                              : "text-muted-foreground/70 hover:bg-accent/40 hover:text-foreground"
                           )}
                           onClick={() => { setActiveConvId(conv.id); navigate("/chat"); }}
                           onMouseEnter={() => setHoveredId(conv.id)}
                           onMouseLeave={() => setHoveredId(null)}
                         >
-                          <span className="flex-1 truncate">{conv.title}</span>
+                          {/* Active indicator */}
+                          {activeConvId === conv.id && (
+                            <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-4 rounded-r-full bg-primary" />
+                          )}
+                          <span className="flex-1 truncate text-[12px] leading-snug">{conv.title}</span>
                           <span className={cn(
-                            "text-[9px] font-mono shrink-0 opacity-40",
-                            conv.agent === "openclaw" ? "text-primary" : ""
+                            "shrink-0 text-[9px] font-mono font-semibold px-1 py-0.5 rounded",
+                            conv.agent === "openclaw"
+                              ? "text-primary bg-primary/10"
+                              : "text-muted-foreground/50 bg-muted/50"
                           )}>
                             {conv.agent === "openclaw" ? "OC" : "CC"}
                           </span>
-                          {(hoveredId === conv.id || activeConvId === conv.id) && (
-                            <button
-                              className="shrink-0 opacity-0 group-hover:opacity-100 hover:text-destructive transition-all p-0.5 rounded"
-                              onClick={e => { e.stopPropagation(); handleDelete(conv.id); }}
-                            >
-                              <Trash2 className="h-2.5 w-2.5" />
-                            </button>
-                          )}
+                          <button
+                            className={cn(
+                              "shrink-0 p-0.5 rounded hover:text-destructive transition-all",
+                              hoveredId === conv.id ? "opacity-100" : "opacity-0 pointer-events-none"
+                            )}
+                            onClick={e => { e.stopPropagation(); handleDelete(conv.id); }}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
                         </div>
                       ))}
                     </div>
