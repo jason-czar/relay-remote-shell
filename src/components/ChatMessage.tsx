@@ -136,23 +136,59 @@ export function ChatMessage({ role, content, thinking, streaming, rawStdout, cre
   }
 
   if (isUser) {
+    // Parse out embedded <file> blocks from user message content
+    const fileBlockRegex = /<file name="([^"]+)"(?:\s+type="([^"]+)")?(?:\s+encoding="([^"]+)")?>([^]*?)<\/file>/g;
+    const imageAttachments: { name: string; type: string; src: string }[] = [];
+    const textAttachments: { name: string; text: string }[] = [];
+    const textContent = content.replace(fileBlockRegex, (_, name, type, encoding, body) => {
+      if (encoding === "base64" && type?.startsWith("image/")) {
+        imageAttachments.push({ name, type, src: `data:${type};base64,${body.trim()}` });
+      } else if (encoding === "base64") {
+        // non-image binary — just show filename chip
+        imageAttachments.push({ name, type: type ?? "file", src: "" });
+      } else {
+        textAttachments.push({ name, text: body.trim() });
+      }
+      return "";
+    }).trim();
+
     return (
-      <div
-        className="flex flex-col items-end mb-4 px-1 gap-1 group animate-[slide-in-from-right_0.25s_cubic-bezier(0.22,1,0.36,1)_both]"
-      >
-        <div
-          className="max-w-[72%] rounded-2xl rounded-tr-sm px-4 py-2.5 text-sm leading-relaxed break-words"
-          style={{
-            background: "rgba(255,255,255,0.12)",
-            backdropFilter: "blur(12px)",
-            WebkitBackdropFilter: "blur(12px)",
-            border: "1px solid rgba(255,255,255,0.2)",
-            boxShadow: "0 2px 12px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.15)",
-            color: "hsl(var(--foreground))",
-          }}
-        >
-          {content}
-        </div>
+      <div className="flex flex-col items-end mb-4 px-1 gap-1.5 group animate-[slide-in-from-right_0.25s_cubic-bezier(0.22,1,0.36,1)_both]">
+        {/* Image previews */}
+        {imageAttachments.map((f) => f.src ? (
+          <img
+            key={f.name}
+            src={f.src}
+            alt={f.name}
+            className="max-w-[60%] max-h-64 rounded-xl border border-white/10 object-cover shadow-md"
+          />
+        ) : (
+          <div key={f.name} className="px-3 py-1.5 rounded-xl text-xs text-muted-foreground bg-muted/30 border border-border/40">
+            📎 {f.name}
+          </div>
+        ))}
+        {/* Text file chips */}
+        {textAttachments.map((f) => (
+          <div key={f.name} className="px-3 py-1.5 rounded-xl text-xs text-muted-foreground bg-muted/30 border border-border/40">
+            📄 {f.name}
+          </div>
+        ))}
+        {/* Text content bubble */}
+        {textContent && (
+          <div
+            className="max-w-[72%] rounded-2xl rounded-tr-sm px-4 py-2.5 text-sm leading-relaxed break-words"
+            style={{
+              background: "rgba(255,255,255,0.12)",
+              backdropFilter: "blur(12px)",
+              WebkitBackdropFilter: "blur(12px)",
+              border: "1px solid rgba(255,255,255,0.2)",
+              boxShadow: "0 2px 12px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.15)",
+              color: "hsl(var(--foreground))",
+            }}
+          >
+            {textContent}
+          </div>
+        )}
         {formattedTime && (
           <span className="text-[10px] text-muted-foreground/40 opacity-0 group-hover:opacity-100 transition-opacity duration-150 pr-0.5">
             {formattedTime}
