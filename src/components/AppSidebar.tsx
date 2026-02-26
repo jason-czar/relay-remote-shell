@@ -2,6 +2,11 @@ import {
   LayoutDashboard, FolderOpen, Settings, LogOut, Sun, Moon, Plug, BookOpen,
   Columns2, MessageSquare, ChevronDown, Plus, Search, Trash2, User, Pencil, Check, X
 } from "lucide-react";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel,
+  AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
+  AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import logo from "@/assets/logo.png";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
@@ -51,6 +56,7 @@ export function AppSidebar() {
   const [editValue, setEditValue] = useState("");
   const editInputRef = useRef<HTMLInputElement>(null);
   const [displayName, setDisplayName] = useState<string | null>(null);
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
   const startEdit = (e: React.MouseEvent, id: string, title: string) => {
     e.stopPropagation();
@@ -103,6 +109,7 @@ export function AppSidebar() {
   const toggleTheme = () => setTheme(theme === "dark" ? "light" : "dark");
 
   return (
+    <>
     <Sidebar collapsible="offcanvas">
       {/* Logo */}
       <SidebarContent className="flex flex-col min-h-0">
@@ -222,7 +229,7 @@ export function AppSidebar() {
                                 </button>
                                 <button
                                   className="p-0.5 rounded hover:text-destructive hover:bg-destructive/10 transition-colors"
-                                  onClick={e => { e.stopPropagation(); handleDelete(conv.id); }}
+                                  onClick={e => { e.stopPropagation(); setDeleteTargetId(conv.id); }}
                                   title="Delete"
                                 >
                                   <Trash2 className="h-3 w-3" />
@@ -315,5 +322,26 @@ export function AppSidebar() {
         </div>
       </SidebarFooter>
     </Sidebar>
+
+    <AlertDialog open={!!deleteTargetId} onOpenChange={open => { if (!open) setDeleteTargetId(null); }}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete conversation?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This will permanently delete this conversation and all its messages. This action cannot be undone.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            onClick={() => { if (deleteTargetId) { handleDelete(deleteTargetId); setDeleteTargetId(null); } }}
+          >
+            Delete
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }
