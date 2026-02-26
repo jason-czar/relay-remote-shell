@@ -1,7 +1,24 @@
 import { cn } from "@/lib/utils";
 import { Bot, Copy, Check, Terminal, ChevronDown, ChevronRight } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { useState } from "react";
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
+
+// Patch oneDark to use pure black background
+const codeTheme = {
+  ...oneDark,
+  'pre[class*="language-"]': {
+    ...oneDark['pre[class*="language-"]'],
+    background: "hsl(0 0% 6%)",
+    margin: 0,
+  },
+  'code[class*="language-"]': {
+    ...oneDark['code[class*="language-"]'],
+    background: "hsl(0 0% 6%)",
+  },
+};
 
 interface ChatMessageProps {
   role: "user" | "assistant";
@@ -9,6 +26,53 @@ interface ChatMessageProps {
   thinking?: boolean;
   streaming?: boolean;
   rawStdout?: string;
+}
+
+function CodeBlock({ language, value }: { language: string; value: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(value);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="my-3 rounded-xl overflow-hidden border border-border/40">
+      {/* Header bar */}
+      <div className="flex items-center justify-between px-3 py-1.5 bg-[hsl(0_0%_8%)] border-b border-border/40">
+        <span className="text-[10px] font-mono text-muted-foreground/60 uppercase tracking-widest">
+          {language || "code"}
+        </span>
+        <button
+          onClick={handleCopy}
+          className="flex items-center gap-1 text-[10px] text-muted-foreground/60 hover:text-foreground transition-colors"
+        >
+          {copied ? (
+            <><Check className="h-3 w-3 text-primary" /><span>Copied</span></>
+          ) : (
+            <><Copy className="h-3 w-3" /><span>Copy</span></>
+          )}
+        </button>
+      </div>
+      <SyntaxHighlighter
+        style={codeTheme}
+        language={language || "text"}
+        PreTag="div"
+        customStyle={{
+          margin: 0,
+          padding: "12px 16px",
+          fontSize: "12px",
+          lineHeight: "1.6",
+          overflowX: "auto",
+          background: "hsl(0 0% 6%)",
+        }}
+        codeTagProps={{ style: { fontFamily: "'JetBrains Mono', monospace" } }}
+      >
+        {value}
+      </SyntaxHighlighter>
+    </div>
+  );
 }
 
 export function ChatMessage({ role, content, thinking, streaming, rawStdout }: ChatMessageProps) {
@@ -86,21 +150,24 @@ export function ChatMessage({ role, content, thinking, streaming, rawStdout }: C
             </span>
           )}
           <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
             components={{
               p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
-              code: ({ className, children }) => {
-                const isBlock = className?.includes("language-");
-                return isBlock ? (
-                  <code className="block bg-muted rounded-md px-3 py-2 my-2 text-xs font-mono whitespace-pre-wrap overflow-x-auto">
-                    {children}
-                  </code>
-                ) : (
-                  <code className="bg-muted rounded px-1 py-0.5 text-xs font-mono">
+              code({ className, children }) {
+                const match = /language-(\w+)/.exec(className || "");
+                const value = String(children).replace(/\n$/, "");
+                // Block code fence
+                if (match || (className && className.includes("language-"))) {
+                  return <CodeBlock language={match?.[1] ?? ""} value={value} />;
+                }
+                // Inline code
+                return (
+                  <code className="bg-muted/60 rounded px-1.5 py-0.5 text-xs font-mono text-primary/90">
                     {children}
                   </code>
                 );
               },
-              pre: ({ children }) => <pre className="my-2">{children}</pre>,
+              pre: ({ children }) => <>{children}</>,
               ul: ({ children }) => <ul className="list-disc pl-4 mb-2 space-y-0.5">{children}</ul>,
               ol: ({ children }) => <ol className="list-decimal pl-4 mb-2 space-y-0.5">{children}</ol>,
               li: ({ children }) => <li>{children}</li>,
@@ -108,7 +175,11 @@ export function ChatMessage({ role, content, thinking, streaming, rawStdout }: C
               h2: ({ children }) => <h2 className="font-semibold text-sm mb-1">{children}</h2>,
               h3: ({ children }) => <h3 className="font-medium text-sm mb-1">{children}</h3>,
               strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
-              a: ({ href, children }) => <a href={href} target="_blank" rel="noopener noreferrer" className="underline text-primary">{children}</a>,
+              a: ({ href, children }) => (
+                <a href={href} target="_blank" rel="noopener noreferrer" className="underline text-primary">
+                  {children}
+                </a>
+              ),
             }}
           >
             {content}
@@ -151,16 +222,13 @@ export function ChatMessage({ role, content, thinking, streaming, rawStdout }: C
         {rawStdout && debugOpen && (
           <div
             className="mt-2 rounded-lg border border-border/50 overflow-hidden text-xs font-mono"
-            style={{
-              background: "rgba(0,0,0,0.35)",
-              backdropFilter: "blur(8px)",
-            }}
+            style={{ background: "rgba(0,0,0,0.35)", backdropFilter: "blur(8px)" }}
           >
             <div className="flex items-center gap-1.5 px-3 py-1.5 border-b border-border/30 text-muted-foreground">
               <Terminal className="h-3 w-3" />
               <span className="text-[11px] font-sans">raw stdout from relay</span>
             </div>
-            <pre className="p-3 whitespace-pre-wrap break-all leading-relaxed text-green-400/90 max-h-64 overflow-y-auto">
+            <pre className="p-3 whitespace-pre-wrap break-all leading-relaxed text-primary/80 max-h-64 overflow-y-auto">
               {rawStdout}
             </pre>
           </div>
