@@ -447,28 +447,52 @@ export default function Chat() {
         {/* Main chat area */}
         <div className="flex flex-col flex-1 min-w-0 h-full">
           {/* Toolbar */}
-          <div className="shrink-0 border-b border-border px-4 py-3 flex flex-wrap items-center justify-between gap-3">
-            <ToggleGroup
-              type="single"
-              value={agent}
-              onValueChange={handleAgentChange}
-              className="gap-1"
+          <div className="shrink-0 border-b border-border px-4 py-3 flex items-center justify-center relative gap-3">
+            {/* Liquid glass agent switcher — centered */}
+            <div
+              className="relative flex items-center p-1 rounded-2xl gap-0.5"
+              style={{
+                background: "rgba(255,255,255,0.06)",
+                backdropFilter: "blur(20px) saturate(180%)",
+                WebkitBackdropFilter: "blur(20px) saturate(180%)",
+                border: "1px solid rgba(255,255,255,0.12)",
+                boxShadow: "0 4px 24px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.1)",
+              }}
             >
-              <ToggleGroupItem
-                value="openclaw"
-                className="px-3 py-1.5 text-xs font-mono data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
-              >
-                OpenClaw
-              </ToggleGroupItem>
-              <ToggleGroupItem
-                value="claude"
-                className="px-3 py-1.5 text-xs font-mono data-[state=on]:bg-secondary data-[state=on]:text-secondary-foreground"
-              >
-                Claude Code
-              </ToggleGroupItem>
-            </ToggleGroup>
+              {(["openclaw", "claude"] as const).map((a) => {
+                const active = agent === a;
+                const label = a === "openclaw" ? "OpenClaw" : "Claude Code";
+                return (
+                  <button
+                    key={a}
+                    onClick={() => handleAgentChange(a)}
+                    className="relative px-4 py-1.5 text-xs font-mono font-medium rounded-xl transition-all duration-300 select-none outline-none"
+                    style={
+                      active
+                        ? {
+                            background: "rgba(255,255,255,0.15)",
+                            backdropFilter: "blur(12px)",
+                            WebkitBackdropFilter: "blur(12px)",
+                            border: "1px solid rgba(255,255,255,0.25)",
+                            boxShadow:
+                              "0 2px 12px rgba(0,0,0,0.25), 0 1px 0 rgba(255,255,255,0.2) inset",
+                            color: "hsl(var(--foreground))",
+                          }
+                        : {
+                            background: "transparent",
+                            border: "1px solid transparent",
+                            color: "hsl(var(--muted-foreground))",
+                          }
+                    }
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
 
-            <div className="flex items-center gap-2">
+            {/* Device selector — absolute right */}
+            <div className="absolute right-4 flex items-center gap-2">
               <Monitor className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
               <Select value={selectedDeviceId} onValueChange={setSelectedDeviceId}>
                 <SelectTrigger className="h-8 text-xs w-44">
