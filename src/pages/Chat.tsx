@@ -254,7 +254,7 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
       <div
         className={cn(
           "flex items-center gap-1 rounded-full border bg-background/80 backdrop-blur-sm px-3 py-1.5 transition-all duration-200",
-          focused ? "border-primary/50 shadow-[0_0_0_3px_hsl(var(--primary)/0.12)]" : "border-border/60 shadow-sm",
+          focused ? "border-border/60" : "border-border/60 shadow-sm",
           disabled && "opacity-60 pointer-events-none"
         )}
       >
