@@ -541,13 +541,40 @@ export default function Chat() {
                   <h3 className="font-semibold text-foreground mb-2 text-lg">
                     {agent === "openclaw" ? "OpenClaw Agent" : "Claude Code"}
                   </h3>
-                  <p className="text-sm text-muted-foreground max-w-sm leading-relaxed">
+                  <p className="text-sm text-muted-foreground max-w-sm leading-relaxed mb-8">
                     {agent === "openclaw"
                       ? "Ask your local OpenClaw agent anything. Commands run on your selected device."
                       : "Send prompts directly to Claude Code running on your device."}
                   </p>
+
+                  {/* Starter prompt cards */}
+                  <div className="grid grid-cols-2 gap-2.5 w-full max-w-lg text-left">
+                    {(agent === "openclaw" ? [
+                      { icon: "📂", title: "List files", prompt: "List all files in the current directory" },
+                      { icon: "🔍", title: "Search code", prompt: "Search for TODO comments in the codebase" },
+                      { icon: "💻", title: "System info", prompt: "Show system info: OS, CPU, memory usage" },
+                      { icon: "🌿", title: "Git status", prompt: "Show the current git status and recent commits" },
+                    ] : [
+                      { icon: "🐛", title: "Debug code", prompt: "Help me debug an issue in my code" },
+                      { icon: "✍️", title: "Write tests", prompt: "Write unit tests for the current file" },
+                      { icon: "♻️", title: "Refactor", prompt: "Refactor this code to be cleaner and more readable" },
+                      { icon: "📖", title: "Explain code", prompt: "Explain what this code does" },
+                    ]).map(({ icon, title, prompt }) => (
+                      <button
+                        key={title}
+                        onClick={() => setInput(prompt)}
+                        disabled={!selectedDeviceId}
+                        className="group flex flex-col gap-1 px-4 py-3 rounded-xl border border-border/50 bg-card/50 hover:bg-accent/60 hover:border-border transition-all duration-150 text-left disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        <span className="text-base leading-none">{icon}</span>
+                        <span className="text-xs font-medium text-foreground">{title}</span>
+                        <span className="text-[11px] text-muted-foreground leading-snug line-clamp-2">{prompt}</span>
+                      </button>
+                    ))}
+                  </div>
+
                   {!selectedDeviceId && (
-                    <p className="text-xs text-destructive mt-4">Select a device above to start</p>
+                    <p className="text-xs text-destructive mt-5">Select a device above to start</p>
                   )}
                 </div>
               )}
