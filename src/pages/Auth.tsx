@@ -45,7 +45,7 @@ export default function Auth() {
       if (isLogin) {
         const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
         if (error) throw error;
-        navigate("/chat");
+        navigate("/");
       } else {
         const { error } = await supabase.auth.signUp({
           email: email.trim(),
