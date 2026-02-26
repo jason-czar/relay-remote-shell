@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import openclawImg from "@/assets/openclaw.png";
-import claudecodeImg from "@/assets/claudecode.png";
+import openclawImg from "@/assets/openclaw-tile.png";
+import claudecodeImg from "@/assets/claudecode-tile.png";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useScribe } from "@elevenlabs/react";
 import { cn } from "@/lib/utils";
@@ -1150,7 +1150,7 @@ export default function Chat() {
                       active ? "text-foreground" : "text-muted-foreground/50 hover:text-muted-foreground"
                     }`}
                   >
-                    <img src={img} alt={label} className="w-4 h-4 rounded-sm object-cover" />
+                    <img src={img} alt={label} className="w-5 h-5 rounded-md object-cover" />
                     {label}
                     {active && <span className="absolute bottom-0 left-3 right-3 h-px bg-foreground/70 rounded-full" />}
                   </button>
