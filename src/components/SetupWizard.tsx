@@ -95,7 +95,7 @@ cd "$RELAY_DIR"
 echo "Starting connector in background..."
 (
   cd "$RELAY_DIR"
-  nohup ./relay-connector >/dev/null 2>&1 &
+  nohup ./relay-connector connect >/dev/null 2>&1 &
 )
 echo "Connector running."`
     : "";
