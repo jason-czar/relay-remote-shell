@@ -241,17 +241,15 @@ export function ChatMessage({ role, content, thinking, streaming, rawStdout, cre
             {copied ? <Check className="h-3.5 w-3.5 text-status-online" /> : <Copy className="h-3.5 w-3.5" />}
             <span className="text-[11px]">{copied ? "Copied" : "Copy"}</span>
           </button>
-          {rawStdout && (
-            <button
-              onClick={() => setDebugOpen((v) => !v)}
-              className="flex items-center gap-1 px-2 py-1 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-              title="Raw stdout"
-            >
-              <Terminal className="h-3.5 w-3.5" />
-              <span className="text-[11px]">Raw</span>
-              {debugOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-            </button>
-          )}
+          <button
+            onClick={() => setDebugOpen((v) => !v)}
+            className="flex items-center gap-1 px-2 py-1 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+            title="Terminal output"
+          >
+            <Terminal className="h-3.5 w-3.5" />
+            <span className="text-[11px]">Terminal</span>
+            {debugOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+          </button>
           {formattedTime && (
             <span className="ml-1 text-[10px] text-muted-foreground/40 select-none">
               {formattedTime}
@@ -260,7 +258,7 @@ export function ChatMessage({ role, content, thinking, streaming, rawStdout, cre
         </div>
 
         {/* Debug panel */}
-        {rawStdout && debugOpen && (
+        {debugOpen && (
           <div
             className="mt-2 rounded-lg border border-border/50 overflow-hidden text-xs font-mono"
             style={{ background: "rgba(0,0,0,0.35)", backdropFilter: "blur(8px)" }}
@@ -269,9 +267,13 @@ export function ChatMessage({ role, content, thinking, streaming, rawStdout, cre
               <Terminal className="h-3 w-3" />
               <span className="text-[11px] font-sans">raw stdout from relay</span>
             </div>
-            <pre className="p-3 whitespace-pre-wrap break-all leading-relaxed text-primary/80 max-h-64 overflow-y-auto">
-              {rawStdout}
-            </pre>
+            {rawStdout ? (
+              <pre className="p-3 whitespace-pre-wrap break-all leading-relaxed text-primary/80 max-h-64 overflow-y-auto">
+                {rawStdout}
+              </pre>
+            ) : (
+              <p className="p-3 text-[11px] text-muted-foreground/50 font-sans">No terminal output for this message.</p>
+            )}
           </div>
         )}
       </div>
