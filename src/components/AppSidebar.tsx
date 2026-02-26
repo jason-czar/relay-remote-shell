@@ -1,9 +1,10 @@
-import { LayoutDashboard, FolderOpen, Settings, LogOut, Sun, Moon, Plug, BookOpen, Columns2, MessageSquare } from "lucide-react";
+import { LayoutDashboard, FolderOpen, Settings, LogOut, Sun, Moon, Plug, BookOpen, Columns2, MessageSquare, ChevronDown } from "lucide-react";
 import logo from "@/assets/logo.png";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import { useTheme } from "next-themes";
 import { useNavigate } from "react-router-dom";
+import { useState } from "react";
 import {
   Sidebar,
   SidebarContent,
@@ -16,9 +17,8 @@ import {
   SidebarFooter,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { Button } from "@/components/ui/button";
 
-const navItems = [
+const setupItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Projects", url: "/projects", icon: FolderOpen },
   { title: "Multi-Session", url: "/multi-session", icon: Columns2 },
@@ -31,9 +31,10 @@ const navItems = [
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
-  const { signOut, user } = useAuth();
+  const { signOut } = useAuth();
   const { theme, setTheme } = useTheme();
   const navigate = useNavigate();
+  const [setupOpen, setSetupOpen] = useState(true);
 
   const handleSignOut = async () => {
     await signOut();
@@ -56,16 +57,43 @@ export function AppSidebar() {
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {navItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild tooltip={item.title}>
-                    <NavLink to={item.url} end className="hover:bg-accent/50" activeClassName="bg-accent text-primary font-medium">
-                      <item.icon className="h-4 w-4" />
-                      <span>{item.title}</span>
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+              {/* Setup dropdown button */}
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  onClick={() => setSetupOpen((o) => !o)}
+                  tooltip="Setup"
+                  className="font-medium"
+                >
+                  <Settings className="h-4 w-4" />
+                  <span className="flex-1">Setup</span>
+                  {!collapsed && (
+                    <ChevronDown
+                      className={`h-3.5 w-3.5 text-muted-foreground transition-transform duration-200 ${setupOpen ? "rotate-180" : ""}`}
+                    />
+                  )}
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
+              {/* Dropdown items */}
+              {setupOpen && (
+                <>
+                  {setupItems.map((item) => (
+                    <SidebarMenuItem key={item.title}>
+                      <SidebarMenuButton asChild tooltip={item.title}>
+                        <NavLink
+                          to={item.url}
+                          end
+                          className={`hover:bg-accent/50 ${!collapsed ? "pl-7" : ""}`}
+                          activeClassName="bg-accent text-primary font-medium"
+                        >
+                          <item.icon className="h-4 w-4" />
+                          <span>{item.title}</span>
+                        </NavLink>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  ))}
+                </>
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -89,3 +117,4 @@ export function AppSidebar() {
     </Sidebar>
   );
 }
+
