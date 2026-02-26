@@ -563,6 +563,17 @@ browserWSS.on("connection", (ws) => {
       }
 
       console.log(`[browser] session ${session_id.slice(0, 8)} → device ${device_id.slice(0, 8)}`);
+
+      // Send scrollback buffer if there's existing output for this session
+      const existingRec = sessionRecordings.get(session_id);
+      if (existingRec && existingRec.frames.length > 0) {
+        console.log(`[browser] replaying ${existingRec.frames.length} scrollback frames for session ${session_id.slice(0, 8)}`);
+        send(ws, {
+          type: "scrollback",
+          data: { frames: existingRec.frames },
+        });
+      }
+
       send(ws, { type: "auth_ok" });
       return;
     }
