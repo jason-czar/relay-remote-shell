@@ -475,8 +475,23 @@ export default function Chat() {
         const hasError = /^Error:/m.test(outputBuffer) || /^error:/im.test(outputBuffer);
         if (hasError) { finish(outputBuffer); return; }
         silenceTimer = setTimeout(() => {
-          // For OpenClaw: keep waiting until we see a JSON brace — never give up early
-          if (isOpenClaw && !outputBuffer.includes("{")) return;
+          // For OpenClaw: detect complete JSON object and finish immediately — no need to wait full 8s
+          if (isOpenClaw) {
+            if (!outputBuffer.includes("{")) return; // no JSON yet
+            // Walk the buffer to find a balanced top-level { ... } and finish early
+            const firstBrace = outputBuffer.indexOf("{");
+            let depth = 0, inStr = false, esc = false;
+            for (let i = firstBrace; i < outputBuffer.length; i++) {
+              const c = outputBuffer[i];
+              if (esc) { esc = false; continue; }
+              if (c === "\\" && inStr) { esc = true; continue; }
+              if (c === '"') { inStr = !inStr; continue; }
+              if (inStr) continue;
+              if (c === "{") depth++;
+              else if (c === "}") { depth--; if (depth === 0) { finish(outputBuffer); return; } }
+            }
+            return; // JSON not yet complete, keep waiting
+          }
           // For Claude Code: keep waiting until we have at least 10 non-noise characters
           if (!isOpenClaw) {
             const stripped = outputBuffer.replace(/\x1b[\s\S]{1,10}/g, "").replace(/[%$#>\[\]?;=\r\n\s]/g, "");
