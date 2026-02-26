@@ -106,6 +106,9 @@ export default function Chat() {
   const [input, setInput] = useState("");
   const [thinking, setThinking] = useState(false);
   const [agentSwitchPending, setAgentSwitchPending] = useState<"openclaw" | "claude" | null>(null);
+  const [streamingMsgIndex, setStreamingMsgIndex] = useState<number | null>(null);
+
+  const streamIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -421,8 +424,44 @@ export default function Chat() {
 
       responseText = responseText.trim() || "(empty response)";
 
-      const assistantMsg: Message = { role: "assistant", content: responseText };
-      setMessages((prev) => [...prev, assistantMsg]);
+      // ── Stream-reveal the response word-by-word ──────────────────────────
+      const tokens = responseText.split(/(?<=\s)|(?=\s)/);
+      let revealedIdx: number;
+      setMessages((prev) => {
+        revealedIdx = prev.length;
+        return [...prev, { role: "assistant", content: "" }];
+      });
+      setThinking(false);
+      setStreamingMsgIndex(revealedIdx!);
+
+      await new Promise<void>((resolveStream) => {
+        let tokenIdx = 0;
+        let revealed = "";
+        if (streamIntervalRef.current) clearInterval(streamIntervalRef.current);
+        streamIntervalRef.current = setInterval(() => {
+          if (tokenIdx >= tokens.length) {
+            clearInterval(streamIntervalRef.current!);
+            streamIntervalRef.current = null;
+            setStreamingMsgIndex(null);
+            resolveStream();
+            return;
+          }
+          const batchSize = Math.floor(Math.random() * 3) + 2;
+          for (let b = 0; b < batchSize && tokenIdx < tokens.length; b++, tokenIdx++) {
+            revealed += tokens[tokenIdx];
+          }
+          const snap = revealed;
+          setMessages((prev) => {
+            const updated = [...prev];
+            const lastIdx = updated.length - 1;
+            if (updated[lastIdx]?.role === "assistant") {
+              updated[lastIdx] = { ...updated[lastIdx], content: snap };
+            }
+            return updated;
+          });
+        }, 18);
+      });
+
       await saveMessage(convId, "assistant", responseText);
 
       // Update title after first exchange (was a new conversation)
@@ -448,6 +487,8 @@ export default function Chat() {
       await saveMessage(convId, "assistant", `⚠️ Error: ${errMsg}`);
     } finally {
       setThinking(false);
+      setStreamingMsgIndex(null);
+      if (streamIntervalRef.current) { clearInterval(streamIntervalRef.current); streamIntervalRef.current = null; }
       setTimeout(() => textareaRef.current?.focus(), 50);
     }
   }, [input, thinking, selectedDeviceId, activeConvId, agent, createConversation, buildCommand, sendViaRelay, toast]);
@@ -611,7 +652,11 @@ export default function Chat() {
               <div className="space-y-6">
                 {messages.map((msg, i) => (
                   <div key={msg.id ?? i} className="animate-fade-in">
-                    <ChatMessage role={msg.role} content={msg.content} />
+                    <ChatMessage
+                      role={msg.role}
+                      content={msg.content}
+                      streaming={i === streamingMsgIndex}
+                    />
                   </div>
                 ))}
                 {thinking && (

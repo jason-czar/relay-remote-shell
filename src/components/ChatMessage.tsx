@@ -7,9 +7,10 @@ interface ChatMessageProps {
   role: "user" | "assistant";
   content: string;
   thinking?: boolean;
+  streaming?: boolean;
 }
 
-export function ChatMessage({ role, content, thinking }: ChatMessageProps) {
+export function ChatMessage({ role, content, thinking, streaming }: ChatMessageProps) {
   const isUser = role === "user";
   const [hovered, setHovered] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -71,6 +72,17 @@ export function ChatMessage({ role, content, thinking }: ChatMessageProps) {
       </div>
       <div className="flex-1 min-w-0">
         <div className="text-sm leading-relaxed text-foreground break-words pt-0.5">
+          {streaming && !content && (
+            <span className="inline-flex gap-1 items-center h-5">
+              {[0, 1, 2].map((i) => (
+                <span
+                  key={i}
+                  className="w-1.5 h-1.5 rounded-full bg-muted-foreground animate-bounce"
+                  style={{ animationDelay: `${i * 0.15}s`, animationDuration: "0.9s" }}
+                />
+              ))}
+            </span>
+          )}
           <ReactMarkdown
             components={{
               p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
@@ -99,6 +111,12 @@ export function ChatMessage({ role, content, thinking }: ChatMessageProps) {
           >
             {content}
           </ReactMarkdown>
+          {streaming && content && (
+            <span
+              className="inline-block w-0.5 h-3.5 ml-0.5 align-middle bg-primary rounded-full animate-pulse"
+              style={{ animationDuration: "0.7s" }}
+            />
+          )}
         </div>
 
         {/* Hover action bar */}
