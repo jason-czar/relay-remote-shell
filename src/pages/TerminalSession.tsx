@@ -294,9 +294,15 @@ export default function TerminalSession() {
       document.removeEventListener("visibilitychange", handleVisibility);
       resizeObserver.disconnect();
       terminalContainerRef.current?.removeEventListener("paste", handleNativePaste);
-      // Do NOT end the session on unmount — user may be navigating within the app.
-      // Session is only ended explicitly via handleDisconnect.
-      cleanup();
+      // Soft unmount: close WS without sending session_end or disposing the terminal.
+      // The session stays active in the relay (10-min grace period).
+      // Session ID is in localStorage so it will be resumed on remount.
+      intentionalCloseRef.current = true;
+      if (pingTimerRef.current) { clearInterval(pingTimerRef.current); pingTimerRef.current = null; }
+      if (reconnectTimerRef.current) { clearTimeout(reconnectTimerRef.current); reconnectTimerRef.current = null; }
+      if (wsRef.current) { wsRef.current.close(); wsRef.current = null; }
+      if (termRef.current) { termRef.current.dispose(); termRef.current = null; }
+      fitRef.current = null;
     };
   }, [deviceId, user]);
 
