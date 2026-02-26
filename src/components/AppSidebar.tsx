@@ -187,20 +187,7 @@ export function AppSidebar() {
       {/* Footer with Setup + user profile */}
       <SidebarFooter>
         <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              onClick={() => setSetupOpen(o => !o)}
-              tooltip="Setup"
-              className="font-medium"
-            >
-              <Settings className="h-4 w-4" />
-              <span className="flex-1">Setup</span>
-              {!collapsed && (
-                <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground transition-transform duration-200 ${setupOpen ? "rotate-180" : ""}`} />
-              )}
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-
+          {/* Nav items expand upward above the Setup button */}
           {setupOpen && setupItems.map(item => (
             <SidebarMenuItem key={item.title}>
               <SidebarMenuButton asChild tooltip={item.title}>
@@ -216,6 +203,20 @@ export function AppSidebar() {
               </SidebarMenuButton>
             </SidebarMenuItem>
           ))}
+
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              onClick={() => setSetupOpen(o => !o)}
+              tooltip="Setup"
+              className="font-medium"
+            >
+              <Settings className="h-4 w-4" />
+              <span className="flex-1">Setup</span>
+              {!collapsed && (
+                <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground transition-transform duration-200 ${setupOpen ? "" : "rotate-180"}`} />
+              )}
+            </SidebarMenuButton>
+          </SidebarMenuItem>
         </SidebarMenu>
 
         {/* User profile row */}
