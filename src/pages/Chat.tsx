@@ -515,7 +515,8 @@ export default function Chat() {
 
     if (conv.agent === "openclaw") {
       const sid = conv.openclaw_session_id ?? crypto.randomUUID();
-      return `openclaw agent --agent main --session-id ${sid} --message "${escaped}" --json --local\n`;
+      // Use the session ID as a unique agent name so each conversation is isolated in OpenClaw
+      return `openclaw agent --agent ${sid} --session-id ${sid} --message "${escaped}" --json --local\n`;
     } else {
       // claude
       if (conv.claude_session_id) {
