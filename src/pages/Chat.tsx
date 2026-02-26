@@ -59,7 +59,7 @@ function ComposerBox({ textareaRef, input, setInput, onKeyDown, onSend, disabled
           ? "1px solid rgba(255,255,255,0.22)"
           : "1px solid rgba(255,255,255,0.10)",
         boxShadow: focused
-          ? "0 8px 40px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.10), 0 0 0 3px rgba(255,255,255,0.04)"
+          ? "0 8px 40px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.10), 0 0 0 3px hsl(var(--primary) / 0.15), 0 0 24px hsl(var(--primary) / 0.08)"
           : "0 4px 24px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.06)",
       }}
     >
@@ -81,10 +81,10 @@ function ComposerBox({ textareaRef, input, setInput, onKeyDown, onSend, disabled
         disabled={sendDisabled}
         className="shrink-0 h-9 w-9 rounded-xl flex items-center justify-center transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed hover:scale-105 active:scale-95"
         style={{
-          background: sendDisabled ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.14)",
-          border: "1px solid rgba(255,255,255,0.18)",
-          boxShadow: "0 2px 8px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.14)",
-          color: "hsl(var(--foreground))",
+          background: sendDisabled ? "rgba(255,255,255,0.06)" : "hsl(var(--primary))",
+          border: sendDisabled ? "1px solid rgba(255,255,255,0.08)" : "1px solid hsl(var(--primary))",
+          boxShadow: sendDisabled ? "none" : "0 2px 12px hsl(var(--primary) / 0.45), inset 0 1px 0 rgba(255,255,255,0.2)",
+          color: sendDisabled ? "rgba(255,255,255,0.3)" : "hsl(var(--primary-foreground))",
         }}
       >
         <Send className="h-3.5 w-3.5" />
