@@ -1436,7 +1436,7 @@ export default function Chat() {
                   }
                 }}
               />
-              <p className="text-center text-[10px] text-muted-foreground/40 mt-2 select-none">
+              <p className="hidden sm:block text-center text-[10px] text-muted-foreground/40 mt-2 select-none whitespace-nowrap">
                 Enter to send · Shift+Enter for newline · <span className="font-mono">/</span> for commands
               </p>
             </div>
