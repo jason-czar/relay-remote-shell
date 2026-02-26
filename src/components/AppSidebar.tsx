@@ -59,7 +59,7 @@ export function AppSidebar() {
       .then(({ data }) => { if (data?.display_name) setDisplayName(data.display_name); });
   }, [user]);
 
-  const { conversations, activeConvId, setActiveConvId, handleDelete, handleNew } = useChatContext();
+  const { conversations, activeConvId, setActiveConvId, handleDelete, handleNew, activeJobs } = useChatContext();
 
   const filtered = conversations.filter((c) =>
     c.title.toLowerCase().includes(search.toLowerCase())
@@ -156,14 +156,18 @@ export function AppSidebar() {
                             <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-4 rounded-r-full bg-primary" />
                           )}
                           <span className="flex-1 truncate text-sm leading-snug">{conv.title}</span>
-                          <span className={cn(
-                            "shrink-0 text-[9px] font-mono font-semibold px-1 py-0.5 rounded",
-                            conv.agent === "openclaw"
-                              ? "text-primary bg-primary/10"
-                              : "text-muted-foreground/50 bg-muted/50"
-                          )}>
-                            {conv.agent === "openclaw" ? "OC" : "CC"}
-                          </span>
+                          {activeJobs.has(conv.id) ? (
+                            <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-primary animate-pulse" title="Running…" />
+                          ) : (
+                            <span className={cn(
+                              "shrink-0 text-[9px] font-mono font-semibold px-1 py-0.5 rounded",
+                              conv.agent === "openclaw"
+                                ? "text-primary bg-primary/10"
+                                : "text-muted-foreground/50 bg-muted/50"
+                            )}>
+                              {conv.agent === "openclaw" ? "OC" : "CC"}
+                            </span>
+                          )}
                           <button
                             className={cn(
                               "shrink-0 p-0.5 rounded hover:text-destructive transition-all",
