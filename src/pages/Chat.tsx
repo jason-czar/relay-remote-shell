@@ -279,7 +279,10 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
 export default function Chat() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const { conversations, setConversations, activeConvId, setActiveConvId, registerNewCallback } = useChatContext();
+  const { conversations, setConversations, activeConvId, setActiveConvId, registerNewCallback, addJob, removeJob } = useChatContext();
+  // Keep a ref so async callbacks can always read the latest active conversation
+  const activeConvIdRef = useRef<string | null>(null);
+  useEffect(() => { activeConvIdRef.current = activeConvId; }, [activeConvId]);
 
   // ── State ──────────────────────────────────────────────────────────────
   const [messages, setMessages] = useState<Message[]>([]);
@@ -535,7 +538,7 @@ export default function Chat() {
   // ── Send message ──────────────────────────────────────────────────────
   const handleSend = useCallback(async () => {
     const text = input.trim();
-    if ((!text && attachedFiles.length === 0) || thinking) return;
+    if (!text && attachedFiles.length === 0) return;
     if (!selectedDeviceId) {
       toast({ title: "Select a device first", variant: "destructive" });
       return;
@@ -557,7 +560,9 @@ export default function Chat() {
     setInput("");
     setAttachedFiles([]);
     abortStreamRef.current = false;
-    const userMsg: Message = { role: "user", content: text || `[${attachedFiles.map(f => f.name).join(", ")}]` };
+
+    const displayText = text || `[${attachedFiles.map(f => f.name).join(", ")}]`;
+    const userMsg: Message = { role: "user", content: displayText };
     setMessages((prev) => [...prev, userMsg]);
     setThinking(true);
 
@@ -565,171 +570,172 @@ export default function Chat() {
     if (!convId) {
       convId = await createConversation(fullText, agent);
       if (!convId) { setThinking(false); return; }
+      // Switch active conv so the user sees their new conversation
+      setActiveConvId(convId);
     }
 
     await saveMessage(convId, "user", fullText);
 
-    try {
-      const command = await buildCommand(fullText, convId);
-      const stdout = await sendViaRelay(command, agent === "openclaw");
+    // Run the actual relay call detached — background jobs continue when user switches conversation
+    const jobConvId = convId;
+    const jobIsNew = !activeConvId;
+    const jobText = text;
+    addJob(jobConvId);
 
-      // Debug: log raw stdout so we can inspect the payload shape
-      console.debug("[Chat] raw stdout:", stdout);
-
+    const runJob = async () => {
       // Strip ANSI / terminal escape codes comprehensively
       const stripAnsi = (s: string) =>
         s
-          // OSC sequences: ESC ] ... ST (where ST is BEL \x07 or ESC \)
           .replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, "")
-          // CSI sequences: ESC [ ... final byte
           .replace(/\x1b\[[\x30-\x3f]*[\x20-\x2f]*[\x40-\x7e]/g, "")
-          // DCS / PM / APC sequences
           .replace(/\x1b[PX^_].*?\x1b\\/g, "")
-          // Single-char ESC sequences
           .replace(/\x1b[^[\]PX^_]/g, "")
-          // Bare ESC
           .replace(/\x1b/g, "")
-          // Remove leftover bracket sequences that weren't caught (e.g. [?1004l after ESC was stripped)
           .replace(/\[[\d;?<>!]*[a-zA-Z]/g, "")
-          // Remove OSC remnants like ]7;file://...
           .replace(/\][\d;][^\r\n]*/g, "")
-          // Remove other control chars except newline/tab
           .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, "");
 
-      const cleaned = stripAnsi(stdout);
+      try {
+        const command = await buildCommand(fullText, jobConvId);
+        const stdout = await sendViaRelay(command, agent === "openclaw");
+        console.debug("[Chat] raw stdout:", stdout);
 
-      const { data: convData } = await supabase
-        .from("chat_conversations")
-        .select("agent, openclaw_session_id, claude_session_id")
-        .eq("id", convId)
-        .single();
+        const cleaned = stripAnsi(stdout);
 
-      let responseText = "";
+        const { data: convData } = await supabase
+          .from("chat_conversations")
+          .select("agent, openclaw_session_id, claude_session_id")
+          .eq("id", jobConvId)
+          .single();
 
-      if (convData?.agent === "openclaw") {
-        // Find all JSON-like blocks and try each, preferring one with a `payloads` array
-        const jsonBlocks = cleaned.match(/\{[\s\S]*?\}/g) ?? [];
-        // Also try the greedy match for large JSON objects
-        const greedyMatch = cleaned.match(/\{[\s\S]*\}/);
-        const candidates = greedyMatch ? [...jsonBlocks, greedyMatch[0]] : jsonBlocks;
+        let responseText = "";
 
-        for (let i = candidates.length - 1; i >= 0; i--) {
-          try {
-            const parsed = JSON.parse(candidates[i]);
-            // Preferred: payloads[0].text (openclaw --json output)
-            const payloadText = parsed?.payloads?.[0]?.text;
-            if (payloadText) { responseText = String(payloadText); break; }
-            // Fallback fields
-            const fallback = parsed.content ?? parsed.message ?? parsed.response ?? parsed.text ?? parsed.result;
-            if (fallback && typeof fallback === "string") { responseText = fallback; break; }
-          } catch { /* try next */ }
-        }
-
-        if (!responseText) {
-          console.warn("[Chat] OpenClaw: no JSON payload found, raw cleaned:", cleaned);
-        }
-      } else {
-        // Claude: after thorough ANSI stripping, filter remaining noise lines
-        responseText = cleaned
-          .split("\n")
-          .filter((line) => {
-            const t = line.trim();
-            if (!t) return false;
-            // shell prompts and bare characters
-            if (/^[%$#>→]\s*$/.test(t)) return false;
-            if (/^[%$#>→]\s/.test(t)) return false;
-            // session/terminal noise
-            if (/^Restored session:/i.test(t)) return false;
-            if (/^claude\s+(-p|-c|--print|--resume)/i.test(t)) return false;
-            // leftover bracket/escape fragments after stripping
-            if (/^\[[\d;?<>!]*[a-zA-Z]/.test(t)) return false;
-            // lines that are only punctuation/symbols after stripping
-            if (/^[=\-\+\*~\s]+$/.test(t)) return false;
-            return true;
-          })
-          .join("\n")
-          .trim();
-
-        // Persist Claude session ID if not yet stored
-        if (!convData?.claude_session_id) {
-          const claudeId = extractClaudeSessionId(stdout);
-          if (claudeId) {
-            await supabase.from("chat_conversations").update({ claude_session_id: claudeId }).eq("id", convId);
+        if (convData?.agent === "openclaw") {
+          const jsonBlocks = cleaned.match(/\{[\s\S]*?\}/g) ?? [];
+          const greedyMatch = cleaned.match(/\{[\s\S]*\}/);
+          const candidates = greedyMatch ? [...jsonBlocks, greedyMatch[0]] : jsonBlocks;
+          for (let i = candidates.length - 1; i >= 0; i--) {
+            try {
+              const parsed = JSON.parse(candidates[i]);
+              const payloadText = parsed?.payloads?.[0]?.text;
+              if (payloadText) { responseText = String(payloadText); break; }
+              const fallback = parsed.content ?? parsed.message ?? parsed.response ?? parsed.text ?? parsed.result;
+              if (fallback && typeof fallback === "string") { responseText = fallback; break; }
+            } catch { /* try next */ }
           }
-        }
-      }
+          if (!responseText) console.warn("[Chat] OpenClaw: no JSON payload found, raw cleaned:", cleaned);
+        } else {
+          responseText = cleaned
+            .split("\n")
+            .filter((line) => {
+              const t = line.trim();
+              if (!t) return false;
+              if (/^[%$#>→]\s*$/.test(t)) return false;
+              if (/^[%$#>→]\s/.test(t)) return false;
+              if (/^Restored session:/i.test(t)) return false;
+              if (/^claude\s+(-p|-c|--print|--resume)/i.test(t)) return false;
+              if (/^\[[\d;?<>!]*[a-zA-Z]/.test(t)) return false;
+              if (/^[=\-\+\*~\s]+$/.test(t)) return false;
+              return true;
+            })
+            .join("\n")
+            .trim();
 
-      responseText = responseText.trim() || "(empty response)";
-
-      // ── Stream-reveal the response word-by-word ──────────────────────────
-      const tokens = responseText.split(/(?<=\s)|(?=\s)/);
-      let revealedIdx: number;
-      setMessages((prev) => {
-        revealedIdx = prev.length;
-        return [...prev, { role: "assistant", content: "" }];
-      });
-      setThinking(false);
-      setStreamingMsgIndex(revealedIdx!);
-
-      await new Promise<void>((resolveStream) => {
-        let tokenIdx = 0;
-        let revealed = "";
-        if (streamIntervalRef.current) clearInterval(streamIntervalRef.current);
-        streamIntervalRef.current = setInterval(() => {
-          if (abortStreamRef.current || tokenIdx >= tokens.length) {
-            clearInterval(streamIntervalRef.current!);
-            streamIntervalRef.current = null;
-            setStreamingMsgIndex(null);
-            resolveStream();
-            return;
-          }
-          const batchSize = Math.floor(Math.random() * 3) + 2;
-          for (let b = 0; b < batchSize && tokenIdx < tokens.length; b++, tokenIdx++) {
-            revealed += tokens[tokenIdx];
-          }
-          const snap = revealed;
-          setMessages((prev) => {
-            const updated = [...prev];
-            const lastIdx = updated.length - 1;
-            if (updated[lastIdx]?.role === "assistant") {
-              updated[lastIdx] = { ...updated[lastIdx], content: snap };
+          if (!convData?.claude_session_id) {
+            const claudeId = extractClaudeSessionId(stdout);
+            if (claudeId) {
+              await supabase.from("chat_conversations").update({ claude_session_id: claudeId }).eq("id", jobConvId);
             }
-            return updated;
+          }
+        }
+
+        responseText = responseText.trim() || "(empty response)";
+
+        // Only do streaming reveal if this conv is still the active one
+        const isActive = activeConvIdRef.current === jobConvId;
+        if (isActive) {
+          const tokens = responseText.split(/(?<=\s)|(?=\s)/);
+          let revealedIdx: number;
+          setMessages((prev) => {
+            revealedIdx = prev.length;
+            return [...prev, { role: "assistant", content: "" }];
           });
-        }, 18);
-      });
+          setThinking(false);
+          setStreamingMsgIndex(revealedIdx!);
 
-      await saveMessage(convId, "assistant", responseText);
+          await new Promise<void>((resolveStream) => {
+            let tokenIdx = 0;
+            let revealed = "";
+            if (streamIntervalRef.current) clearInterval(streamIntervalRef.current);
+            streamIntervalRef.current = setInterval(() => {
+              if (abortStreamRef.current || tokenIdx >= tokens.length) {
+                clearInterval(streamIntervalRef.current!);
+                streamIntervalRef.current = null;
+                setStreamingMsgIndex(null);
+                resolveStream();
+                return;
+              }
+              const batchSize = Math.floor(Math.random() * 3) + 2;
+              for (let b = 0; b < batchSize && tokenIdx < tokens.length; b++, tokenIdx++) {
+                revealed += tokens[tokenIdx];
+              }
+              const snap = revealed;
+              setMessages((prev) => {
+                const updated = [...prev];
+                const lastIdx = updated.length - 1;
+                if (updated[lastIdx]?.role === "assistant") {
+                  updated[lastIdx] = { ...updated[lastIdx], content: snap };
+                }
+                return updated;
+              });
+            }, 18);
+          });
+        } else {
+          // Background: just clear thinking if still set
+          setThinking(false);
+        }
 
-      // Update title after first exchange (was a new conversation)
-      if (!activeConvId) {
-        const smartTitle = text.length > 60
-          ? text.slice(0, 57).trimEnd() + "…"
-          : text;
-        await supabase.from("chat_conversations").update({ title: smartTitle }).eq("id", convId!);
-        setConversations((prev) =>
-          prev.map((c) => c.id === convId ? { ...c, title: smartTitle } : c)
-        );
+        await saveMessage(jobConvId, "assistant", responseText);
+
+        // Update title after first exchange
+        if (jobIsNew) {
+          const smartTitle = jobText.length > 60
+            ? jobText.slice(0, 57).trimEnd() + "…"
+            : jobText;
+          await supabase.from("chat_conversations").update({ title: smartTitle }).eq("id", jobConvId);
+          setConversations((prev) =>
+            prev.map((c) => c.id === jobConvId ? { ...c, title: smartTitle } : c)
+          );
+        }
+
+        setConversations((prev) => {
+          const conv = prev.find((c) => c.id === jobConvId);
+          if (!conv) return prev;
+          return [conv, ...prev.filter((c) => c.id !== jobConvId)];
+        });
+      } catch (err) {
+        const errMsg = err instanceof Error ? err.message : "Unknown error";
+        const isActive = activeConvIdRef.current === jobConvId;
+        if (isActive) {
+          setMessages((prev) => [...prev, { role: "assistant", content: `⚠️ Error: ${errMsg}` }]);
+        }
+        await saveMessage(jobConvId, "assistant", `⚠️ Error: ${errMsg}`);
+      } finally {
+        const isActive = activeConvIdRef.current === jobConvId;
+        if (isActive) {
+          setThinking(false);
+          setStreamingMsgIndex(null);
+          if (streamIntervalRef.current) { clearInterval(streamIntervalRef.current); streamIntervalRef.current = null; }
+          setRelayStatus("idle");
+          setTimeout(() => textareaRef.current?.focus(), 50);
+        }
+        removeJob(jobConvId);
       }
+    };
 
-      setConversations((prev) => {
-        const conv = prev.find((c) => c.id === convId);
-        if (!conv) return prev;
-        return [conv, ...prev.filter((c) => c.id !== convId)];
-      });
-    } catch (err) {
-      const errMsg = err instanceof Error ? err.message : "Unknown error";
-      const errResponse: Message = { role: "assistant", content: `⚠️ Error: ${errMsg}` };
-      setMessages((prev) => [...prev, errResponse]);
-      await saveMessage(convId, "assistant", `⚠️ Error: ${errMsg}`);
-    } finally {
-      setThinking(false);
-      setStreamingMsgIndex(null);
-      if (streamIntervalRef.current) { clearInterval(streamIntervalRef.current); streamIntervalRef.current = null; }
-      setRelayStatus("idle");
-      setTimeout(() => textareaRef.current?.focus(), 50);
-    }
-  }, [input, attachedFiles, thinking, selectedDeviceId, activeConvId, agent, createConversation, buildCommand, sendViaRelay, toast]);
+    // Fire-and-forget — doesn't block the UI
+    runJob();
+  }, [input, attachedFiles, selectedDeviceId, activeConvId, agent, createConversation, buildCommand, sendViaRelay, toast, addJob, removeJob]);
 
   // ── Abort streaming ────────────────────────────────────────────────────
   const handleAbort = useCallback(() => {
@@ -1101,7 +1107,7 @@ export default function Chat() {
                 onKeyDown={handleKeyDown}
                 onSend={handleSend}
                 disabled={!selectedDeviceId}
-                sendDisabled={thinking || streamingMsgIndex !== null || (!input.trim() && attachedFiles.length === 0)}
+                sendDisabled={(!input.trim() && attachedFiles.length === 0)}
                 placeholder={selectedDeviceId ? `Message ${agent === "openclaw" ? "OpenClaw" : "Claude Code"}... (type / for commands)` : "Select a device first…"}
                 attachedFiles={attachedFiles}
                 onRemoveFile={(i) => setAttachedFiles((prev) => prev.filter((_, idx) => idx !== i))}

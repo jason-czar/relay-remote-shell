@@ -18,6 +18,10 @@ interface ChatContextValue {
   handleNew: () => void;
   onNewCallback: (() => void) | null;
   registerNewCallback: (fn: () => void) => void;
+  // Background job tracking
+  activeJobs: Set<string>;
+  addJob: (convId: string) => void;
+  removeJob: (convId: string) => void;
 }
 
 const ChatContext = createContext<ChatContextValue | null>(null);
@@ -27,6 +31,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConvId, setActiveConvId] = useState<string | null>(null);
   const [newCallback, setNewCallback] = useState<(() => void) | null>(null);
+  const [activeJobs, setActiveJobs] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!user) return;
@@ -55,6 +60,14 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     setNewCallback(() => fn);
   }, []);
 
+  const addJob = useCallback((convId: string) => {
+    setActiveJobs((prev) => new Set([...prev, convId]));
+  }, []);
+
+  const removeJob = useCallback((convId: string) => {
+    setActiveJobs((prev) => { const next = new Set(prev); next.delete(convId); return next; });
+  }, []);
+
   return (
     <ChatContext.Provider value={{
       conversations,
@@ -65,6 +78,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       handleNew,
       onNewCallback: newCallback,
       registerNewCallback,
+      activeJobs,
+      addJob,
+      removeJob,
     }}>
       {children}
     </ChatContext.Provider>
