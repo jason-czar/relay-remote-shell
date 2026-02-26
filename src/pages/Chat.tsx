@@ -574,7 +574,7 @@ export default function Chat() {
             <div className="max-w-[720px] mx-auto px-6">
               {messages.length === 0 && !thinking && (
                 <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
-                  <div className="relative mb-6">
+                  <div className="relative mb-6 animate-fade-in" style={{ animationDelay: "0ms", animationFillMode: "both" }}>
                     {/* Outer glow */}
                     <div className="absolute inset-0 rounded-3xl bg-primary/20 blur-xl scale-110" />
                     <div className="relative w-24 h-24 rounded-3xl flex items-center justify-center ring-1 ring-primary/30"
@@ -586,17 +586,17 @@ export default function Chat() {
                       <span className="text-5xl">{agent === "openclaw" ? "🐾" : "⌨️"}</span>
                     </div>
                   </div>
-                  <h3 className="font-semibold text-foreground mb-2 text-lg">
+                  <h3 className="font-semibold text-foreground mb-2 text-lg animate-fade-in" style={{ animationDelay: "120ms", animationFillMode: "both" }}>
                     {agent === "openclaw" ? "OpenClaw Agent" : "Claude Code"}
                   </h3>
-                  <p className="text-sm text-muted-foreground max-w-sm leading-relaxed mb-8">
+                  <p className="text-sm text-muted-foreground max-w-sm leading-relaxed mb-8 animate-fade-in" style={{ animationDelay: "220ms", animationFillMode: "both" }}>
                     {agent === "openclaw"
                       ? "Ask your local OpenClaw agent anything. Commands run on your selected device."
                       : "Send prompts directly to Claude Code running on your device."}
                   </p>
 
                   {/* Starter prompt cards */}
-                  <div className="grid grid-cols-2 gap-2.5 w-full max-w-lg mx-auto">
+                  <div className="grid grid-cols-2 gap-2.5 w-full max-w-lg mx-auto animate-fade-in" style={{ animationDelay: "340ms", animationFillMode: "both" }}>
                     {(agent === "openclaw" ? [
                       { icon: "📂", title: "List files", prompt: "List all files in the current directory" },
                       { icon: "🔍", title: "Search code", prompt: "Search for TODO comments in the codebase" },
