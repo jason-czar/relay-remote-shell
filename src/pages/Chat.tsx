@@ -198,9 +198,11 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
   const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInput(e.target.value);
     const el = e.target;
+    const isMobile = window.innerWidth < 768;
+    const maxH = isMobile ? Math.floor(window.innerHeight * 0.75) : 200;
     el.style.height = "40px";
-    el.style.height = Math.min(el.scrollHeight, 200) + "px";
-    el.style.overflowY = el.scrollHeight > 200 ? "auto" : "hidden";
+    el.style.height = Math.min(el.scrollHeight, maxH) + "px";
+    el.style.overflowY = el.scrollHeight > maxH ? "auto" : "hidden";
   };
 
   return (
@@ -274,7 +276,7 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
           disabled={disabled}
           rows={1}
           style={{ height: "40px", overflowY: "hidden" }}
-          className="resize-none text-sm min-h-[40px] max-h-[200px] flex-1 bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none px-2 py-2.5 overflow-y-auto placeholder:text-muted-foreground/40"
+          className="resize-none text-sm min-h-[40px] flex-1 bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none px-2 py-2.5 overflow-y-auto placeholder:text-muted-foreground/40"
         />
 
         {/* Waveform — shown while dictating */}
