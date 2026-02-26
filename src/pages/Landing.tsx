@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
@@ -22,7 +23,7 @@ const PROMPTS = {
 
 export default function Landing() {
   const navigate = useNavigate();
-  const activeAgent: keyof typeof PROMPTS = "OpenClaw";
+  const [activeAgent, setActiveAgent] = useState<keyof typeof PROMPTS>("OpenClaw");
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -50,7 +51,7 @@ export default function Landing() {
           {AGENT_TABS.map((tab) => (
             <button
               key={tab}
-              onClick={() => navigate("/auth")}
+              onClick={() => setActiveAgent(tab as keyof typeof PROMPTS)}
               className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
                 tab === activeAgent
                   ? "border-foreground text-foreground"
@@ -75,13 +76,15 @@ export default function Landing() {
               boxShadow: "0 8px 32px hsl(var(--primary) / 0.25), inset 0 1px 0 rgba(255,255,255,0.12)",
             }}
           >
-            <span className="text-5xl">🐾</span>
+            <span className="text-5xl">{activeAgent === "OpenClaw" ? "🐾" : "⌨️"}</span>
           </div>
         </div>
 
-        <h2 className="text-xl font-semibold text-foreground mb-2">OpenClaw Agent</h2>
+        <h2 className="text-xl font-semibold text-foreground mb-2">{activeAgent === "OpenClaw" ? "OpenClaw Agent" : "Claude Code"}</h2>
         <p className="text-sm text-muted-foreground text-center max-w-sm leading-relaxed mb-8">
-          Ask your local OpenClaw agent anything. Commands run on your selected device.
+          {activeAgent === "OpenClaw"
+            ? "Ask your local OpenClaw agent anything. Commands run on your selected device."
+            : "Send prompts directly to Claude Code running on your device."}
         </p>
 
         {/* Prompt suggestion cards */}
