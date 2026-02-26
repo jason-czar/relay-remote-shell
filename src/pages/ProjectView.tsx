@@ -434,9 +434,29 @@ export default function ProjectView() {
                                   </button>
                                   <button
                                     onClick={() => {
-                                      const cmd = `cd relay-connector && ./relay-connector --pair ${device.pairing_code} --api ${import.meta.env.VITE_SUPABASE_URL}/functions/v1 --name "${device.name || "MyDevice"}"`;
+                                      const API_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
+                                      const cmd = [
+                                        "set -e",
+                                        `RELAY_DIR="$HOME/relay-connector"`,
+                                        `API_URL="${API_URL}"`,
+                                        `PAIR_CODE="${device.pairing_code}"`,
+                                        `NAME="${device.name || "MyDevice"}"`,
+                                        "",
+                                        `rm -rf "$RELAY_DIR"`,
+                                        `curl -fsSL "$API_URL/download-connector?install=1" | bash`,
+                                        "",
+                                        `cd "$RELAY_DIR"`,
+                                        `./relay-connector --pair "$PAIR_CODE" --api "$API_URL" --name "$NAME"`,
+                                        "",
+                                        `echo "Starting connector in background..."`,
+                                        "(",
+                                        `  cd "$RELAY_DIR"`,
+                                        `  nohup ./relay-connector connect >/dev/null 2>&1 &`,
+                                        ")",
+                                        `echo "Connector running."`,
+                                      ].join("\n");
                                       navigator.clipboard.writeText(cmd);
-                                      toast({ title: "Copied!", description: "Full pairing command copied to clipboard" });
+                                      toast({ title: "Copied!", description: "Setup command copied to clipboard" });
                                     }}
                                     className="inline-flex items-center gap-1 text-xs bg-primary/10 text-primary px-2 py-0.5 rounded hover:bg-primary/20 transition-colors"
                                   >
