@@ -4,18 +4,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { StatusBadge } from "@/components/StatusBadge";
 import { useToast } from "@/hooks/use-toast";
-import { Check, Copy, Monitor, Terminal, Download, ChevronRight, Loader2 } from "lucide-react";
+import { Check, Copy, Monitor, Terminal, ChevronRight, Loader2 } from "lucide-react";
 import type { Tables } from "@/integrations/supabase/types";
-
-interface BinaryInfo {
-  platform: string;
-  arch: string;
-  label: string;
-  url: string;
-}
 
 interface SetupWizardProps {
   projectId: string;
@@ -25,6 +17,7 @@ interface SetupWizardProps {
 }
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const API_URL = `${SUPABASE_URL}/functions/v1`;
 
 export function SetupWizard({ projectId, onComplete, onSkip, existingDevice }: SetupWizardProps) {
   const { toast } = useToast();
@@ -33,24 +26,11 @@ export function SetupWizard({ projectId, onComplete, onSkip, existingDevice }: S
   const [deviceName, setDeviceName] = useState(existingDevice?.name || "");
   const [creating, setCreating] = useState(false);
   const [device, setDevice] = useState<Tables<"devices"> | null>(existingDevice || null);
-  const [copied, setCopied] = useState<string | null>(null);
-  const [availableBinaries, setAvailableBinaries] = useState<BinaryInfo[]>([]);
-  const [loadingBinaries, setLoadingBinaries] = useState(false);
+  const [copied, setCopied] = useState(false);
 
-  // Fetch available pre-built binaries when reaching step 2
+  // Poll for device pairing + online status on step 2
   useEffect(() => {
-    if (step !== 2) return;
-    setLoadingBinaries(true);
-    fetch(`${SUPABASE_URL}/functions/v1/download-connector?list=1`)
-      .then(r => r.json())
-      .then(data => setAvailableBinaries(data.available || []))
-      .catch(() => setAvailableBinaries([]))
-      .finally(() => setLoadingBinaries(false));
-  }, [step]);
-
-  // Poll for device pairing status when on step 3
-  useEffect(() => {
-    if (step !== 3 || !device) return;
+    if (step !== 2 || !device) return;
     const channel = supabase
       .channel(`wizard-device-${device.id}`)
       .on("postgres_changes", {
@@ -61,27 +41,9 @@ export function SetupWizard({ projectId, onComplete, onSkip, existingDevice }: S
       }, (payload) => {
         const updated = payload.new as Tables<"devices">;
         setDevice(updated);
-        if (updated.paired) {
-          setStep(4);
+        if (updated.paired && updated.status === "online") {
+          setStep(3);
         }
-      })
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
-  }, [step, device]);
-
-  // Poll for online status on step 4 and 5
-  useEffect(() => {
-    if ((step !== 4 && step !== 5) || !device) return;
-    const channel = supabase
-      .channel(`wizard-device-status-${device.id}`)
-      .on("postgres_changes", {
-        event: "UPDATE",
-        schema: "public",
-        table: "devices",
-        filter: `id=eq.${device.id}`,
-      }, (payload) => {
-        setDevice(payload.new as Tables<"devices">);
       })
       .subscribe();
 
@@ -109,25 +71,39 @@ export function SetupWizard({ projectId, onComplete, onSkip, existingDevice }: S
     setCreating(false);
   };
 
-  const copyToClipboard = (text: string, label: string) => {
+  const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
-    setCopied(label);
-    toast({ title: "Copied!", description: `${label} copied to clipboard` });
-    setTimeout(() => setCopied(null), 2000);
+    setCopied(true);
+    toast({ title: "Copied!", description: "Command copied to clipboard" });
+    setTimeout(() => setCopied(false), 2000);
   };
 
-  const pairCommand = device?.pairing_code
-    ? `cd relay-connector && ./relay-connector --pair ${device.pairing_code} --api ${SUPABASE_URL}/functions/v1 --name "${device.name || "MyDevice"}"`
-    : "";
+  // The single all-in-one command
+  const oneLineCommand = device?.pairing_code
+    ? `set -e
+RELAY_DIR="$HOME/relay-connector"
+API_URL="${API_URL}"
+PAIR_CODE="${device.pairing_code}"
+NAME="${device.name || "MyDevice"}"
 
-  const connectCommand = `./relay-connector connect`;
+rm -rf "$RELAY_DIR"
+curl -fsSL "$API_URL/download-connector?install=1" | bash
+
+cd "$RELAY_DIR"
+./relay-connector --pair "$PAIR_CODE" --api "$API_URL" --name "$NAME"
+
+echo "Starting connector in background..."
+(
+  cd "$RELAY_DIR"
+  nohup ./relay-connector >/dev/null 2>&1 &
+)
+echo "Connector running."`
+    : "";
 
   const steps = [
     { num: 1, label: "Name Device" },
-    { num: 2, label: "Install Connector" },
-    { num: 3, label: "Pair Device" },
-    { num: 4, label: "Connect" },
-    { num: 5, label: "Done" },
+    { num: 2, label: "Run Command" },
+    { num: 3, label: "Done" },
   ];
 
   return (
@@ -137,7 +113,7 @@ export function SetupWizard({ projectId, onComplete, onSkip, existingDevice }: S
         {steps.map((s, i) => {
           const isCompleted = step > s.num;
           const isCurrent = step === s.num;
-          const isClickable = isCompleted || (s.num <= step + 1 && (s.num <= 2 || !!device));
+          const isClickable = isCompleted || (s.num <= step + 1 && (s.num <= 1 || !!device));
           return (
             <div key={s.num} className="flex items-center">
               <button
@@ -190,7 +166,7 @@ export function SetupWizard({ projectId, onComplete, onSkip, existingDevice }: S
                 <Button type="button" variant="ghost" onClick={onSkip}>Skip setup</Button>
                 <Button type="submit" disabled={creating} className="gap-2">
                   {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                  {creating ? "Creating..." : "Create Device"}
+                  {creating ? "Creating..." : "Continue"}
                 </Button>
               </div>
             </form>
@@ -198,250 +174,88 @@ export function SetupWizard({ projectId, onComplete, onSkip, existingDevice }: S
         </Card>
       )}
 
-      {/* Step 2: Install connector */}
-      {step === 2 && (
+      {/* Step 2: Run the one-liner */}
+      {step === 2 && device && (
         <Card>
           <CardContent className="pt-6 space-y-5">
             <div className="flex items-center gap-3 mb-2">
               <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                <Download className="h-5 w-5 text-primary" />
+                <Terminal className="h-5 w-5 text-primary" />
               </div>
               <div>
-                <h3 className="font-semibold">Install the connector</h3>
-                <p className="text-sm text-muted-foreground">Run this on the machine you want to connect to</p>
+                <h3 className="font-semibold">Run this on your machine</h3>
+                <p className="text-sm text-muted-foreground">
+                  One command installs, pairs, and starts the connector
+                </p>
               </div>
             </div>
 
-            <div className="space-y-4">
-              {/* Primary: smart one-liners with OS tabs */}
-              <div>
-                <p className="text-sm font-medium mb-2">Quick install</p>
-                <p className="text-xs text-muted-foreground mb-3">
-                  Auto-detects your architecture. Downloads a pre-built binary — no dependencies needed.
-                </p>
-                <Tabs defaultValue="unix" className="w-full">
-                  <TabsList className="w-full grid grid-cols-2">
-                    <TabsTrigger value="unix">macOS / Linux</TabsTrigger>
-                    <TabsTrigger value="windows">Windows</TabsTrigger>
-                  </TabsList>
-                  <TabsContent value="unix">
-                    <div className="relative">
-                      <pre className="bg-muted rounded-lg p-4 pr-12 text-sm font-mono overflow-x-auto">
-                        <code>{`curl -fsSL "${SUPABASE_URL}/functions/v1/download-connector?install=1" | bash`}</code>
-                      </pre>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="absolute top-2 right-2 h-8 w-8"
-                        onClick={() => copyToClipboard(`curl -fsSL "${SUPABASE_URL}/functions/v1/download-connector?install=1" | bash`, "Install command")}
-                      >
-                        {copied === "Install command" ? <Check className="h-3.5 w-3.5 text-primary" /> : <Copy className="h-3.5 w-3.5" />}
-                      </Button>
-                    </div>
-                  </TabsContent>
-                  <TabsContent value="windows">
-                    <div className="relative">
-                      <pre className="bg-muted rounded-lg p-4 pr-12 text-sm font-mono overflow-x-auto whitespace-pre-wrap break-all">
-                        <code>{`irm "${SUPABASE_URL}/functions/v1/download-connector?install=ps" | iex`}</code>
-                      </pre>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="absolute top-2 right-2 h-8 w-8"
-                        onClick={() => copyToClipboard(`irm "${SUPABASE_URL}/functions/v1/download-connector?install=ps" | iex`, "Install command (PS)")}
-                      >
-                        {copied === "Install command (PS)" ? <Check className="h-3.5 w-3.5 text-primary" /> : <Copy className="h-3.5 w-3.5" />}
-                      </Button>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1">Run in PowerShell as Administrator</p>
-                  </TabsContent>
-                </Tabs>
-              </div>
+            <div className="relative">
+              <pre className="bg-muted rounded-lg p-4 pr-12 text-sm font-mono overflow-x-auto whitespace-pre leading-relaxed">
+                <code>{oneLineCommand}</code>
+              </pre>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="absolute top-2 right-2 h-8 w-8"
+                onClick={() => copyToClipboard(oneLineCommand)}
+              >
+                {copied ? <Check className="h-3.5 w-3.5 text-primary" /> : <Copy className="h-3.5 w-3.5" />}
+              </Button>
+            </div>
 
-              <div className="flex items-center gap-3">
-                <div className="h-px flex-1 bg-border" />
-                <span className="text-xs text-muted-foreground">or choose manually</span>
-                <div className="h-px flex-1 bg-border" />
-              </div>
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-muted-foreground">Pairing code:</span>
+              <code className="bg-muted px-2 py-0.5 rounded font-mono font-bold text-primary">
+                {device.pairing_code}
+              </code>
+            </div>
 
-              {/* Manual binary downloads */}
-              {loadingBinaries ? (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground py-2 justify-center">
-                  <Loader2 className="h-4 w-4 animate-spin" /> Loading downloads...
-                </div>
-              ) : availableBinaries.length > 0 ? (
-                <div>
-                  <p className="text-sm font-medium mb-2">Direct downloads</p>
-                  <div className="grid gap-2">
-                    {availableBinaries.map((bin) => (
-                      <a
-                        key={`${bin.platform}-${bin.arch}`}
-                        href={bin.url}
-                        download
-                        className="flex items-center justify-between rounded-lg border border-border bg-muted/30 px-4 py-2.5 hover:bg-muted/60 transition-colors group"
-                      >
-                        <div className="flex items-center gap-3">
-                          <Download className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
-                          <span className="text-sm font-medium">{bin.label}</span>
-                        </div>
-                        <span className="text-xs text-muted-foreground">
-                          {bin.platform}/{bin.arch}
-                        </span>
-                      </a>
-                    ))}
+            {/* Status indicator */}
+            <div className="rounded-lg border border-dashed border-border bg-muted/30 p-4 flex items-center gap-3">
+              {device.paired && device.status === "online" ? (
+                <>
+                  <Check className="h-5 w-5 text-primary shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-primary">Device is online!</p>
+                    <p className="text-xs text-muted-foreground">Connector running and connected</p>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-2">
-                    💡 Use the one-liner above instead — it handles permissions automatically.
-                  </p>
-                </div>
+                </>
+              ) : device.paired ? (
+                <>
+                  <Loader2 className="h-5 w-5 text-muted-foreground animate-spin shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium">Paired — waiting for connector to come online...</p>
+                    <p className="text-xs text-muted-foreground">Status will update automatically</p>
+                  </div>
+                </>
               ) : (
-                <p className="text-xs text-muted-foreground text-center py-2">
-                  No direct downloads available. The one-liner above will fall back to building from source (requires Go 1.22+).
-                </p>
+                <>
+                  <Loader2 className="h-5 w-5 text-muted-foreground animate-spin shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium">Waiting for device to connect...</p>
+                    <p className="text-xs text-muted-foreground">Run the command above — this will update automatically</p>
+                  </div>
+                </>
               )}
             </div>
 
             <div className="flex justify-between">
               <Button variant="ghost" onClick={() => setStep(1)}>Back</Button>
-              <Button onClick={() => setStep(3)} className="gap-2">
-                I have the connector <ChevronRight className="h-4 w-4" />
+              <Button
+                onClick={() => setStep(3)}
+                disabled={!(device.paired && device.status === "online")}
+                className="gap-2"
+              >
+                Next <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
           </CardContent>
         </Card>
       )}
 
-      {/* Step 3: Pair device */}
+      {/* Step 3: Done */}
       {step === 3 && device && (
-        <Card>
-          <CardContent className="pt-6 space-y-5">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                <Terminal className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <h3 className="font-semibold">Pair your device</h3>
-                <p className="text-sm text-muted-foreground">Run this command on your target machine</p>
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <p className="text-sm font-medium">Run the pairing command:</p>
-              <div className="relative">
-                <pre className="bg-muted rounded-lg p-4 pr-12 text-sm font-mono overflow-x-auto break-all whitespace-pre-wrap">
-                  <code>{pairCommand}</code>
-                </pre>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="absolute top-2 right-2 h-8 w-8"
-                  onClick={() => copyToClipboard(pairCommand, "Pair command")}
-                >
-                  {copied === "Pair command" ? <Check className="h-3.5 w-3.5 text-primary" /> : <Copy className="h-3.5 w-3.5" />}
-                </Button>
-              </div>
-
-              <div className="flex items-center gap-2 text-sm">
-                <span className="text-muted-foreground">Pairing code:</span>
-                <code className="bg-muted px-2 py-0.5 rounded font-mono font-bold text-primary">
-                  {device.pairing_code}
-                </code>
-              </div>
-            </div>
-
-            <div className="rounded-lg border border-dashed border-border bg-muted/30 p-4 flex items-center gap-3">
-              {device.paired ? (
-                <>
-                  <Check className="h-5 w-5 text-primary shrink-0" />
-                  <div>
-                    <p className="text-sm font-medium text-primary">Device paired successfully!</p>
-                    <p className="text-xs text-muted-foreground">Your device is connected and ready</p>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <Loader2 className="h-5 w-5 text-muted-foreground animate-spin shrink-0" />
-                  <div>
-                    <p className="text-sm font-medium">Waiting for device to pair...</p>
-                    <p className="text-xs text-muted-foreground">Run the command above and this will update automatically</p>
-                  </div>
-                </>
-              )}
-            </div>
-
-            <div className="flex justify-between">
-              <Button variant="ghost" onClick={() => setStep(2)}>Back</Button>
-              <Button onClick={() => setStep(4)} disabled={!device.paired} className="gap-2">
-                Next <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Step 4: Connect */}
-      {step === 4 && device && (
-        <Card>
-          <CardContent className="pt-6 space-y-5">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                <Terminal className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <h3 className="font-semibold">Start the connector</h3>
-                <p className="text-sm text-muted-foreground">Keep this running on your target machine</p>
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <p className="text-sm font-medium">Run the connect command:</p>
-              <div className="relative">
-                <pre className="bg-muted rounded-lg p-4 pr-12 text-sm font-mono">
-                  <code>{connectCommand}</code>
-                </pre>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="absolute top-2 right-2 h-8 w-8"
-                  onClick={() => copyToClipboard(connectCommand, "Connect command")}
-                >
-                  {copied === "Connect command" ? <Check className="h-3.5 w-3.5 text-primary" /> : <Copy className="h-3.5 w-3.5" />}
-                </Button>
-              </div>
-            </div>
-
-            <div className="rounded-lg border border-dashed border-border bg-muted/30 p-4 flex items-center gap-3">
-              {device.status === "online" ? (
-                <>
-                  <Check className="h-5 w-5 text-primary shrink-0" />
-                  <div>
-                    <p className="text-sm font-medium text-primary">Device is online!</p>
-                    <p className="text-xs text-muted-foreground">Your connector is running and connected</p>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <Loader2 className="h-5 w-5 text-muted-foreground animate-spin shrink-0" />
-                  <div>
-                    <p className="text-sm font-medium">Waiting for connector to come online...</p>
-                    <p className="text-xs text-muted-foreground">Run the command above — status will update automatically</p>
-                  </div>
-                </>
-              )}
-            </div>
-
-            <div className="flex justify-between">
-              <Button variant="ghost" onClick={() => setStep(3)}>Back</Button>
-              <Button onClick={() => setStep(5)} disabled={device.status !== "online"} className="gap-2">
-                Next <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Step 5: Done */}
-      {step === 5 && device && (
         <Card>
           <CardContent className="pt-6 space-y-5">
             <div className="flex items-center gap-3 mb-2">
@@ -470,7 +284,7 @@ export function SetupWizard({ projectId, onComplete, onSkip, existingDevice }: S
             </div>
 
             <div className="flex justify-between">
-              <Button variant="ghost" onClick={() => setStep(4)}>Back</Button>
+              <Button variant="ghost" onClick={() => setStep(2)}>Back</Button>
               <Button onClick={onComplete}>
                 Done — Go to Project
               </Button>
