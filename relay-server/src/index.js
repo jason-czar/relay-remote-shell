@@ -34,6 +34,10 @@ const PROXY_TIMEOUT_MS = 30000;
 // tunnel_id → browser WebSocket for WS proxy tunnels
 const wsTunnels = new Map();
 
+// session_id → setTimeout handle (grace period before ending session in DB)
+const sessionGraceTimers = new Map();
+const SESSION_GRACE_MS = 90_000; // 90 seconds to reconnect before session is ended
+
 // ─── HTTP Server ─────────────────────────────────────────────────────
 const server = createServer(async (req, res) => {
   // CORS headers for all HTTP endpoints
@@ -541,6 +545,14 @@ browserWSS.on("connection", (ws) => {
       authenticated = true;
       browserSessions.set(session_id, { browser: ws, device_id });
 
+      // Cancel any pending grace-period timer for this session (iOS app-switch reconnect)
+      const graceTimer = sessionGraceTimers.get(session_id);
+      if (graceTimer) {
+        clearTimeout(graceTimer);
+        sessionGraceTimers.delete(session_id);
+        console.log(`[browser] session ${session_id.slice(0, 8)} resumed within grace period`);
+      }
+
       // Initialize recording buffer
       if (!sessionRecordings.has(session_id)) {
         sessionRecordings.set(session_id, {
@@ -577,25 +589,33 @@ browserWSS.on("connection", (ws) => {
   ws.on("close", async () => {
     clearInterval(heartbeat);
     if (sessionId && deviceId) {
-      console.log(`[browser] session ${sessionId.slice(0, 8)} disconnected`);
-
-      // Notify connector
-      const connectorWs = connectors.get(deviceId);
-      if (connectorWs?.readyState === 1) {
-        send(connectorWs, {
-          type: "session_end",
-          data: { session_id: sessionId, reason: "browser_disconnected" },
-        });
-      }
-
+      console.log(`[browser] session ${sessionId.slice(0, 8)} disconnected — grace period ${SESSION_GRACE_MS / 1000}s`);
       browserSessions.delete(sessionId);
-      await saveRecording(sessionId);
 
-      // Update DB
-      await supabase
-        .from("sessions")
-        .update({ status: "ended", ended_at: new Date().toISOString() })
-        .eq("id", sessionId);
+      // Give the browser (especially iOS) a grace window to reconnect before ending the session
+      const timer = setTimeout(async () => {
+        sessionGraceTimers.delete(sessionId);
+        console.log(`[browser] session ${sessionId.slice(0, 8)} grace expired — ending`);
+
+        // Notify connector the session is over
+        const connectorWs = connectors.get(deviceId);
+        if (connectorWs?.readyState === 1) {
+          send(connectorWs, {
+            type: "session_end",
+            data: { session_id: sessionId, reason: "browser_disconnected" },
+          });
+        }
+
+        await saveRecording(sessionId);
+
+        // Update DB
+        await supabase
+          .from("sessions")
+          .update({ status: "ended", ended_at: new Date().toISOString() })
+          .eq("id", sessionId);
+      }, SESSION_GRACE_MS);
+
+      sessionGraceTimers.set(sessionId, timer);
     }
   });
 
