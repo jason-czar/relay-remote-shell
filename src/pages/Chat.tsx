@@ -467,16 +467,26 @@ export default function Chat() {
         else resolve(result);
       };
 
-      const resetSilence = () => {
+      const resetSilence = (force = false) => {
         if (silenceTimer) clearTimeout(silenceTimer);
         silenceTimer = setTimeout(() => {
-          if (isOpenClaw && !outputBuffer.includes("{")) return;
-          if (!isOpenClaw) {
-            const stripped = outputBuffer.replace(/\x1b[\s\S]{1,10}/g, "").replace(/[%$#>\[\]?;=\r\n\s]/g, "");
-            if (stripped.length < 5) return;
+          if (!force) {
+            if (isOpenClaw && !outputBuffer.includes("{")) {
+              // No JSON yet — wait a bit longer before giving up
+              resetSilence(true);
+              return;
+            }
+            if (!isOpenClaw) {
+              const stripped = outputBuffer.replace(/\x1b[\s\S]{1,10}/g, "").replace(/[%$#>\[\]?;=\r\n\s]/g, "");
+              if (stripped.length < 5) {
+                // Not enough content yet — wait longer
+                resetSilence(true);
+                return;
+              }
+            }
           }
           finish(outputBuffer);
-        }, SILENCE_MS);
+        }, force ? SILENCE_MS * 2 : SILENCE_MS);
       };
 
       hardTimeout = setTimeout(() => finish(new Error("Response timed out after 30s")), RELAY_TIMEOUT_MS);
@@ -518,8 +528,11 @@ export default function Chat() {
         } catch { /* ignore */ }
       };
 
-      ws.onerror = () => finish(new Error("WebSocket error"));
-      ws.onclose = () => { /* handled by finish */ };
+      ws.onerror = (e) => { console.error("[Relay] WebSocket error", e); finish(new Error("WebSocket error")); };
+      ws.onclose = (e) => {
+        // If the WebSocket closes unexpectedly (e.g. relay rejected the session) and we haven't finished yet, resolve with whatever we have
+        if (silenceTimer || hardTimeout) finish(outputBuffer || new Error(`WebSocket closed (code ${e.code})`));
+      };
     });
   }, [selectedDeviceId]);
 
