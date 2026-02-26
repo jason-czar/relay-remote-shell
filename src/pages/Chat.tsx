@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Send, ChevronDown, Paperclip, X, FileText, Image, Plus, Monitor, Terminal } from "lucide-react";
+import { Send, ChevronDown, Paperclip, X, FileText, Image, Plus, Monitor, Terminal, Loader2, WifiOff } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { Tables } from "@/integrations/supabase/types";
@@ -182,6 +182,8 @@ export default function Chat() {
   const [isDragOver, setIsDragOver] = useState(false);
   const [showWizard, setShowWizard] = useState(false);
   const [projectId, setProjectId] = useState<string>("");
+  const [relayStatus, setRelayStatus] = useState<"idle" | "connecting" | "retrying" | "failed">("idle");
+  const relayRetryCountRef = useRef(0);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -269,8 +271,37 @@ export default function Chat() {
     await supabase.from("chat_conversations").update({ updated_at: new Date().toISOString() }).eq("id", convId);
   };
 
-  // ── Relay send ─────────────────────────────────────────────────────────
+  // ── Relay send (with auto-retry + status banner) ───────────────────────
   const sendViaRelay = useCallback(async (command: string, isOpenClaw = false): Promise<string> => {
+    const MAX_RETRIES = 3;
+    const RETRY_DELAYS = [1000, 2500, 5000];
+
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      if (attempt === 0) {
+        setRelayStatus("connecting");
+        relayRetryCountRef.current = 0;
+      } else {
+        relayRetryCountRef.current = attempt;
+        setRelayStatus("retrying");
+        await new Promise((r) => setTimeout(r, RETRY_DELAYS[attempt - 1] ?? 5000));
+      }
+
+      try {
+        const result = await sendViaRelayOnce(command, isOpenClaw);
+        setRelayStatus("idle");
+        return result;
+      } catch (err) {
+        if (attempt === MAX_RETRIES) {
+          setRelayStatus("failed");
+          throw err;
+        }
+        // loop to retry
+      }
+    }
+    throw new Error("Relay unreachable");
+  }, [selectedDeviceId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const sendViaRelayOnce = useCallback(async (command: string, isOpenClaw = false): Promise<string> => {
     // 1. Start session
     const { data: sesData, error: sesErr } = await supabase.functions.invoke("start-session", {
       body: { device_id: selectedDeviceId },
@@ -297,7 +328,6 @@ export default function Chat() {
           ws.send(JSON.stringify({ type: "session_end", data: { session_id: sessionId, reason: "done" } }));
           ws.close();
         }
-        // end session in DB
         supabase.functions.invoke("end-session", { body: { session_id: sessionId } }).catch(() => {});
         if (result instanceof Error) reject(result);
         else resolve(result);
@@ -306,12 +336,10 @@ export default function Chat() {
       const resetSilence = () => {
         if (silenceTimer) clearTimeout(silenceTimer);
         silenceTimer = setTimeout(() => {
-          // For OpenClaw: only resolve on silence if JSON has started
-          // For Claude: only resolve if there's non-noise content (letters/digits beyond just control sequences)
           if (isOpenClaw && !outputBuffer.includes("{")) return;
           if (!isOpenClaw) {
             const stripped = outputBuffer.replace(/\x1b[\s\S]{1,10}/g, "").replace(/[%$#>\[\]?;=\r\n\s]/g, "");
-            if (stripped.length < 5) return; // still just terminal init noise
+            if (stripped.length < 5) return;
           }
           finish(outputBuffer);
         }, SILENCE_MS);
@@ -331,7 +359,6 @@ export default function Chat() {
           const msg: RelayMsg = JSON.parse(event.data);
           if (msg.type === "auth_ok") {
             ws.send(JSON.stringify({ type: "session_start", data: { session_id: sessionId, cols: 200, rows: 50 } }));
-            // send command after session_start
             setTimeout(() => {
               ws.send(JSON.stringify({ type: "stdin", data: { session_id: sessionId, data_b64: btoa(command) } }));
               resetSilence();
@@ -584,6 +611,7 @@ export default function Chat() {
       setThinking(false);
       setStreamingMsgIndex(null);
       if (streamIntervalRef.current) { clearInterval(streamIntervalRef.current); streamIntervalRef.current = null; }
+      setRelayStatus("idle");
       setTimeout(() => textareaRef.current?.focus(), 50);
     }
   }, [input, attachedFiles, thinking, selectedDeviceId, activeConvId, agent, createConversation, buildCommand, sendViaRelay, toast]);
@@ -713,6 +741,40 @@ export default function Chat() {
               </Popover>
             </div>
           </div>
+
+          {/* Relay reconnection banner */}
+          {(relayStatus === "retrying" || relayStatus === "failed") && (
+            <div
+              className="shrink-0 flex items-center justify-center gap-2 py-1.5 px-4 text-xs font-medium transition-all duration-300"
+              style={{
+                background: relayStatus === "failed"
+                  ? "hsl(var(--destructive) / 0.12)"
+                  : "hsl(var(--primary) / 0.10)",
+                borderBottom: relayStatus === "failed"
+                  ? "1px solid hsl(var(--destructive) / 0.25)"
+                  : "1px solid hsl(var(--primary) / 0.18)",
+                color: relayStatus === "failed"
+                  ? "hsl(var(--destructive))"
+                  : "hsl(var(--primary))",
+              }}
+            >
+              {relayStatus === "retrying" ? (
+                <>
+                  <Loader2 className="h-3 w-3 animate-spin shrink-0" />
+                  <span>
+                    Relay disconnected — reconnecting
+                    {relayRetryCountRef.current > 0 ? ` (attempt ${relayRetryCountRef.current} of 3)` : ""}
+                    …
+                  </span>
+                </>
+              ) : (
+                <>
+                  <WifiOff className="h-3 w-3 shrink-0" />
+                  <span>Could not reach relay — check your connection</span>
+                </>
+              )}
+            </div>
+          )}
 
           {/* Messages — centered column */}
           <div ref={scrollRef} className="flex-1 overflow-y-auto py-6">
