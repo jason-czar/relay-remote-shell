@@ -46,16 +46,24 @@ export interface AgentModel {
   description: string;
 }
 
+// OpenClaw uses the same Anthropic models that openclaw agent supports via --model
 export const OPENCLAW_MODELS: AgentModel[] = [
-  { id: "claude-opus-4-5", label: "claude-opus-4-5", description: "Most capable" },
-  { id: "claude-sonnet-4-5", label: "claude-sonnet-4-5", description: "Balanced" },
-  { id: "claude-haiku-4-5", label: "claude-haiku-4-5", description: "Fast & compact" },
+  { id: "claude-opus-4-5", label: "Opus 4.5", description: "Most capable" },
+  { id: "claude-sonnet-4-5", label: "Sonnet 4.5", description: "Balanced (default)" },
+  { id: "claude-haiku-4-5", label: "Haiku 4.5", description: "Fast & compact" },
+  { id: "claude-opus-4", label: "Opus 4", description: "Previous opus" },
+  { id: "claude-sonnet-4", label: "Sonnet 4", description: "Previous sonnet" },
+  { id: "claude-haiku-3-5", label: "Haiku 3.5", description: "Previous haiku" },
 ];
 
+// Claude Code uses `claude --model <id>` — same model family
 export const CLAUDE_MODELS: AgentModel[] = [
-  { id: "claude-opus-4-5", label: "claude-opus-4-5", description: "Most capable" },
-  { id: "claude-sonnet-4-5", label: "claude-sonnet-4-5", description: "Balanced" },
-  { id: "claude-haiku-4-5", label: "claude-haiku-4-5", description: "Fast & compact" },
+  { id: "claude-opus-4-5", label: "Opus 4.5", description: "Most capable" },
+  { id: "claude-sonnet-4-5", label: "Sonnet 4.5", description: "Balanced (default)" },
+  { id: "claude-haiku-4-5", label: "Haiku 4.5", description: "Fast & compact" },
+  { id: "claude-opus-4", label: "Opus 4", description: "Previous opus" },
+  { id: "claude-sonnet-4", label: "Sonnet 4", description: "Previous sonnet" },
+  { id: "claude-haiku-3-5", label: "Haiku 3.5", description: "Previous haiku" },
 ];
 
 // ── Slash commands ───────────────────────────────────────────────────────────
@@ -304,7 +312,9 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
               ) : (
                 <span className="text-warning">✦</span>
               )}
-              <span className="max-w-[120px] truncate">{model}</span>
+              <span className="max-w-[120px] truncate">
+                {(agent === "openclaw" ? OPENCLAW_MODELS : CLAUDE_MODELS).find(m => m.id === model)?.label ?? model}
+              </span>
               <ChevronDown size={11} className="opacity-50 ml-0.5" />
             </button>
           </DropdownMenuTrigger>
@@ -692,7 +702,7 @@ export default function Chat() {
   }, [selectedDeviceId]);
 
   // ── Build command string ───────────────────────────────────────────────
-  const buildCommand = useCallback(async (text: string, convId: string): Promise<string> => {
+  const buildCommand = useCallback(async (text: string, convId: string, selectedModel: string): Promise<string> => {
     const { data: conv } = await supabase
       .from("chat_conversations")
       .select("agent, openclaw_session_id, claude_session_id")
@@ -705,13 +715,14 @@ export default function Chat() {
     if (conv.agent === "openclaw") {
       const sid = conv.openclaw_session_id ?? crypto.randomUUID();
       // Use "main" as the agent (must exist in agents.list), session-id isolates conversations
-      return `openclaw agent --agent main --session-id ${sid} --message "${escaped}" --json --local\n`;
+      return `openclaw agent --agent main --session-id ${sid} --model ${selectedModel} --message "${escaped}" --json --local\n`;
     } else {
       // claude
+      const modelFlag = `--model ${selectedModel}`;
       if (conv.claude_session_id) {
-        return `claude -c -p "${escaped}"\n`;
+        return `claude -c ${modelFlag} -p "${escaped}"\n`;
       }
-      return `claude -p "${escaped}"\n`;
+      return `claude ${modelFlag} -p "${escaped}"\n`;
     }
   }, []);
 
@@ -782,7 +793,7 @@ export default function Chat() {
           .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, "");
 
       try {
-        const command = await buildCommand(fullText, jobConvId);
+        const command = await buildCommand(fullText, jobConvId, model);
         const stdout = await sendViaRelay(command, agent === "openclaw");
         console.debug("[Chat] raw stdout:", stdout);
 
