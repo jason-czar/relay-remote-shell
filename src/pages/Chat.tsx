@@ -48,8 +48,9 @@ export interface AgentModel {
 
 // OpenClaw uses the same Anthropic models that openclaw agent supports via --model
 export const OPENCLAW_MODELS: AgentModel[] = [
+  { id: "auto", label: "Auto", description: "Use agent's default model" },
   { id: "claude-opus-4-5", label: "Opus 4.5", description: "Most capable" },
-  { id: "claude-sonnet-4-5", label: "Sonnet 4.5", description: "Balanced (default)" },
+  { id: "claude-sonnet-4-5", label: "Sonnet 4.5", description: "Balanced" },
   { id: "claude-haiku-4-5", label: "Haiku 4.5", description: "Fast & compact" },
   { id: "claude-opus-4", label: "Opus 4", description: "Previous opus" },
   { id: "claude-sonnet-4", label: "Sonnet 4", description: "Previous sonnet" },
@@ -58,8 +59,9 @@ export const OPENCLAW_MODELS: AgentModel[] = [
 
 // Claude Code uses `claude --model <id>` — same model family
 export const CLAUDE_MODELS: AgentModel[] = [
+  { id: "auto", label: "Auto", description: "Use Claude Code's default model" },
   { id: "claude-opus-4-5", label: "Opus 4.5", description: "Most capable" },
-  { id: "claude-sonnet-4-5", label: "Sonnet 4.5", description: "Balanced (default)" },
+  { id: "claude-sonnet-4-5", label: "Sonnet 4.5", description: "Balanced" },
   { id: "claude-haiku-4-5", label: "Haiku 4.5", description: "Fast & compact" },
   { id: "claude-opus-4", label: "Opus 4", description: "Previous opus" },
   { id: "claude-sonnet-4", label: "Sonnet 4", description: "Previous sonnet" },
@@ -437,7 +439,7 @@ export default function Chat() {
   // ── State ──────────────────────────────────────────────────────────────
   const [messages, setMessages] = useState<Message[]>([]);
   const [agent, setAgent] = useState<"openclaw" | "claude">("openclaw");
-  const [model, setModel] = useState<string>(OPENCLAW_MODELS[1].id);
+  const [model, setModel] = useState<string>("auto");
   const [devices, setDevices] = useState<Tables<"devices">[]>([]);
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>("");
   const [input, setInput] = useState("");
@@ -499,9 +501,8 @@ export default function Chat() {
     if (conv) {
       const a = conv.agent as "openclaw" | "claude";
       setAgent(a);
-      // use persisted model if available, else default to Sonnet
-      const defaultModel = a === "openclaw" ? OPENCLAW_MODELS[1].id : CLAUDE_MODELS[1].id;
-      setModel(conv.model || defaultModel);
+      // use persisted model if available, else default to "auto"
+      setModel(conv.model || "auto");
     }
   }, [activeConvId]);
 
@@ -714,18 +715,20 @@ export default function Chat() {
     if (!conv) throw new Error("Conversation not found");
 
     const escaped = text.replace(/"/g, '\\"');
+    // "auto" = omit --model flag entirely, let the CLI use its configured default
+    const modelFlag = selectedModel !== "auto" ? `--model ${selectedModel}` : "";
 
     if (conv.agent === "openclaw") {
       const sid = conv.openclaw_session_id ?? crypto.randomUUID();
-      // Use "main" as the agent (must exist in agents.list), session-id isolates conversations
-      return `openclaw agent --agent main --session-id ${sid} --model ${selectedModel} --message "${escaped}" --json --local\n`;
+      const modelPart = modelFlag ? ` ${modelFlag}` : "";
+      return `openclaw agent --agent main --session-id ${sid}${modelPart} --message "${escaped}" --json --local\n`;
     } else {
       // claude
-      const modelFlag = `--model ${selectedModel}`;
+      const modelPart = modelFlag ? ` ${modelFlag}` : "";
       if (conv.claude_session_id) {
-        return `claude -c ${modelFlag} -p "${escaped}"\n`;
+        return `claude -c${modelPart} -p "${escaped}"\n`;
       }
-      return `claude ${modelFlag} -p "${escaped}"\n`;
+      return `claude${modelPart} -p "${escaped}"\n`;
     }
   }, []);
 

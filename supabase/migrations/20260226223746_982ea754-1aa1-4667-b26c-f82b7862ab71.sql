@@ -1,0 +1,1 @@
+ALTER TABLE public.chat_conversations ALTER COLUMN model SET DEFAULT 'auto';
