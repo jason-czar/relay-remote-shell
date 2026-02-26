@@ -35,6 +35,63 @@ interface RelayMsg {
 const RELAY_TIMEOUT_MS = 60000;
 const SILENCE_MS = 3000;
 
+// ── Slash commands ───────────────────────────────────────────────────────────
+interface SlashCommand {
+  name: string;
+  description: string;
+  agents: ("openclaw" | "claude" | "both")[];
+  /** If set, this raw terminal command is sent instead of building via buildCommand */
+  rawCommand?: (agent: "openclaw" | "claude") => string;
+  /** If set, executes a client-side action instead */
+  clientAction?: "clear" | "help" | "new";
+}
+
+const SLASH_COMMANDS: SlashCommand[] = [
+  {
+    name: "clear",
+    description: "Clear the current conversation and start fresh",
+    agents: ["both"],
+    clientAction: "clear",
+  },
+  {
+    name: "new",
+    description: "Start a new conversation",
+    agents: ["both"],
+    clientAction: "new",
+  },
+  {
+    name: "compact",
+    description: "Compact conversation context to save tokens",
+    agents: ["both"],
+    rawCommand: (agent) =>
+      agent === "openclaw" ? `openclaw compact\n` : `claude --compact\n`,
+  },
+  {
+    name: "status",
+    description: "Show agent status (uptime, tasks, last error)",
+    agents: ["openclaw"],
+    rawCommand: () => `openclaw status --json\n`,
+  },
+  {
+    name: "restart",
+    description: "Gracefully restart the OpenClaw agent process",
+    agents: ["openclaw"],
+    rawCommand: () => `openclaw restart\n`,
+  },
+  {
+    name: "resume",
+    description: "Resume the last Claude Code session",
+    agents: ["claude"],
+    rawCommand: () => `claude -c -p "continue"\n`,
+  },
+  {
+    name: "help",
+    description: "Show available slash commands",
+    agents: ["both"],
+    clientAction: "help",
+  },
+];
+
 // ── Composer component ──────────────────────────────────────────────────────
 interface ComposerBoxProps {
   textareaRef: React.RefObject<HTMLTextAreaElement>;
@@ -49,12 +106,43 @@ interface ComposerBoxProps {
   attachedFiles: AttachedFile[];
   onRemoveFile: (idx: number) => void;
   onFileSelect: (files: FileList) => void;
+  agent: "openclaw" | "claude";
+  onSlashCommand: (cmd: SlashCommand) => void;
 }
 
-function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, onSend, disabled, sendDisabled, placeholder, attachedFiles, onRemoveFile, onFileSelect }: ComposerBoxProps) {
+function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, onSend, disabled, sendDisabled, placeholder, attachedFiles, onRemoveFile, onFileSelect, agent, onSlashCommand }: ComposerBoxProps) {
   const [focused, setFocused] = useState(false);
+  const [slashIdx, setSlashIdx] = useState(0);
 
-  // Auto-resize: recalculate height whenever input changes
+  // Slash menu: show when input starts with "/"
+  const slashQuery = input.startsWith("/") ? input.slice(1).toLowerCase() : null;
+  const filteredCmds = slashQuery !== null
+    ? SLASH_COMMANDS.filter((c) => {
+        const forAgent = c.agents.includes("both") || c.agents.includes(agent);
+        return forAgent && c.name.startsWith(slashQuery);
+      })
+    : [];
+  const showSlash = filteredCmds.length > 0;
+
+  // Reset selection when query changes
+  useEffect(() => { setSlashIdx(0); }, [slashQuery]);
+
+  const handleSlashKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (showSlash) {
+      if (e.key === "ArrowDown") { e.preventDefault(); setSlashIdx((i) => (i + 1) % filteredCmds.length); return; }
+      if (e.key === "ArrowUp") { e.preventDefault(); setSlashIdx((i) => (i - 1 + filteredCmds.length) % filteredCmds.length); return; }
+      if (e.key === "Tab" || (e.key === "Enter" && !e.shiftKey)) {
+        e.preventDefault();
+        const cmd = filteredCmds[slashIdx];
+        if (cmd) { setInput(""); onSlashCommand(cmd); }
+        return;
+      }
+      if (e.key === "Escape") { setInput(""); return; }
+    }
+    onKeyDown(e);
+  };
+
+  // Auto-resize
   useEffect(() => {
     const el = textareaRef.current;
     if (!el) return;
@@ -65,6 +153,51 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
   const isImage = (type: string) => type.startsWith("image/");
 
   return (
+    <div className="relative">
+      {/* Slash command palette */}
+      {showSlash && (
+        <div
+          className="absolute bottom-full mb-2 left-0 right-0 rounded-xl overflow-hidden z-30"
+          style={{
+            background: "rgba(18,18,24,0.92)",
+            backdropFilter: "blur(20px)",
+            border: "1px solid rgba(255,255,255,0.12)",
+            boxShadow: "0 -4px 32px rgba(0,0,0,0.4)",
+          }}
+        >
+          <div className="px-3 pt-2.5 pb-1 flex items-center gap-1.5 border-b border-white/[0.06]">
+            <span className="text-[10px] font-semibold text-primary/80 uppercase tracking-wider">Commands</span>
+            <span className="text-[10px] text-muted-foreground/40">· Tab or Enter to select · Esc to dismiss</span>
+          </div>
+          {filteredCmds.map((cmd, i) => (
+            <button
+              key={cmd.name}
+              type="button"
+              onMouseDown={(e) => { e.preventDefault(); setInput(""); onSlashCommand(cmd); }}
+              onMouseEnter={() => setSlashIdx(i)}
+              className="w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors"
+              style={{
+                background: i === slashIdx ? "rgba(255,255,255,0.07)" : "transparent",
+              }}
+            >
+              <span
+                className="shrink-0 w-6 h-6 rounded-md flex items-center justify-center text-xs font-bold font-mono"
+                style={{ background: "hsl(var(--primary) / 0.15)", color: "hsl(var(--primary))" }}
+              >
+                /
+              </span>
+              <div className="min-w-0 flex-1">
+                <span className="text-sm font-medium text-foreground">{cmd.name}</span>
+                <span className="text-xs text-muted-foreground ml-2">{cmd.description}</span>
+              </div>
+              {i === slashIdx && (
+                <kbd className="shrink-0 text-[10px] text-muted-foreground/50 border border-white/10 rounded px-1.5 py-0.5">↵</kbd>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+
     <div
       className="flex flex-col rounded-2xl p-1.5 transition-all duration-300"
       style={{
@@ -137,7 +270,7 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
           ref={textareaRef}
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          onKeyDown={onKeyDown}
+          onKeyDown={handleSlashKeyDown}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
           placeholder={placeholder}
@@ -161,9 +294,9 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
         </button>
       </div>
     </div>
+    </div>
   );
 }
-
 export default function Chat() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -655,6 +788,53 @@ export default function Chat() {
     setAttachedFiles((prev) => [...prev, ...processed]);
   }, []);
 
+  // ── Slash command handler ─────────────────────────────────────────────
+  const handleSlashCommand = useCallback(async (cmd: SlashCommand) => {
+    setInput("");
+    if (cmd.clientAction === "clear") {
+      setMessages([]);
+      setActiveConvId(null);
+      toast({ title: "Conversation cleared" });
+      return;
+    }
+    if (cmd.clientAction === "new") {
+      handleNew();
+      return;
+    }
+    if (cmd.clientAction === "help") {
+      const available = SLASH_COMMANDS.filter(
+        (c) => c.agents.includes("both") || c.agents.includes(agent)
+      );
+      const helpText = `**Available slash commands**\n\n${available
+        .map((c) => `\`/${c.name}\` — ${c.description}`)
+        .join("\n")}`;
+      setMessages((prev) => [...prev, { role: "assistant", content: helpText }]);
+      return;
+    }
+    // rawCommand: send via relay
+    if (cmd.rawCommand) {
+      if (!selectedDeviceId) {
+        toast({ title: "Select a device first", variant: "destructive" });
+        return;
+      }
+      const userMsg: Message = { role: "user", content: `/${cmd.name}` };
+      setMessages((prev) => [...prev, userMsg]);
+      setThinking(true);
+      try {
+        const rawCmd = cmd.rawCommand(agent);
+        const stdout = await sendViaRelay(rawCmd, agent === "openclaw");
+        const stripped = stdout.replace(/\x1b\[[\d;]*[a-zA-Z]/g, "").trim() || "(done)";
+        setMessages((prev) => [...prev, { role: "assistant", content: `\`\`\`\n${stripped}\n\`\`\`` }]);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Unknown error";
+        setMessages((prev) => [...prev, { role: "assistant", content: `⚠️ ${msg}` }]);
+      } finally {
+        setThinking(false);
+        setRelayStatus("idle");
+      }
+    }
+  }, [agent, selectedDeviceId, sendViaRelay, handleNew, toast]);
+
   // ── Key handler ───────────────────────────────────────────────────────
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -916,13 +1096,15 @@ export default function Chat() {
                 onSend={handleSend}
                 disabled={thinking || !selectedDeviceId}
                 sendDisabled={thinking || (!input.trim() && attachedFiles.length === 0)}
-                placeholder={selectedDeviceId ? `Message ${agent === "openclaw" ? "OpenClaw" : "Claude Code"}...` : "Select a device first…"}
+                placeholder={selectedDeviceId ? `Message ${agent === "openclaw" ? "OpenClaw" : "Claude Code"}... (type / for commands)` : "Select a device first…"}
                 attachedFiles={attachedFiles}
                 onRemoveFile={(i) => setAttachedFiles((prev) => prev.filter((_, idx) => idx !== i))}
                 onFileSelect={processFiles}
+                agent={agent}
+                onSlashCommand={handleSlashCommand}
               />
               <p className="text-center text-[10px] text-muted-foreground/30 mt-2">
-                Enter to send · Shift+Enter for newline · Commands run on your device
+                Enter to send · Shift+Enter for newline · Type <kbd className="font-mono">/</kbd> for commands
               </p>
             </div>
           </div>
