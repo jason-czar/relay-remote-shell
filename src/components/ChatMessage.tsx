@@ -1,10 +1,12 @@
 import { cn } from "@/lib/utils";
-import { Bot, Copy, Check, Terminal, ChevronDown, ChevronRight } from "lucide-react";
+import { Copy, Check, Terminal, ChevronDown, ChevronRight } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useState } from "react";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
+import openclawImg from "@/assets/openclaw.png";
+import claudecodeImg from "@/assets/claudecode.png";
 
 // Patch oneDark to use pure black background
 const codeTheme = {
@@ -27,6 +29,7 @@ interface ChatMessageProps {
   streaming?: boolean;
   rawStdout?: string;
   createdAt?: string;
+  agent?: "openclaw" | "claude";
 }
 
 function CodeBlock({ language, value }: { language: string; value: string }) {
@@ -88,8 +91,9 @@ function CodeBlock({ language, value }: { language: string; value: string }) {
   );
 }
 
-export function ChatMessage({ role, content, thinking, streaming, rawStdout, createdAt }: ChatMessageProps) {
+export function ChatMessage({ role, content, thinking, streaming, rawStdout, createdAt, agent }: ChatMessageProps) {
   const isUser = role === "user";
+  const agentImg = agent === "claude" ? claudecodeImg : openclawImg;
   const [hovered, setHovered] = useState(false);
   const [copied, setCopied] = useState(false);
   const [debugOpen, setDebugOpen] = useState(false);
@@ -115,8 +119,8 @@ export function ChatMessage({ role, content, thinking, streaming, rawStdout, cre
   if (thinking) {
     return (
       <div className="flex items-start gap-3 mb-4 px-1">
-        <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center mt-0.5">
-          <Bot className="h-3.5 w-3.5 text-primary" />
+        <div className="flex-shrink-0 w-6 h-6 rounded-full overflow-hidden mt-0.5">
+          <img src={agentImg} alt="agent" className="w-full h-full object-cover" />
         </div>
         <span className="flex gap-1 items-center h-5 mt-1">
           {[0, 1, 2].map((i) => (
@@ -165,8 +169,8 @@ export function ChatMessage({ role, content, thinking, streaming, rawStdout, cre
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center mt-0.5">
-        <Bot className="h-3.5 w-3.5 text-primary" />
+      <div className="flex-shrink-0 w-6 h-6 rounded-full overflow-hidden mt-0.5">
+        <img src={agentImg} alt="agent" className="w-full h-full object-cover" />
       </div>
       <div className="flex-1 min-w-0">
         <div className="text-sm leading-relaxed text-foreground break-words pt-0.5">

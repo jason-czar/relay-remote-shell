@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import openclawImg from "@/assets/openclaw.png";
+import claudecodeImg from "@/assets/claudecode.png";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useScribe } from "@elevenlabs/react";
 import { cn } from "@/lib/utils";
@@ -1136,17 +1138,19 @@ export default function Chat() {
             <SidebarTrigger />
             {/* Center — agent tabs */}
             <div className="absolute left-1/2 -translate-x-1/2 flex items-center">
-              {(["openclaw", "claude"] as const).map((a) => {
+            {(["openclaw", "claude"] as const).map((a) => {
                 const active = agent === a;
                 const label = a === "openclaw" ? "OpenClaw" : "Claude Code";
+                const img = a === "openclaw" ? openclawImg : claudecodeImg;
                 return (
                   <button
                     key={a}
                     onClick={() => handleAgentChange(a)}
-                    className={`relative px-4 py-2 text-xs font-medium transition-all duration-200 select-none ${
+                    className={`relative flex items-center gap-1.5 px-4 py-2 text-xs font-medium transition-all duration-200 select-none ${
                       active ? "text-foreground" : "text-muted-foreground/50 hover:text-muted-foreground"
                     }`}
                   >
+                    <img src={img} alt={label} className="w-4 h-4 rounded-sm object-cover" />
                     {label}
                     {active && <span className="absolute bottom-0 left-3 right-3 h-px bg-foreground/70 rounded-full" />}
                   </button>
@@ -1367,12 +1371,13 @@ export default function Chat() {
                       rawStdout={msg.role === "assistant" ? rawStdoutMapRef.current.get(i) : undefined}
                       streaming={i === streamingMsgIndex}
                       createdAt={msg.created_at}
+                      agent={agent}
                     />
                   </div>
                 ))}
                 {thinking && (
                   <div className="animate-fade-in">
-                    <ChatMessage role="assistant" content="" thinking />
+                    <ChatMessage role="assistant" content="" thinking agent={agent} />
                   </div>
                 )}
                 {/* Regenerate button — shown after last assistant message when idle */}
