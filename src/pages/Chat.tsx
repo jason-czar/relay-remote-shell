@@ -827,15 +827,28 @@ export default function Chat() {
 
         await saveMessage(jobConvId, "assistant", responseText);
 
-        // Update title after first exchange
+        // Update title after first exchange using AI
         if (jobIsNew) {
-          const smartTitle = jobText.length > 60
-            ? jobText.slice(0, 57).trimEnd() + "…"
-            : jobText;
-          await supabase.from("chat_conversations").update({ title: smartTitle }).eq("id", jobConvId);
-          setConversations((prev) =>
-            prev.map((c) => c.id === jobConvId ? { ...c, title: smartTitle } : c)
-          );
+          // Optimistic fallback title immediately
+          const fallbackTitle = jobText.length > 60 ? jobText.slice(0, 57).trimEnd() + "…" : jobText;
+          await supabase.from("chat_conversations").update({ title: fallbackTitle }).eq("id", jobConvId);
+          setConversations((prev) => prev.map((c) => c.id === jobConvId ? { ...c, title: fallbackTitle } : c));
+
+          // Fire AI title generation in the background (non-blocking)
+          (async () => {
+            try {
+              const { data: titleData } = await supabase.functions.invoke("generate-title", {
+                body: { userMessage: jobText, assistantMessage: responseText },
+              });
+              if (titleData?.title) {
+                const aiTitle = titleData.title.replace(/^["']|["']$/g, "").trim();
+                await supabase.from("chat_conversations").update({ title: aiTitle }).eq("id", jobConvId);
+                setConversations((prev) => prev.map((c) => c.id === jobConvId ? { ...c, title: aiTitle } : c));
+              }
+            } catch {
+              // silently keep the fallback title
+            }
+          })();
         }
 
         setConversations((prev) => {
