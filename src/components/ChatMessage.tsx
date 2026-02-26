@@ -31,6 +31,7 @@ interface ChatMessageProps {
 
 function CodeBlock({ language, value }: { language: string; value: string }) {
   const [copied, setCopied] = useState(false);
+  const [blockHovered, setBlockHovered] = useState(false);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(value);
@@ -39,23 +40,34 @@ function CodeBlock({ language, value }: { language: string; value: string }) {
   };
 
   return (
-    <div className="my-3 rounded-xl overflow-hidden border border-border/40">
+    <div
+      className="relative my-3 rounded-xl overflow-hidden border border-border/40"
+      onMouseEnter={() => setBlockHovered(true)}
+      onMouseLeave={() => setBlockHovered(false)}
+    >
       {/* Header bar */}
       <div className="flex items-center justify-between px-3 py-1.5 bg-[hsl(0_0%_8%)] border-b border-border/40">
         <span className="text-[10px] font-mono text-muted-foreground/60 uppercase tracking-widest">
           {language || "code"}
         </span>
-        <button
-          onClick={handleCopy}
-          className="flex items-center gap-1 text-[10px] text-muted-foreground/60 hover:text-foreground transition-colors"
-        >
-          {copied ? (
-            <><Check className="h-3 w-3 text-primary" /><span>Copied</span></>
-          ) : (
-            <><Copy className="h-3 w-3" /><span>Copy</span></>
-          )}
-        </button>
       </div>
+      {/* Floating copy button */}
+      <button
+        onClick={handleCopy}
+        className={cn(
+          "absolute top-1.5 right-2 z-10 flex items-center gap-1 px-2 py-1 rounded-md",
+          "text-[10px] transition-all duration-150",
+          "bg-[hsl(0_0%_14%)] border border-border/40",
+          copied ? "text-primary opacity-100" : "text-muted-foreground/70 hover:text-foreground",
+          blockHovered ? "opacity-100" : "opacity-0 pointer-events-none"
+        )}
+      >
+        {copied ? (
+          <><Check className="h-3 w-3" /><span>Copied</span></>
+        ) : (
+          <><Copy className="h-3 w-3" /><span>Copy</span></>
+        )}
+      </button>
       <SyntaxHighlighter
         style={codeTheme}
         language={language || "text"}
