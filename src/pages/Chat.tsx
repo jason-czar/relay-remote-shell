@@ -893,6 +893,11 @@ export default function Chat() {
       setAgentSwitchPending(newAgent);
     } else {
       setAgent(newAgent);
+      // Persist agent to existing conversation if one is active (no messages yet)
+      if (activeConvId) {
+        supabase.from("chat_conversations").update({ agent: newAgent }).eq("id", activeConvId);
+        setConversations((prev) => prev.map((c) => c.id === activeConvId ? { ...c, agent: newAgent } : c));
+      }
     }
   };
 
@@ -1239,7 +1244,7 @@ export default function Chat() {
                 onFileSelect={processFiles}
                 agent={agent}
                 onSlashCommand={handleSlashCommand}
-                onAgentChange={setAgent}
+                onAgentChange={handleAgentChange}
               />
               <p className="text-center text-[10px] text-muted-foreground/40 mt-2 select-none">
                 Enter to send · Shift+Enter for newline · <span className="font-mono">/</span> for commands
