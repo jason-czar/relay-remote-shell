@@ -1,13 +1,14 @@
 import {
   LayoutDashboard, FolderOpen, Settings, LogOut, Sun, Moon, Plug, BookOpen,
-  Columns2, MessageSquare, ChevronDown, ChevronUp, Plus, Search, Trash2
+  Columns2, MessageSquare, ChevronDown, ChevronUp, Plus, Search, Trash2, User
 } from "lucide-react";
 import logo from "@/assets/logo.png";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import { useTheme } from "next-themes";
 import { useNavigate, useLocation } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { useChatContext } from "@/contexts/ChatContext";
 import {
@@ -36,7 +37,7 @@ const setupItems = [
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
-  const { signOut } = useAuth();
+  const { signOut, user } = useAuth();
   const { theme, setTheme } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
@@ -46,6 +47,17 @@ export function AppSidebar() {
   const [convOpen, setConvOpen] = useState(true);
   const [search, setSearch] = useState("");
   const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [displayName, setDisplayName] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from("profiles")
+      .select("display_name")
+      .eq("user_id", user.id)
+      .maybeSingle()
+      .then(({ data }) => { if (data?.display_name) setDisplayName(data.display_name); });
+  }, [user]);
 
   const { conversations, activeConvId, setActiveConvId, handleDelete, handleNew } = useChatContext();
 
@@ -171,7 +183,7 @@ export function AppSidebar() {
         )}
       </SidebarContent>
 
-      {/* Footer with Setup + theme + signout */}
+      {/* Footer with Setup + user profile */}
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
@@ -203,20 +215,45 @@ export function AppSidebar() {
               </SidebarMenuButton>
             </SidebarMenuItem>
           ))}
-
-          <SidebarMenuItem>
-            <SidebarMenuButton onClick={toggleTheme} tooltip={theme === "dark" ? "Light Mode" : "Dark Mode"}>
-              {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-              <span>{theme === "dark" ? "Light Mode" : "Dark Mode"}</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton onClick={handleSignOut} tooltip="Sign Out">
-              <LogOut className="h-4 w-4" />
-              <span>Sign Out</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
         </SidebarMenu>
+
+        {/* User profile row */}
+        <div className={cn(
+          "mt-1 border-t border-border/50 pt-2 flex items-center gap-2.5 px-2 py-2 rounded-lg hover:bg-accent/40 transition-colors cursor-default",
+          collapsed && "justify-center px-0"
+        )}>
+          <div className="h-7 w-7 rounded-full bg-primary/20 ring-1 ring-primary/30 flex items-center justify-center shrink-0">
+            <User className="h-3.5 w-3.5 text-primary" />
+          </div>
+          {!collapsed && (
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-medium text-foreground truncate leading-tight">
+                {displayName ?? user?.email?.split("@")[0] ?? "User"}
+              </p>
+              <p className="text-[10px] text-muted-foreground/60 truncate leading-tight">
+                {user?.email ?? ""}
+              </p>
+            </div>
+          )}
+          {!collapsed && (
+            <div className="flex items-center gap-0.5 shrink-0">
+              <button
+                onClick={toggleTheme}
+                className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                title={theme === "dark" ? "Light Mode" : "Dark Mode"}
+              >
+                {theme === "dark" ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
+              </button>
+              <button
+                onClick={handleSignOut}
+                className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                title="Sign Out"
+              >
+                <LogOut className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
+        </div>
       </SidebarFooter>
     </Sidebar>
   );
