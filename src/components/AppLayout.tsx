@@ -21,7 +21,7 @@ function getInitialWidth() {
 
 export function AppLayout({ children }: { children: ReactNode }) {
   const location = useLocation();
-  const isChat = location.pathname === "/chat";
+  const isChat = location.pathname === "/chat" || location.pathname === "/";
   const [sidebarWidth, setSidebarWidth] = useState(getInitialWidth);
   const dragging = useRef(false);
 
