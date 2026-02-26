@@ -12,6 +12,7 @@ import { Send, ChevronDown, Paperclip, X, FileText, Image, Plus, Monitor, Termin
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import type { Tables } from "@/integrations/supabase/types";
 import { useChatContext } from "@/contexts/ChatContext";
 import { SetupWizard } from "@/components/SetupWizard";
@@ -1248,27 +1249,29 @@ export default function Chat() {
         </div>
 
         {/* Agent switch confirmation */}
-        {agentSwitchPending && (
-          <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
-            <div className="bg-card border border-border rounded-xl p-6 shadow-xl max-w-sm w-full mx-4">
-              <h3 className="font-semibold text-foreground mb-2">Switch to {agentSwitchPending === "openclaw" ? "OpenClaw" : "Claude Code"}?</h3>
-              <p className="text-sm text-muted-foreground mb-4">
-                Switching agents will start a new conversation. The current conversation will be preserved.
-              </p>
-              <div className="flex gap-2 justify-end">
-                <Button variant="ghost" size="sm" onClick={() => setAgentSwitchPending(null)}>Cancel</Button>
-                <Button size="sm" onClick={() => {
-                  setAgent(agentSwitchPending!);
-                  setAgentSwitchPending(null);
-                  setActiveConvId(null);
-                  handleNew();
-                }}>
-                  Start New Chat
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
+        <AlertDialog open={!!agentSwitchPending} onOpenChange={(open) => { if (!open) setAgentSwitchPending(null); }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                Start a new conversation with {agentSwitchPending === "openclaw" ? "OpenClaw" : "Claude Code"}?
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                Switching agents will start a fresh conversation. Your current conversation will be preserved and accessible from the sidebar.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={() => {
+                setAgent(agentSwitchPending!);
+                setAgentSwitchPending(null);
+                setActiveConvId(null);
+                handleNew();
+              }}>
+                Start New Chat
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
 
       {/* Device pairing wizard dialog */}
