@@ -1,157 +1,123 @@
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Terminal, Shield, Wifi, Users, Zap, ArrowRight, Monitor } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import logo from "@/assets/logo.png";
+
+const AGENT_TABS = ["OpenClaw", "Claude Code"] as const;
+
+const PROMPTS = {
+  OpenClaw: [
+    { title: "List files", desc: "List all files in the current directory" },
+    { title: "Search code", desc: "Search for TODO comments in the codebase" },
+    { title: "System info", desc: "Show system info: OS, CPU, memory usage" },
+    { title: "Git status", desc: "Show the current git status and recent commits" },
+  ],
+  "Claude Code": [
+    { title: "Debug code", desc: "Help me debug an issue in my code" },
+    { title: "Write tests", desc: "Write unit tests for the current file" },
+    { title: "Refactor", desc: "Refactor this code to be cleaner and more readable" },
+    { title: "Explain code", desc: "Explain what this code does" },
+  ],
+};
 
 export default function Landing() {
   const navigate = useNavigate();
+  const activeAgent: keyof typeof PROMPTS = "OpenClaw";
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       {/* Nav */}
-      <nav className="border-b border-border">
-        <div className="max-w-6xl mx-auto flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4">
+      <nav className="border-b border-border/40">
+        <div className="max-w-2xl mx-auto flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-2">
-            <img src={logo} alt="PrivaClaw" className="h-7 w-7 rounded" />
-            <span className="text-lg font-bold tracking-tight">PrivaClaw</span>
+            <img src={logo} alt="PrivaClaw" className="h-6 w-6 rounded" />
+            <span className="text-sm font-bold tracking-tight">PrivaClaw</span>
           </div>
-          <div className="flex items-center gap-1 sm:gap-3">
-            <Button variant="ghost" size="sm" className="hidden sm:inline-flex" onClick={() => navigate("/docs")}>
-              Docs
-            </Button>
+          <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" onClick={() => navigate("/auth")}>
-              Sign In
+              Sign in
             </Button>
-            <Button size="sm" onClick={() => navigate("/auth")} className="hidden sm:inline-flex">
-              Get Started <ArrowRight className="h-4 w-4 ml-1" />
+            <Button size="sm" onClick={() => navigate("/auth")} className="gap-1.5">
+              Get Started <ArrowRight className="h-3.5 w-3.5" />
             </Button>
           </div>
         </div>
       </nav>
 
-      {/* Hero */}
-      <section className="max-w-6xl mx-auto px-4 sm:px-6 pt-16 sm:pt-24 pb-16 sm:pb-20 text-center">
-        <div className="inline-flex items-center gap-2 rounded-full border border-border bg-muted px-4 py-1.5 text-sm text-muted-foreground mb-8">
-          <Zap className="h-3.5 w-3.5 text-primary" />
-          Secure remote terminal access
+      {/* Agent tabs — visual only */}
+      <div className="border-b border-border/40">
+        <div className="max-w-2xl mx-auto flex items-center px-4">
+          {AGENT_TABS.map((tab) => (
+            <button
+              key={tab}
+              onClick={() => navigate("/auth")}
+              className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+                tab === activeAgent
+                  ? "border-foreground text-foreground"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {tab}
+            </button>
+          ))}
         </div>
-        <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight leading-tight max-w-3xl mx-auto">
-          Access any machine,
-          <br />
-          <span className="text-primary">from anywhere.</span>
-        </h1>
-        <p className="text-lg text-muted-foreground max-w-xl mx-auto mt-6 leading-relaxed">
-          PrivaClaw gives your team instant, browser-based terminal sessions
-          to remote servers, workstations, and IoT devices — no VPN or SSH config needed.
+      </div>
+
+      {/* Main empty-state preview */}
+      <div className="flex-1 flex flex-col items-center justify-center px-4 py-12">
+        {/* Icon */}
+        <div className="relative mb-6">
+          <div className="absolute inset-0 rounded-3xl bg-primary/20 blur-xl scale-110" />
+          <div
+            className="relative w-24 h-24 rounded-3xl flex items-center justify-center ring-1 ring-primary/30"
+            style={{
+              background: "linear-gradient(135deg, hsl(var(--primary) / 0.18) 0%, hsl(var(--primary) / 0.08) 100%)",
+              boxShadow: "0 8px 32px hsl(var(--primary) / 0.25), inset 0 1px 0 rgba(255,255,255,0.12)",
+            }}
+          >
+            <span className="text-5xl">🐾</span>
+          </div>
+        </div>
+
+        <h2 className="text-xl font-semibold text-foreground mb-2">OpenClaw Agent</h2>
+        <p className="text-sm text-muted-foreground text-center max-w-sm leading-relaxed mb-8">
+          Ask your local OpenClaw agent anything. Commands run on your selected device.
         </p>
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-10">
-          <Button size="lg" onClick={() => navigate("/auth")} className="gap-2 text-base px-8">
-            Start for Free <ArrowRight className="h-4 w-4" />
-          </Button>
-          <Button size="lg" variant="outline" onClick={() => document.getElementById("features")?.scrollIntoView({ behavior: "smooth" })} className="text-base px-8">
-            See Features
-          </Button>
+
+        {/* Prompt suggestion cards */}
+        <div className="grid grid-cols-2 gap-2.5 w-full max-w-lg mx-auto mb-8">
+          {PROMPTS[activeAgent].map(({ title, desc }) => (
+            <button
+              key={title}
+              onClick={() => navigate("/auth")}
+              className="group flex flex-col gap-2 px-5 py-4 rounded-xl border border-border/40 bg-card/40 hover:bg-card/80 hover:border-border/80 transition-all duration-200 text-left"
+              onMouseEnter={e =>
+                (e.currentTarget.style.boxShadow = "0 0 18px 2px hsl(var(--primary) / 0.08), 0 2px 12px rgba(0,0,0,0.15)")
+              }
+              onMouseLeave={e => (e.currentTarget.style.boxShadow = "")}
+            >
+              <span className="text-xs font-semibold text-foreground">{title}</span>
+              <span className="text-xs text-muted-foreground/80 leading-snug">{desc}</span>
+            </button>
+          ))}
         </div>
 
-        {/* Terminal mock */}
-        <div className="hidden sm:block mt-16 max-w-2xl mx-auto rounded-xl border border-border bg-card overflow-hidden shadow-2xl shadow-primary/5">
-          <div className="flex items-center gap-2 px-4 py-3 border-b border-border bg-muted/50">
-            <div className="h-3 w-3 rounded-full bg-destructive/60" />
-            <div className="h-3 w-3 rounded-full" style={{ backgroundColor: "hsl(var(--status-connecting) / 0.6)" }} />
-            <div className="h-3 w-3 rounded-full bg-primary/60" />
-            <span className="ml-2 text-xs text-muted-foreground font-mono">production-server — relay session</span>
-          </div>
-          <div className="p-6 text-left font-mono text-sm leading-relaxed bg-card text-primary" style={{ background: "hsl(220 30% 6%)" }}>
-            <p><span className="text-primary">$</span> relay connect production-server</p>
-            <p className="text-muted-foreground">⟳ Authenticating via PrivaClaw...</p>
-            <p className="text-primary">✓ Connected to production-server (session a3f8c2d1)</p>
-            <p className="mt-2"><span className="text-primary">root@prod</span>:<span className="text-accent-foreground">~</span># systemctl status nginx</p>
-            <p className="text-muted-foreground">● nginx.service - A high performance web server</p>
-            <p className="text-muted-foreground">&nbsp;&nbsp;Active: <span className="text-primary">active (running)</span> since Mon 2026-02-22 08:15:32 UTC</p>
-            <p className="mt-2"><span className="text-primary">root@prod</span>:<span className="text-accent-foreground">~</span># <span className="animate-pulse">▋</span></p>
+        {/* Input bar (locked) */}
+        <div className="w-full max-w-lg relative" onClick={() => navigate("/auth")}>
+          <div className="flex items-center gap-2 rounded-xl border border-border/40 bg-card/40 px-4 py-3 cursor-pointer hover:border-border/80 hover:bg-card/60 transition-all duration-200 group">
+            <span className="flex-1 text-sm text-muted-foreground/50 select-none">
+              Sign in to start chatting…
+            </span>
+            <div className="shrink-0 w-7 h-7 rounded-lg bg-primary/20 flex items-center justify-center group-hover:bg-primary/30 transition-colors">
+              <ArrowRight className="h-3.5 w-3.5 text-primary/70" />
+            </div>
           </div>
         </div>
-      </section>
 
-      {/* Features */}
-      <section id="features" className="border-t border-border bg-muted/30">
-        <div className="max-w-6xl mx-auto px-6 py-24">
-          <h2 className="text-3xl font-bold tracking-tight text-center mb-4">
-            Everything you need for remote access
-          </h2>
-          <p className="text-muted-foreground text-center max-w-lg mx-auto mb-16">
-            A complete platform for managing and connecting to your infrastructure from the browser.
-          </p>
-          <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
-            {[
-              {
-                icon: Terminal,
-                title: "Browser Terminal",
-                desc: "Full xterm.js terminal in your browser with copy/paste, scrollback, and resizable panels.",
-              },
-              {
-                icon: Shield,
-                title: "Secure by Default",
-                desc: "End-to-end encrypted sessions with JWT authentication. No ports to open, no SSH keys to manage.",
-              },
-              {
-                icon: Monitor,
-                title: "Device Management",
-                desc: "Add devices with one-time pairing codes. Monitor online status in real-time across all your machines.",
-              },
-              {
-                icon: Users,
-                title: "Team Collaboration",
-                desc: "Invite team members with role-based access. Owners manage devices, members connect securely.",
-              },
-              {
-                icon: Wifi,
-                title: "Real-time Status",
-                desc: "Live device connectivity indicators. Know instantly which machines are online and ready.",
-              },
-              {
-                icon: Zap,
-                title: "Instant Sessions",
-                desc: "One-click connect to any online device. Resume active sessions automatically on reconnect.",
-              },
-            ].map(({ icon: Icon, title, desc }) => (
-              <div key={title} className="rounded-xl border border-border bg-card p-6">
-                <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
-                  <Icon className="h-5 w-5 text-primary" />
-                </div>
-                <h3 className="font-semibold mb-2">{title}</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">{desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* CTA */}
-      <section className="border-t border-border">
-        <div className="max-w-6xl mx-auto px-6 py-24 text-center">
-          <h2 className="text-3xl font-bold tracking-tight mb-4">
-            Ready to connect?
-          </h2>
-          <p className="text-muted-foreground max-w-md mx-auto mb-8">
-            Set up your first project in under a minute. No credit card required.
-          </p>
-          <Button size="lg" onClick={() => navigate("/auth")} className="gap-2 text-base px-8">
-            Get Started Free <ArrowRight className="h-4 w-4" />
-          </Button>
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer className="border-t border-border">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <img src={logo} alt="PrivaClaw" className="h-4 w-4 rounded" />
-            PrivaClaw
-          </div>
-          <p className="text-xs text-muted-foreground">© {new Date().getFullYear()} All rights reserved.</p>
-        </div>
-      </footer>
+        <p className="mt-4 text-xs text-muted-foreground/50">
+          Free to get started · No credit card required
+        </p>
+      </div>
     </div>
   );
 }
