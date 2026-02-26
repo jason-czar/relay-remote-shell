@@ -1319,7 +1319,7 @@ export default function Chat() {
                             boxShadow: "0 8px 32px hsl(var(--primary) / 0.25), inset 0 1px 0 rgba(255,255,255,0.12)",
                           }}
                         >
-                          <img src={agent === "openclaw" ? openclawImg : claudecodeImg} alt={agent} className="w-16 h-16 object-contain rounded-2xl" />
+                          <img src={agent === "openclaw" ? openclawImg : claudecodeImg} alt={agent} className="w-full h-full object-cover rounded-3xl" />
                         </div>
                       </div>
                       <h3 className="font-semibold text-foreground mb-2 text-lg animate-fade-in" style={{ animationDelay: "120ms", animationFillMode: "both" }}>
