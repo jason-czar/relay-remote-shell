@@ -254,14 +254,6 @@ export function ChatSidebar({ conversations, activeId, onSelect, onNew, onDelete
                 /* ── Normal row ── */
                 <>
                   <span className="flex-1 truncate text-xs">{conv.title}</span>
-                  <span className={cn(
-                    "text-[9px] px-1.5 py-0.5 rounded font-mono shrink-0 whitespace-nowrap",
-                    conv.agent === "openclaw"
-                      ? "bg-primary/10 text-primary"
-                      : "bg-warning/10 text-warning"
-                  )}>
-                    {conv.agent === "openclaw" ? "OC" : "CC"}
-                  </span>
                   <div className="shrink-0 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
                     <button
                       className="p-0.5 rounded hover:text-foreground hover:bg-accent/60 transition-colors"
@@ -279,7 +271,23 @@ export function ChatSidebar({ conversations, activeId, onSelect, onNew, onDelete
                     >
                       <Trash2 className="h-3 w-3" />
                     </button>
+                    <span className={cn(
+                      "text-[9px] px-1.5 py-0.5 rounded font-mono shrink-0 whitespace-nowrap",
+                      conv.agent === "openclaw"
+                        ? "bg-primary/10 text-primary"
+                        : "bg-warning/10 text-warning"
+                    )}>
+                      {conv.agent === "openclaw" ? "OC" : "CC"}
+                    </span>
                   </div>
+                  <span className={cn(
+                    "text-[9px] px-1.5 py-0.5 rounded font-mono shrink-0 whitespace-nowrap group-hover:hidden",
+                    conv.agent === "openclaw"
+                      ? "bg-primary/10 text-primary"
+                      : "bg-warning/10 text-warning"
+                  )}>
+                    {conv.agent === "openclaw" ? "OC" : "CC"}
+                  </span>
                 </>
               )}
             </div>
