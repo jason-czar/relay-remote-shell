@@ -467,29 +467,21 @@ export default function Chat() {
         else resolve(result);
       };
 
-      const resetSilence = (force = false) => {
+      const resetSilence = () => {
         if (silenceTimer) clearTimeout(silenceTimer);
-        // If the output already contains an error line, finish immediately
+        // If the output already contains a CLI error line, finish immediately
         const hasError = /^Error:/m.test(outputBuffer) || /^error:/im.test(outputBuffer);
         if (hasError) { finish(outputBuffer); return; }
         silenceTimer = setTimeout(() => {
-          if (!force) {
-            if (isOpenClaw && !outputBuffer.includes("{")) {
-              // No JSON yet — wait a bit longer before giving up
-              resetSilence(true);
-              return;
-            }
-            if (!isOpenClaw) {
-              const stripped = outputBuffer.replace(/\x1b[\s\S]{1,10}/g, "").replace(/[%$#>\[\]?;=\r\n\s]/g, "");
-              if (stripped.length < 5) {
-                // Not enough content yet — wait longer
-                resetSilence(true);
-                return;
-              }
-            }
+          // For OpenClaw: keep waiting until we see a JSON brace — never give up early
+          if (isOpenClaw && !outputBuffer.includes("{")) return;
+          // For Claude Code: keep waiting until we have at least 10 non-noise characters
+          if (!isOpenClaw) {
+            const stripped = outputBuffer.replace(/\x1b[\s\S]{1,10}/g, "").replace(/[%$#>\[\]?;=\r\n\s]/g, "");
+            if (stripped.length < 10) return;
           }
           finish(outputBuffer);
-        }, force ? SILENCE_MS * 2 : SILENCE_MS);
+        }, SILENCE_MS);
       };
 
       hardTimeout = setTimeout(() => finish(new Error("Response timed out after 30s")), RELAY_TIMEOUT_MS);
