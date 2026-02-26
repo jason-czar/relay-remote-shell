@@ -287,38 +287,22 @@ export default function Chat() {
       let responseText = "";
 
       if (convData?.agent === "openclaw") {
-        // Try to find and parse the last JSON object in stdout (--json output)
+        // Extract the first complete JSON object from stdout, then read payloads[0].text
         try {
-          const jsonMatch = cleaned.match(/\{[\s\S]*?\}/g);
+          const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
           if (jsonMatch) {
-            for (let i = jsonMatch.length - 1; i >= 0; i--) {
-              try {
-                const parsed = JSON.parse(jsonMatch[i]);
-                const text = parsed.content ?? parsed.message ?? parsed.response ?? parsed.text ?? parsed.result;
-                if (text) { responseText = String(text); break; }
-              } catch { /* try next */ }
+            const parsed = JSON.parse(jsonMatch[0]);
+            const reply = parsed?.payloads?.[0]?.text;
+            if (reply) {
+              responseText = String(reply);
+            } else {
+              // Fallback to other common fields
+              const fallback = parsed.content ?? parsed.message ?? parsed.response ?? parsed.text ?? parsed.result;
+              if (fallback) responseText = String(fallback);
             }
           }
-        } catch { /* fall through */ }
-
-        // Fallback: strip shell noise lines
-        if (!responseText) {
-          responseText = cleaned
-            .split("\n")
-            .filter((line) => {
-              const t = line.trim();
-              if (!t) return false;
-              // skip shell prompt lines, command echo lines, "Restored session" header
-              if (/^Restored session:/i.test(t)) return false;
-              if (/^openclaw\s+agent/i.test(t)) return false;
-              if (/^claude\s+(-p|-c)/i.test(t)) return false;
-              if (/^\[[\d;]+[mhfA-Z]/.test(t)) return false; // leftover escape fragments
-              if (/^[\$%#>]\s/.test(t)) return false;        // shell prompt
-              if (/\$\s*(openclaw|claude)/i.test(t)) return false;
-              return true;
-            })
-            .join("\n")
-            .trim();
+        } catch (e) {
+          console.warn("Failed to parse OpenClaw JSON output", e);
         }
       } else {
         // Claude: strip the command echo, shell prompt lines, and "Restored session" header
