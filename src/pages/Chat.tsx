@@ -469,6 +469,9 @@ export default function Chat() {
 
       const resetSilence = (force = false) => {
         if (silenceTimer) clearTimeout(silenceTimer);
+        // If the output already contains an error line, finish immediately
+        const hasError = /^Error:/m.test(outputBuffer) || /^error:/im.test(outputBuffer);
+        if (hasError) { finish(outputBuffer); return; }
         silenceTimer = setTimeout(() => {
           if (!force) {
             if (isOpenClaw && !outputBuffer.includes("{")) {
@@ -654,7 +657,15 @@ export default function Chat() {
               if (fallback && typeof fallback === "string") { responseText = fallback; break; }
             } catch { /* try next */ }
           }
-          if (!responseText) console.warn("[Chat] OpenClaw: no JSON payload found, raw cleaned:", cleaned);
+          if (!responseText) {
+            // Check for known CLI error patterns and surface them directly
+            const errorMatch = cleaned.match(/^Error:\s*(.+)/m) ?? cleaned.match(/error:\s*(.+)/im);
+            if (errorMatch) {
+              responseText = `⚠️ OpenClaw error: ${errorMatch[1].trim()}`;
+            } else {
+              console.warn("[Chat] OpenClaw: no JSON payload found, raw cleaned:", cleaned);
+            }
+          }
         } else {
           responseText = cleaned
             .split("\n")
