@@ -375,6 +375,9 @@ export default function Chat() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const streamIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const abortStreamRef = useRef(false);
+  const [isScrolledUp, setIsScrolledUp] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const prevMsgCountRef = useRef(0);
 
   // ── Load devices ──────────────────────────────────────────────────────
 
@@ -441,10 +444,33 @@ export default function Chat() {
     prevJobsRef.current = new Set(activeJobs);
   }, [activeJobs, activeConvId]);
 
+  // ── Scroll tracking ───────────────────────────────────────────────────
+  const handleScroll = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    const scrolled = distFromBottom > 120;
+    setIsScrolledUp(scrolled);
+    if (!scrolled) setUnreadCount(0);
+  }, []);
+
   // ── Auto-scroll ───────────────────────────────────────────────────────
   useEffect(() => {
+    if (!isScrolledUp) {
+      scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+    } else if (messages.length > prevMsgCountRef.current) {
+      const newMsgs = messages.length - prevMsgCountRef.current;
+      // Only count assistant messages as "unread"
+      const newAssistant = messages.slice(prevMsgCountRef.current).filter(m => m.role === "assistant").length;
+      if (newAssistant > 0) setUnreadCount(c => c + newAssistant);
+    }
+    prevMsgCountRef.current = messages.length;
+  }, [messages, thinking, isScrolledUp]);
+
+  const scrollToBottom = useCallback(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
-  }, [messages, thinking]);
+    setUnreadCount(0);
+  }, []);
 
   // ── New conversation ──────────────────────────────────────────────────
   const createConversation = useCallback(async (firstMessage: string, agentType: "openclaw" | "claude"): Promise<string | null> => {
@@ -1105,7 +1131,30 @@ export default function Chat() {
           )}
 
           {/* Messages — centered column */}
-          <div ref={scrollRef} className="flex-1 overflow-y-auto py-6">
+          {/* Scroll-to-bottom floating button */}
+          {isScrolledUp && (
+            <button
+              onClick={scrollToBottom}
+              className={cn(
+                "absolute bottom-[88px] left-1/2 -translate-x-1/2 z-20",
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-full",
+                "bg-background/80 backdrop-blur-md border border-border/60",
+                "text-xs text-muted-foreground hover:text-foreground",
+                "shadow-lg hover:shadow-xl transition-all duration-200",
+                "animate-[fade-in_0.2s_ease-out]"
+              )}
+            >
+              {unreadCount > 0 && (
+                <span className="flex items-center justify-center w-4 h-4 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold leading-none">
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </span>
+              )}
+              <ChevronDown className="h-3.5 w-3.5" />
+              <span>{unreadCount > 0 ? `${unreadCount} new` : "Jump to bottom"}</span>
+            </button>
+          )}
+
+          <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto py-6">
             <div className="max-w-[720px] mx-auto px-6">
               {messages.length === 0 && !thinking && (
                 <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
