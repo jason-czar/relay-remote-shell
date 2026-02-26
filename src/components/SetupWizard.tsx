@@ -134,23 +134,35 @@ export function SetupWizard({ projectId, onComplete, onSkip, existingDevice }: S
     <div className="max-w-2xl mx-auto space-y-6">
       {/* Step indicators */}
       <div className="flex items-center justify-center gap-1">
-        {steps.map((s, i) => (
-          <div key={s.num} className="flex items-center">
-            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-              step === s.num
-                ? "bg-primary text-primary-foreground"
-                : step > s.num
-                  ? "bg-primary/20 text-primary"
-                  : "bg-muted text-muted-foreground"
-            }`}>
-              {step > s.num ? <Check className="h-3 w-3" /> : <span>{s.num}</span>}
-              <span className="hidden sm:inline">{s.label}</span>
+        {steps.map((s, i) => {
+          const isCompleted = step > s.num;
+          const isCurrent = step === s.num;
+          const isClickable = isCompleted || (s.num <= step + 1 && (s.num <= 2 || !!device));
+          return (
+            <div key={s.num} className="flex items-center">
+              <button
+                type="button"
+                disabled={!isClickable}
+                onClick={() => isClickable && setStep(s.num)}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                  isCurrent
+                    ? "bg-primary text-primary-foreground"
+                    : isCompleted
+                      ? "bg-primary/20 text-primary hover:bg-primary/30 cursor-pointer"
+                      : isClickable
+                        ? "bg-muted text-muted-foreground hover:bg-muted/80 cursor-pointer"
+                        : "bg-muted text-muted-foreground/50 cursor-not-allowed"
+                }`}
+              >
+                {isCompleted ? <Check className="h-3 w-3" /> : <span>{s.num}</span>}
+                <span className="hidden sm:inline">{s.label}</span>
+              </button>
+              {i < steps.length - 1 && (
+                <ChevronRight className="h-4 w-4 text-muted-foreground mx-1" />
+              )}
             </div>
-            {i < steps.length - 1 && (
-              <ChevronRight className="h-4 w-4 text-muted-foreground mx-1" />
-            )}
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Step 1: Name device */}
