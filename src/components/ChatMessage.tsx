@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { Bot, Copy, Check } from "lucide-react";
+import { Bot, Copy, Check, Terminal, ChevronDown, ChevronRight } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { useState } from "react";
 
@@ -8,12 +8,14 @@ interface ChatMessageProps {
   content: string;
   thinking?: boolean;
   streaming?: boolean;
+  rawStdout?: string;
 }
 
-export function ChatMessage({ role, content, thinking, streaming }: ChatMessageProps) {
+export function ChatMessage({ role, content, thinking, streaming, rawStdout }: ChatMessageProps) {
   const isUser = role === "user";
   const [hovered, setHovered] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [debugOpen, setDebugOpen] = useState(false);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(content);
@@ -132,7 +134,37 @@ export function ChatMessage({ role, content, thinking, streaming }: ChatMessageP
             {copied ? <Check className="h-3.5 w-3.5 text-status-online" /> : <Copy className="h-3.5 w-3.5" />}
             <span className="text-[11px]">{copied ? "Copied" : "Copy"}</span>
           </button>
+          {rawStdout && (
+            <button
+              onClick={() => setDebugOpen((v) => !v)}
+              className="flex items-center gap-1 px-2 py-1 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+              title="Raw stdout"
+            >
+              <Terminal className="h-3.5 w-3.5" />
+              <span className="text-[11px]">Raw</span>
+              {debugOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+            </button>
+          )}
         </div>
+
+        {/* Debug panel */}
+        {rawStdout && debugOpen && (
+          <div
+            className="mt-2 rounded-lg border border-border/50 overflow-hidden text-xs font-mono"
+            style={{
+              background: "rgba(0,0,0,0.35)",
+              backdropFilter: "blur(8px)",
+            }}
+          >
+            <div className="flex items-center gap-1.5 px-3 py-1.5 border-b border-border/30 text-muted-foreground">
+              <Terminal className="h-3 w-3" />
+              <span className="text-[11px] font-sans">raw stdout from relay</span>
+            </div>
+            <pre className="p-3 whitespace-pre-wrap break-all leading-relaxed text-green-400/90 max-h-64 overflow-y-auto">
+              {rawStdout}
+            </pre>
+          </div>
+        )}
       </div>
     </div>
   );

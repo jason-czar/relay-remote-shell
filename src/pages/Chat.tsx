@@ -282,6 +282,8 @@ export default function Chat() {
   const { conversations, setConversations, activeConvId, setActiveConvId, registerNewCallback, addJob, removeJob, activeJobs } = useChatContext();
   // Keep a ref so async callbacks can always read the latest active conversation
   const activeConvIdRef = useRef<string | null>(null);
+  // Store raw relay stdout keyed by message array index (session-only, not persisted)
+  const rawStdoutMapRef = useRef<Map<number, string>>(new Map());
   useEffect(() => { activeConvIdRef.current = activeConvId; }, [activeConvId]);
 
   // ── State ──────────────────────────────────────────────────────────────
@@ -692,6 +694,8 @@ export default function Chat() {
           let revealedIdx: number;
           setMessages((prev) => {
             revealedIdx = prev.length;
+            // Store raw stdout keyed by this message's index for the debug panel
+            rawStdoutMapRef.current.set(revealedIdx, stdout);
             return [...prev, { role: "assistant", content: "" }];
           });
           setThinking(false);
@@ -1105,6 +1109,7 @@ export default function Chat() {
                     <ChatMessage
                       role={msg.role}
                       content={msg.content}
+                      rawStdout={msg.role === "assistant" ? rawStdoutMapRef.current.get(i) : undefined}
                       streaming={i === streamingMsgIndex}
                     />
                   </div>
