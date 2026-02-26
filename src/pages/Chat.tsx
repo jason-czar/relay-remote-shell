@@ -29,8 +29,8 @@ interface RelayMsg {
   data?: unknown;
 }
 
-const RELAY_TIMEOUT_MS = 30000;
-const SILENCE_MS = 1500;
+const RELAY_TIMEOUT_MS = 60000;
+const SILENCE_MS = 3000;
 
 export default function Chat() {
   const { user } = useAuth();
@@ -136,7 +136,7 @@ export default function Chat() {
   };
 
   // ── Relay send ─────────────────────────────────────────────────────────
-  const sendViaRelay = useCallback(async (command: string): Promise<string> => {
+  const sendViaRelay = useCallback(async (command: string, isOpenClaw = false): Promise<string> => {
     // 1. Start session
     const { data: sesData, error: sesErr } = await supabase.functions.invoke("start-session", {
       body: { device_id: selectedDeviceId },
@@ -171,7 +171,12 @@ export default function Chat() {
 
       const resetSilence = () => {
         if (silenceTimer) clearTimeout(silenceTimer);
-        silenceTimer = setTimeout(() => finish(outputBuffer), SILENCE_MS);
+        silenceTimer = setTimeout(() => {
+          // For OpenClaw: only resolve on silence if we've received JSON content
+          // otherwise keep waiting (hard timeout will catch runaway cases)
+          if (isOpenClaw && !outputBuffer.includes("{")) return;
+          finish(outputBuffer);
+        }, SILENCE_MS);
       };
 
       hardTimeout = setTimeout(() => finish(new Error("Response timed out after 30s")), RELAY_TIMEOUT_MS);
@@ -272,7 +277,7 @@ export default function Chat() {
 
     try {
       const command = await buildCommand(text, convId);
-      const stdout = await sendViaRelay(command);
+      const stdout = await sendViaRelay(command, agent === "openclaw");
 
       // Debug: log raw stdout so we can inspect the payload shape
       console.debug("[Chat] raw stdout:", stdout);
