@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useScribe } from "@elevenlabs/react";
 import { cn } from "@/lib/utils";
 import { AppLayout } from "@/components/AppLayout";
@@ -1038,7 +1039,9 @@ export default function Chat() {
           )}
 
           {/* Top header bar */}
-          <div className="shrink-0 h-12 border-b border-border/30 flex items-center px-6 relative">
+          <div className="shrink-0 h-12 border-b border-border/30 flex items-center px-3 relative">
+            {/* Left — sidebar trigger */}
+            <SidebarTrigger />
             {/* Center — agent tabs */}
             <div className="absolute left-1/2 -translate-x-1/2 flex items-center">
               {(["openclaw", "claude"] as const).map((a) => {

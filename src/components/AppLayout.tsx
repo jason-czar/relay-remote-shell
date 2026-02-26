@@ -69,9 +69,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
           )}
           {isChat ? (
             <div className="flex-1 overflow-hidden relative">
-              <div className="absolute top-3 left-3 z-10">
-                <SidebarTrigger />
-              </div>
               {children}
             </div>
           ) : (
