@@ -595,7 +595,6 @@ export default function Chat() {
                         disabled={!selectedDeviceId}
                         className="group flex flex-col gap-1 px-4 py-3 rounded-xl border border-border/50 bg-card/50 hover:bg-accent/60 hover:border-border transition-all duration-150 text-left disabled:opacity-40 disabled:cursor-not-allowed"
                       >
-                        <span className="text-base leading-none">{icon}</span>
                         <span className="text-xs font-medium text-foreground">{title}</span>
                         <span className="text-[11px] text-muted-foreground leading-snug line-clamp-2">{prompt}</span>
                       </button>
