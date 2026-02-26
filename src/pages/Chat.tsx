@@ -474,19 +474,10 @@ export default function Chat() {
         {/* Main chat area — sidebar is now in AppSidebar */}
         <div className="flex flex-col flex-1 min-w-0 h-full relative">
 
-          {/* Session header */}
-          <div className="shrink-0 px-6 py-3 flex items-center justify-center relative">
-            {/* Agent switcher — centered */}
-            <div
-              className="flex items-center p-1 rounded-2xl gap-0.5"
-              style={{
-                background: "rgba(255,255,255,0.05)",
-                backdropFilter: "blur(20px) saturate(180%)",
-                WebkitBackdropFilter: "blur(20px) saturate(180%)",
-                border: "1px solid rgba(255,255,255,0.10)",
-                boxShadow: "0 2px 16px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.08)",
-              }}
-            >
+          {/* Top header bar */}
+          <div className="shrink-0 h-14 border-b border-border/50 flex items-center px-14 gap-4">
+            {/* Left — agent switcher */}
+            <div className="flex items-center gap-1 p-0.5 rounded-lg bg-muted/40">
               {(["openclaw", "claude"] as const).map((a) => {
                 const active = agent === a;
                 const label = a === "openclaw" ? "OpenClaw" : "Claude Code";
@@ -494,23 +485,11 @@ export default function Chat() {
                   <button
                     key={a}
                     onClick={() => handleAgentChange(a)}
-                    className="relative px-4 py-1.5 text-xs font-mono font-medium rounded-xl transition-all duration-300 select-none outline-none"
-                    style={
+                    className={`px-3 py-1 text-xs font-mono font-medium rounded-md transition-all duration-200 select-none ${
                       active
-                        ? {
-                            background: "rgba(255,255,255,0.13)",
-                            backdropFilter: "blur(12px)",
-                            WebkitBackdropFilter: "blur(12px)",
-                            border: "1px solid rgba(255,255,255,0.22)",
-                            boxShadow: "0 2px 10px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.18)",
-                            color: "hsl(var(--foreground))",
-                          }
-                        : {
-                            background: "transparent",
-                            border: "1px solid transparent",
-                            color: "hsl(var(--muted-foreground))",
-                          }
-                    }
+                        ? "bg-background text-foreground shadow-sm border border-border/60"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
                   >
                     {label}
                   </button>
@@ -518,11 +497,20 @@ export default function Chat() {
               })}
             </div>
 
-            {/* Device selector — right */}
-            <div className="absolute right-6 flex items-center gap-2">
+            {/* Right — device selector */}
+            <div className="ml-auto flex items-center gap-2">
+              {selectedDeviceId && (() => {
+                const dev = devices.find(d => d.id === selectedDeviceId);
+                return dev ? (
+                  <span className={`inline-flex items-center gap-1.5 text-xs font-medium ${dev.status === "online" ? "text-status-online" : "text-muted-foreground/50"}`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${dev.status === "online" ? "bg-status-online animate-pulse" : "bg-muted-foreground/40"}`} />
+                    {dev.name}
+                  </span>
+                ) : null;
+              })()}
               <Monitor className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0" />
               <Select value={selectedDeviceId} onValueChange={setSelectedDeviceId}>
-                <SelectTrigger className="h-7 text-xs w-40 border-border/40 bg-transparent shadow-none">
+                <SelectTrigger className="h-7 text-xs w-36 border-border/40 bg-transparent shadow-none">
                   <SelectValue placeholder="Select device…" />
                 </SelectTrigger>
                 <SelectContent>
@@ -532,11 +520,7 @@ export default function Chat() {
                   {devices.map((d) => (
                     <SelectItem key={d.id} value={d.id}>
                       <span className="flex items-center gap-2">
-                        <span
-                          className={`inline-block w-1.5 h-1.5 rounded-full ${
-                            d.status === "online" ? "bg-status-online" : "bg-muted-foreground/40"
-                          }`}
-                        />
+                        <span className={`inline-block w-1.5 h-1.5 rounded-full ${d.status === "online" ? "bg-status-online" : "bg-muted-foreground/40"}`} />
                         {d.name}
                       </span>
                     </SelectItem>
