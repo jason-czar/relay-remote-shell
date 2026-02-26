@@ -66,60 +66,63 @@ export default function Landing() {
 
       {/* Main empty-state preview */}
       <div className="flex-1 flex flex-col items-center justify-center px-4 py-12">
-        {/* Icon */}
-        <div className="relative mb-6">
-          <div className="absolute inset-0 rounded-3xl bg-primary/20 blur-xl scale-110" />
-          <div
-            className="relative w-24 h-24 rounded-3xl flex items-center justify-center ring-1 ring-primary/30"
-            style={{
-              background: "linear-gradient(135deg, hsl(var(--primary) / 0.18) 0%, hsl(var(--primary) / 0.08) 100%)",
-              boxShadow: "0 8px 32px hsl(var(--primary) / 0.25), inset 0 1px 0 rgba(255,255,255,0.12)",
-            }}
-          >
-            <span className="text-5xl">{activeAgent === "OpenClaw" ? "🐾" : "⌨️"}</span>
-          </div>
-        </div>
-
-        <h2 className="text-xl font-semibold text-foreground mb-2">{activeAgent === "OpenClaw" ? "OpenClaw Agent" : "Claude Code"}</h2>
-        <p className="text-sm text-muted-foreground text-center max-w-sm leading-relaxed mb-8">
-          {activeAgent === "OpenClaw"
-            ? "Ask your local OpenClaw agent anything. Commands run on your selected device."
-            : "Send prompts directly to Claude Code running on your device."}
-        </p>
-
-        {/* Prompt suggestion cards */}
-        <div className="grid grid-cols-2 gap-2.5 w-full max-w-lg mx-auto mb-8">
-          {PROMPTS[activeAgent].map(({ title, desc }) => (
-            <button
-              key={title}
-              onClick={() => navigate("/auth")}
-              className="group flex flex-col gap-2 px-5 py-4 rounded-xl border border-border/40 bg-card/40 hover:bg-card/80 hover:border-border/80 transition-all duration-200 text-left"
-              onMouseEnter={e =>
-                (e.currentTarget.style.boxShadow = "0 0 18px 2px hsl(var(--primary) / 0.08), 0 2px 12px rgba(0,0,0,0.15)")
-              }
-              onMouseLeave={e => (e.currentTarget.style.boxShadow = "")}
+        <div key={activeAgent} className="flex flex-col items-center w-full animate-fade-in">
+          {/* Icon */}
+          <div className="relative mb-6">
+            <div className="absolute inset-0 rounded-3xl bg-primary/20 blur-xl scale-110" />
+            <div
+              className="relative w-24 h-24 rounded-3xl flex items-center justify-center ring-1 ring-primary/30"
+              style={{
+                background: "linear-gradient(135deg, hsl(var(--primary) / 0.18) 0%, hsl(var(--primary) / 0.08) 100%)",
+                boxShadow: "0 8px 32px hsl(var(--primary) / 0.25), inset 0 1px 0 rgba(255,255,255,0.12)",
+              }}
             >
-              <span className="text-xs font-semibold text-foreground">{title}</span>
-              <span className="text-xs text-muted-foreground/80 leading-snug">{desc}</span>
-            </button>
-          ))}
-        </div>
-
-        {/* Input bar (locked) */}
-        <div className="w-full max-w-lg relative" onClick={() => navigate("/auth")}>
-          <div className="flex items-center gap-2 rounded-xl border border-border/40 bg-card/40 px-4 py-3 cursor-pointer hover:border-border/80 hover:bg-card/60 transition-all duration-200 group">
-            <span className="flex-1 text-sm text-muted-foreground/50 select-none">
-              Sign in to start chatting…
-            </span>
-            <div className="shrink-0 w-7 h-7 rounded-lg bg-primary/20 flex items-center justify-center group-hover:bg-primary/30 transition-colors">
-              <ArrowRight className="h-3.5 w-3.5 text-primary/70" />
+              <span className="text-5xl">{activeAgent === "OpenClaw" ? "🐾" : "⌨️"}</span>
             </div>
           </div>
-        </div>
 
-        <p className="mt-4 text-xs text-muted-foreground/50">
-          Free to get started · No credit card required
-        </p>
+          <h2 className="text-xl font-semibold text-foreground mb-2">{activeAgent === "OpenClaw" ? "OpenClaw Agent" : "Claude Code"}</h2>
+          <p className="text-sm text-muted-foreground text-center max-w-sm leading-relaxed mb-8">
+            {activeAgent === "OpenClaw"
+              ? "Ask your local OpenClaw agent anything. Commands run on your selected device."
+              : "Send prompts directly to Claude Code running on your device."}
+          </p>
+
+          {/* Prompt suggestion cards */}
+          <div className="grid grid-cols-2 gap-2.5 w-full max-w-lg mx-auto mb-8">
+            {PROMPTS[activeAgent].map(({ title, desc }, i) => (
+              <button
+                key={title}
+                onClick={() => navigate("/auth")}
+                className="animate-fade-in group flex flex-col gap-2 px-5 py-4 rounded-xl border border-border/40 bg-card/40 hover:bg-card/80 hover:border-border/80 transition-all duration-200 text-left"
+                style={{ animationDelay: `${i * 60}ms`, animationFillMode: "both" }}
+                onMouseEnter={e =>
+                  (e.currentTarget.style.boxShadow = "0 0 18px 2px hsl(var(--primary) / 0.08), 0 2px 12px rgba(0,0,0,0.15)")
+                }
+                onMouseLeave={e => (e.currentTarget.style.boxShadow = "")}
+              >
+                <span className="text-xs font-semibold text-foreground">{title}</span>
+                <span className="text-xs text-muted-foreground/80 leading-snug">{desc}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Input bar (locked) */}
+          <div className="w-full max-w-lg relative" onClick={() => navigate("/auth")}>
+            <div className="flex items-center gap-2 rounded-xl border border-border/40 bg-card/40 px-4 py-3 cursor-pointer hover:border-border/80 hover:bg-card/60 transition-all duration-200 group">
+              <span className="flex-1 text-sm text-muted-foreground/50 select-none">
+                Sign in to start chatting…
+              </span>
+              <div className="shrink-0 w-7 h-7 rounded-lg bg-primary/20 flex items-center justify-center group-hover:bg-primary/30 transition-colors">
+                <ArrowRight className="h-3.5 w-3.5 text-primary/70" />
+              </div>
+            </div>
+          </div>
+
+          <p className="mt-4 text-xs text-muted-foreground/50">
+            Free to get started · No credit card required
+          </p>
+        </div>
       </div>
     </div>
   );
