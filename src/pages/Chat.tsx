@@ -431,6 +431,17 @@ export default function Chat() {
       setMessages((prev) => [...prev, assistantMsg]);
       await saveMessage(convId, "assistant", responseText);
 
+      // Update title after first exchange (was a new conversation)
+      if (!activeConvId) {
+        const smartTitle = text.length > 60
+          ? text.slice(0, 57).trimEnd() + "…"
+          : text;
+        await supabase.from("chat_conversations").update({ title: smartTitle }).eq("id", convId!);
+        setConversations((prev) =>
+          prev.map((c) => c.id === convId ? { ...c, title: smartTitle } : c)
+        );
+      }
+
       setConversations((prev) => {
         const conv = prev.find((c) => c.id === convId);
         if (!conv) return prev;
@@ -486,25 +497,33 @@ export default function Chat() {
 
           {/* Top header bar */}
           <div className="shrink-0 h-14 border-b border-border/50 flex items-center px-14 gap-4">
-            {/* Left — agent switcher */}
-            <div className="flex items-center gap-1 p-0.5 rounded-lg bg-muted/40">
-              {(["openclaw", "claude"] as const).map((a) => {
-                const active = agent === a;
-                const label = a === "openclaw" ? "OpenClaw" : "Claude Code";
-                return (
-                  <button
-                    key={a}
-                    onClick={() => handleAgentChange(a)}
-                    className={`px-3 py-1 text-xs font-mono font-medium rounded-md transition-all duration-200 select-none ${
-                      active
-                        ? "bg-background text-foreground shadow-sm border border-border/60"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    {label}
-                  </button>
-                );
-              })}
+            {/* Left — agent switcher + conversation title */}
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="flex items-center gap-1 p-0.5 rounded-lg bg-muted/40 shrink-0">
+                {(["openclaw", "claude"] as const).map((a) => {
+                  const active = agent === a;
+                  const label = a === "openclaw" ? "OpenClaw" : "Claude Code";
+                  return (
+                    <button
+                      key={a}
+                      onClick={() => handleAgentChange(a)}
+                      className={`px-3 py-1 text-xs font-mono font-medium rounded-md transition-all duration-200 select-none ${
+                        active
+                          ? "bg-background text-foreground shadow-sm border border-border/60"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+              {activeConvId && (() => {
+                const title = conversations.find(c => c.id === activeConvId)?.title;
+                return title ? (
+                  <span className="text-sm text-foreground/70 font-medium truncate max-w-[280px]">{title}</span>
+                ) : null;
+              })()}
             </div>
 
             {/* Right — device selector */}
