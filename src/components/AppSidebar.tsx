@@ -47,6 +47,7 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="icon">
+      {/* Logo header */}
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel>
@@ -55,51 +56,45 @@ export function AppSidebar() {
               {!collapsed && <span className="font-mono text-sm font-bold">PrivaClaw</span>}
             </div>
           </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {/* Setup dropdown button */}
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  onClick={() => setSetupOpen((o) => !o)}
-                  tooltip="Setup"
-                  className="font-medium"
-                >
-                  <Settings className="h-4 w-4" />
-                  <span className="flex-1">Setup</span>
-                  {!collapsed && (
-                    <ChevronDown
-                      className={`h-3.5 w-3.5 text-muted-foreground transition-transform duration-200 ${setupOpen ? "rotate-180" : ""}`}
-                    />
-                  )}
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-
-              {/* Dropdown items */}
-              {setupOpen && (
-                <>
-                  {setupItems.map((item) => (
-                    <SidebarMenuItem key={item.title}>
-                      <SidebarMenuButton asChild tooltip={item.title}>
-                        <NavLink
-                          to={item.url}
-                          end
-                          className={`hover:bg-accent/50 ${!collapsed ? "pl-7" : ""}`}
-                          activeClassName="bg-accent text-primary font-medium"
-                        >
-                          <item.icon className="h-4 w-4" />
-                          <span>{item.title}</span>
-                        </NavLink>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  ))}
-                </>
-              )}
-            </SidebarMenu>
-          </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+
       <SidebarFooter>
         <SidebarMenu>
+          {/* Setup dropdown */}
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              onClick={() => setSetupOpen((o) => !o)}
+              tooltip="Setup"
+              className="font-medium"
+            >
+              <Settings className="h-4 w-4" />
+              <span className="flex-1">Setup</span>
+              {!collapsed && (
+                <ChevronDown
+                  className={`h-3.5 w-3.5 text-muted-foreground transition-transform duration-200 ${setupOpen ? "rotate-180" : ""}`}
+                />
+              )}
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+
+          {/* Dropdown items */}
+          {setupOpen && setupItems.map((item) => (
+            <SidebarMenuItem key={item.title}>
+              <SidebarMenuButton asChild tooltip={item.title}>
+                <NavLink
+                  to={item.url}
+                  end
+                  className={`hover:bg-accent/50 ${!collapsed ? "pl-7" : ""}`}
+                  activeClassName="bg-accent text-primary font-medium"
+                >
+                  <item.icon className="h-4 w-4" />
+                  <span>{item.title}</span>
+                </NavLink>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          ))}
+
           <SidebarMenuItem>
             <SidebarMenuButton onClick={toggleTheme} tooltip={theme === "dark" ? "Light Mode" : "Dark Mode"}>
               {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
