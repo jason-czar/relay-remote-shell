@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/StatusBadge";
-import { ArrowLeft, RotateCcw, X, Clipboard, ClipboardPaste, Wifi, Loader2 } from "lucide-react";
+import { ArrowLeft, RotateCcw, X, Clipboard, ClipboardPaste, Wifi, Loader2, ChevronUp, ChevronDown } from "lucide-react";
 import type { Tables } from "@/integrations/supabase/types";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
@@ -507,6 +507,14 @@ export default function TerminalSession() {
     termRef.current?.focus();
   };
 
+  const scrollTerminal = (direction: "up" | "down") => {
+    const term = termRef.current;
+    if (!term) return;
+    const lines = Math.max(1, Math.floor(term.rows * 0.8));
+    if (direction === "up") term.scrollLines(-lines);
+    else term.scrollToBottom();
+  };
+
   const handleToolbarKey = (sequence: string) => {
     if (ctrlActive) {
       // Ctrl+key: subtract 64 from uppercase ASCII
@@ -595,6 +603,22 @@ export default function TerminalSession() {
       )}
 
       <div ref={terminalContainerRef} className="flex-1 p-1 min-h-0" />
+
+      {/* Scroll buttons — always visible on mobile for scrollback navigation */}
+      <div className="sm:hidden shrink-0 flex items-center gap-1 px-2 py-1 border-t border-border bg-card">
+        <button
+          onPointerDown={(e) => { e.preventDefault(); scrollTerminal("up"); }}
+          className="flex-1 h-7 rounded bg-muted text-muted-foreground active:bg-muted/60 flex items-center justify-center gap-1 text-[11px] font-medium select-none"
+        >
+          <ChevronUp className="h-3.5 w-3.5" /> Scroll Up
+        </button>
+        <button
+          onPointerDown={(e) => { e.preventDefault(); scrollTerminal("down"); }}
+          className="flex-1 h-7 rounded bg-muted text-muted-foreground active:bg-muted/60 flex items-center justify-center gap-1 text-[11px] font-medium select-none"
+        >
+          <ChevronDown className="h-3.5 w-3.5" /> Bottom
+        </button>
+      </div>
 
       {/* Mobile keyboard toolbar — shown only when soft keyboard is visible on small screens */}
       <div className={`sm:hidden shrink-0 border-t border-border bg-card overflow-hidden transition-all duration-200 ${keyboardVisible ? "max-h-24 opacity-100" : "max-h-0 opacity-0 pointer-events-none"}`}>

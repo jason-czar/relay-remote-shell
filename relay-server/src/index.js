@@ -36,7 +36,7 @@ const wsTunnels = new Map();
 
 // session_id → setTimeout handle (grace period before ending session in DB)
 const sessionGraceTimers = new Map();
-const SESSION_GRACE_MS = 90_000; // 90 seconds to reconnect before session is ended
+const SESSION_GRACE_MS = 600_000; // 10 minutes to reconnect before session is ended
 
 // ─── HTTP Server ─────────────────────────────────────────────────────
 const server = createServer(async (req, res) => {
