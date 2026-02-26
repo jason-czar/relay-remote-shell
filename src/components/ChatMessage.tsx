@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { Bot, Copy, ThumbsUp, ThumbsDown, Check } from "lucide-react";
+import { Bot, Copy, Check } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { useState } from "react";
 
@@ -13,7 +13,6 @@ export function ChatMessage({ role, content, thinking }: ChatMessageProps) {
   const isUser = role === "user";
   const [hovered, setHovered] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [feedback, setFeedback] = useState<"up" | "down" | null>(null);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(content);
@@ -114,30 +113,6 @@ export function ChatMessage({ role, content, thinking }: ChatMessageProps) {
           >
             {copied ? <Check className="h-3.5 w-3.5 text-status-online" /> : <Copy className="h-3.5 w-3.5" />}
             <span className="text-[11px]">{copied ? "Copied" : "Copy"}</span>
-          </button>
-          <button
-            onClick={() => setFeedback(f => f === "up" ? null : "up")}
-            className={cn(
-              "p-1.5 rounded-md text-xs transition-colors",
-              feedback === "up"
-                ? "text-status-online bg-status-online/10"
-                : "text-muted-foreground hover:text-foreground hover:bg-accent"
-            )}
-            title="Good response"
-          >
-            <ThumbsUp className="h-3.5 w-3.5" />
-          </button>
-          <button
-            onClick={() => setFeedback(f => f === "down" ? null : "down")}
-            className={cn(
-              "p-1.5 rounded-md text-xs transition-colors",
-              feedback === "down"
-                ? "text-destructive bg-destructive/10"
-                : "text-muted-foreground hover:text-foreground hover:bg-accent"
-            )}
-            title="Bad response"
-          >
-            <ThumbsDown className="h-3.5 w-3.5" />
           </button>
         </div>
       </div>
