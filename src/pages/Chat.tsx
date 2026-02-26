@@ -274,8 +274,12 @@ export default function Chat() {
       const command = await buildCommand(text, convId);
       const stdout = await sendViaRelay(command);
 
-      // 1. Strip ANSI / terminal escape codes
-      const stripAnsi = (s: string) => s.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, "").replace(/\x1b\][^\x07]*\x07/g, "");
+      // Debug: log raw stdout so we can inspect the payload shape
+      console.debug("[Chat] raw stdout:", stdout);
+
+      // Strip ANSI / terminal escape codes
+      const stripAnsi = (s: string) =>
+        s.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, "").replace(/\x1b\][^\x07]*\x07/g, "");
       const cleaned = stripAnsi(stdout);
 
       const { data: convData } = await supabase
@@ -287,43 +291,44 @@ export default function Chat() {
       let responseText = "";
 
       if (convData?.agent === "openclaw") {
-        // Extract the first complete JSON object from stdout, then read payloads[0].text
-        try {
-          const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
-          if (jsonMatch) {
-            const parsed = JSON.parse(jsonMatch[0]);
-            const reply = parsed?.payloads?.[0]?.text;
-            if (reply) {
-              responseText = String(reply);
-            } else {
-              // Fallback to other common fields
-              const fallback = parsed.content ?? parsed.message ?? parsed.response ?? parsed.text ?? parsed.result;
-              if (fallback) responseText = String(fallback);
-            }
-          }
-        } catch (e) {
-          console.warn("Failed to parse OpenClaw JSON output", e);
+        // Find all JSON-like blocks and try each, preferring one with a `payloads` array
+        const jsonBlocks = cleaned.match(/\{[\s\S]*?\}/g) ?? [];
+        // Also try the greedy match for large JSON objects
+        const greedyMatch = cleaned.match(/\{[\s\S]*\}/);
+        const candidates = greedyMatch ? [...jsonBlocks, greedyMatch[0]] : jsonBlocks;
+
+        for (let i = candidates.length - 1; i >= 0; i--) {
+          try {
+            const parsed = JSON.parse(candidates[i]);
+            // Preferred: payloads[0].text (openclaw --json output)
+            const payloadText = parsed?.payloads?.[0]?.text;
+            if (payloadText) { responseText = String(payloadText); break; }
+            // Fallback fields
+            const fallback = parsed.content ?? parsed.message ?? parsed.response ?? parsed.text ?? parsed.result;
+            if (fallback && typeof fallback === "string") { responseText = fallback; break; }
+          } catch { /* try next */ }
+        }
+
+        if (!responseText) {
+          console.warn("[Chat] OpenClaw: no JSON payload found, raw cleaned:", cleaned);
         }
       } else {
-        // Claude: strip the command echo, shell prompt lines, and "Restored session" header
-        const lines = cleaned.split("\n");
-        const filteredLines: string[] = [];
-        let pastHeader = false;
-        for (const line of lines) {
-          const t = line.trim();
-          if (!pastHeader) {
-            if (/^Restored session:/i.test(t)) continue;
-            if (/^claude\s+(-p|-c)/i.test(t)) { pastHeader = true; continue; }
-            if (/^\[[\d;]+[mhfA-Z]/.test(t)) continue;
-            if (/^[\$%#>]\s/.test(t)) continue;
-          }
-          if (/^[\$%#>]\s/.test(t)) continue; // shell prompts after content too
-          if (/^claude\s+(-p|-c)/i.test(t)) continue;
-          filteredLines.push(line);
-        }
-        responseText = filteredLines.join("\n").trim();
+        // Claude: strip command echo, shell prompts, and trailing zsh/bash prompt characters
+        responseText = cleaned
+          .split("\n")
+          .filter((line) => {
+            const t = line.trim();
+            if (!t || t === "%" || t === "$" || t === "#" || t === ">") return false;
+            if (/^Restored session:/i.test(t)) return false;
+            if (/^claude\s+(-p|-c|--print|--resume)/i.test(t)) return false;
+            if (/^\[[\d;]+[mhfA-Z]/.test(t)) return false;
+            if (/^[\$%#>]\s/.test(t)) return false;
+            return true;
+          })
+          .join("\n")
+          .trim();
 
-        // Extract & persist Claude session ID if not yet stored
+        // Persist Claude session ID if not yet stored
         if (!convData?.claude_session_id) {
           const claudeId = extractClaudeSessionId(stdout);
           if (claudeId) {
@@ -332,13 +337,12 @@ export default function Chat() {
         }
       }
 
-      responseText = responseText || "(empty response)";
+      responseText = responseText.trim() || "(empty response)";
 
-      const assistantMsg: Message = { role: "assistant", content: responseText || "(empty response)" };
+      const assistantMsg: Message = { role: "assistant", content: responseText };
       setMessages((prev) => [...prev, assistantMsg]);
-      await saveMessage(convId, "assistant", responseText || "(empty response)");
+      await saveMessage(convId, "assistant", responseText);
 
-      // Refresh conversation list order
       setConversations((prev) => {
         const conv = prev.find((c) => c.id === convId);
         if (!conv) return prev;
