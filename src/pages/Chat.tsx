@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Send, ChevronDown, Paperclip, X, FileText, Image, Plus, Monitor, Terminal, Loader2, WifiOff, Square, Mic, ArrowUp } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { Tables } from "@/integrations/supabase/types";
 import { useChatContext } from "@/contexts/ChatContext";
@@ -110,9 +111,10 @@ interface ComposerBoxProps {
   onFileSelect: (files: FileList) => void;
   agent: "openclaw" | "claude";
   onSlashCommand: (cmd: SlashCommand) => void;
+  onAgentChange: (agent: "openclaw" | "claude") => void;
 }
 
-function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, onSend, disabled, sendDisabled, placeholder, attachedFiles, onRemoveFile, onFileSelect, agent, onSlashCommand }: ComposerBoxProps) {
+function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, onSend, disabled, sendDisabled, placeholder, attachedFiles, onRemoveFile, onFileSelect, agent, onSlashCommand, onAgentChange }: ComposerBoxProps) {
   const [focused, setFocused] = useState(false);
   const [slashIdx, setSlashIdx] = useState(0);
   const [isDictating, setIsDictating] = useState(false);
@@ -266,15 +268,44 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
           </div>
         )}
 
-        {/* Agent badge */}
-        <div className="shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-full bg-muted/60 text-xs font-medium text-muted-foreground border border-border/40 select-none">
-          {agent === "openclaw" ? (
-            <><span className="text-primary">⬡</span> OpenClaw</>
-          ) : (
-            <><span className="text-warning">✦</span> Claude</>
-          )}
-          <ChevronDown size={11} className="opacity-50" />
-        </div>
+        {/* Agent selector dropdown */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              className="shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-full bg-muted/60 text-xs font-medium text-muted-foreground border border-border/40 hover:bg-accent/60 hover:text-foreground hover:border-border/60 transition-all duration-150 select-none"
+            >
+              {agent === "openclaw" ? (
+                <><span className="text-primary">⬡</span> OpenClaw</>
+              ) : (
+                <><span className="text-warning">✦</span> Claude</>
+              )}
+              <ChevronDown size={11} className="opacity-50 ml-0.5" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="min-w-[160px]">
+            <DropdownMenuItem
+              onSelect={() => onAgentChange("openclaw")}
+              className={cn("flex items-center gap-2 cursor-pointer", agent === "openclaw" && "bg-accent")}
+            >
+              <span className="text-primary text-base">⬡</span>
+              <div>
+                <div className="font-medium">OpenClaw</div>
+                <div className="text-xs text-muted-foreground">Local AI agent</div>
+              </div>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={() => onAgentChange("claude")}
+              className={cn("flex items-center gap-2 cursor-pointer", agent === "claude" && "bg-accent")}
+            >
+              <span className="text-warning text-base">✦</span>
+              <div>
+                <div className="font-medium">Claude Code</div>
+                <div className="text-xs text-muted-foreground">Anthropic</div>
+              </div>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         {/* Mic / dictation button */}
         <button
@@ -1207,6 +1238,7 @@ export default function Chat() {
                 onFileSelect={processFiles}
                 agent={agent}
                 onSlashCommand={handleSlashCommand}
+                onAgentChange={setAgent}
               />
               <p className="text-center text-[10px] text-muted-foreground/40 mt-2 select-none">
                 Enter to send · Shift+Enter for newline · <span className="font-mono">/</span> for commands
