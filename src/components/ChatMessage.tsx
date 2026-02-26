@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
 import { Bot, User } from "lucide-react";
+import ReactMarkdown from "react-markdown";
 
 interface ChatMessageProps {
   role: "user" | "assistant";
@@ -58,7 +59,38 @@ export function ChatMessage({ role, content, thinking }: ChatMessageProps) {
             : "bg-muted text-foreground rounded-tl-sm"
         )}
       >
-        {content}
+        {isUser ? (
+          content
+        ) : (
+          <ReactMarkdown
+            components={{
+              p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+              code: ({ className, children, ...props }) => {
+                const isBlock = className?.includes("language-");
+                return isBlock ? (
+                  <code className="block bg-background/60 rounded-md px-3 py-2 my-2 text-xs font-mono whitespace-pre-wrap overflow-x-auto" {...props}>
+                    {children}
+                  </code>
+                ) : (
+                  <code className="bg-background/60 rounded px-1 py-0.5 text-xs font-mono" {...props}>
+                    {children}
+                  </code>
+                );
+              },
+              pre: ({ children }) => <pre className="my-2">{children}</pre>,
+              ul: ({ children }) => <ul className="list-disc pl-4 mb-2 space-y-0.5">{children}</ul>,
+              ol: ({ children }) => <ol className="list-decimal pl-4 mb-2 space-y-0.5">{children}</ol>,
+              li: ({ children }) => <li>{children}</li>,
+              h1: ({ children }) => <h1 className="font-semibold text-base mb-1">{children}</h1>,
+              h2: ({ children }) => <h2 className="font-semibold text-sm mb-1">{children}</h2>,
+              h3: ({ children }) => <h3 className="font-medium text-sm mb-1">{children}</h3>,
+              strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+              a: ({ href, children }) => <a href={href} target="_blank" rel="noopener noreferrer" className="underline text-primary">{children}</a>,
+            }}
+          >
+            {content}
+          </ReactMarkdown>
+        )}
       </div>
     </div>
   );
