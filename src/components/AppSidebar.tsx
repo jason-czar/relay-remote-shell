@@ -143,14 +143,19 @@ export function AppSidebar() {
               <SidebarGroupContent className="flex flex-col flex-1 min-h-0">
                 {/* Search */}
                 <div className="px-2 pb-1">
-                  <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-muted/40 border border-border/30">
-                    <Search className="h-3 w-3 text-muted-foreground/40 shrink-0" />
+                  <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-muted/30 border border-border/40 focus-within:border-border/70 transition-colors">
+                    <Search className="h-3 w-3 text-muted-foreground/50 shrink-0" />
                     <input
                       value={search}
                       onChange={e => setSearch(e.target.value)}
-                      placeholder="Search conversations…"
-                      className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/30 text-foreground min-w-0"
+                      placeholder="Search…"
+                      className="flex-1 bg-transparent text-xs outline-none placeholder:text-muted-foreground/40 text-foreground min-w-0"
                     />
+                    {search && (
+                      <button onClick={() => setSearch("")} className="shrink-0 text-muted-foreground/50 hover:text-foreground transition-colors">
+                        <X className="h-3 w-3" />
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -158,6 +163,9 @@ export function AppSidebar() {
                 <div className="space-y-1 overflow-y-auto flex-1 px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                   {conversations.length === 0 && (
                     <p className="text-xs text-muted-foreground/30 text-center py-6">No conversations yet</p>
+                  )}
+                  {conversations.length > 0 && groups.length === 0 && (
+                    <p className="text-xs text-muted-foreground/40 text-center py-6">No results for "{search}"</p>
                   )}
                   {groups.map(group => (
                     <div key={group.label} className="mb-2">
