@@ -86,7 +86,7 @@ export function AppSidebar() {
   const toggleTheme = () => setTheme(theme === "dark" ? "light" : "dark");
 
   return (
-    <Sidebar collapsible="icon">
+    <Sidebar collapsible="offcanvas">
       {/* Logo */}
       <SidebarContent className="flex flex-col min-h-0">
         <SidebarGroup>
