@@ -546,8 +546,17 @@ export default function Chat() {
           </div>
 
           {/* Input area */}
-          <div className="shrink-0 border-t border-border px-4 py-3">
-            <div className="flex items-end gap-2 max-w-4xl mx-auto">
+          <div className="shrink-0 px-4 py-4">
+            <div
+              className="flex items-end gap-2 max-w-4xl mx-auto rounded-2xl p-1.5"
+              style={{
+                background: "rgba(255,255,255,0.05)",
+                backdropFilter: "blur(20px) saturate(180%)",
+                WebkitBackdropFilter: "blur(20px) saturate(180%)",
+                border: "1px solid rgba(255,255,255,0.12)",
+                boxShadow: "0 4px 32px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.08), 0 0 0 1px rgba(255,255,255,0.04)",
+              }}
+            >
               <Textarea
                 ref={textareaRef}
                 value={input}
@@ -559,18 +568,22 @@ export default function Chat() {
                     : "Select a device first…"
                 }
                 disabled={thinking || !selectedDeviceId}
-                className="resize-none text-sm min-h-[44px] max-h-48 flex-1"
                 rows={1}
+                className="resize-none text-sm min-h-[40px] max-h-48 flex-1 bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none px-3 py-2.5"
               />
-              <Button
+              <button
                 onClick={handleSend}
                 disabled={thinking || !input.trim() || !selectedDeviceId}
-                size="sm"
-                className="shrink-0 h-10 gap-2"
+                className="shrink-0 h-9 w-9 rounded-xl flex items-center justify-center transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
+                style={{
+                  background: "rgba(255,255,255,0.12)",
+                  border: "1px solid rgba(255,255,255,0.2)",
+                  boxShadow: "0 2px 8px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.15)",
+                  color: "hsl(var(--foreground))",
+                }}
               >
-                <Send className="h-4 w-4" />
-                <span className="hidden sm:inline">Send</span>
-              </Button>
+                <Send className="h-3.5 w-3.5" />
+              </button>
             </div>
             <p className="text-center text-[10px] text-muted-foreground/50 mt-1.5">
               Commands execute on your device via relay
