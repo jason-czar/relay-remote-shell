@@ -88,7 +88,7 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon">
       {/* Logo */}
-      <SidebarContent>
+      <SidebarContent className="flex flex-col min-h-0">
         <SidebarGroup>
           <SidebarGroupLabel>
             <div className="flex items-center gap-2">
@@ -99,8 +99,8 @@ export function AppSidebar() {
         </SidebarGroup>
 
         {/* Chat conversations section */}
-        {isChat && !collapsed && (
-          <SidebarGroup>
+          {isChat && !collapsed && (
+          <SidebarGroup className="flex flex-col flex-1 min-h-0">
             <SidebarGroupLabel>
               <div className="flex items-center justify-between w-full pr-1">
                 <span className="text-sm font-semibold text-foreground/70 tracking-tight">Conversations</span>
@@ -116,7 +116,7 @@ export function AppSidebar() {
             </SidebarGroupLabel>
 
             {convOpen && (
-              <SidebarGroupContent>
+              <SidebarGroupContent className="flex flex-col flex-1 min-h-0">
                 {/* Search */}
                 <div className="px-2 pb-1">
                   <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-muted/40 border border-border/30">
@@ -131,7 +131,7 @@ export function AppSidebar() {
                 </div>
 
                 {/* Grouped conversations */}
-                <div className="space-y-1 max-h-[40vh] overflow-y-auto px-1 scrollbar-thin">
+                <div className="space-y-1 overflow-y-auto flex-1 px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                   {conversations.length === 0 && (
                     <p className="text-xs text-muted-foreground/30 text-center py-6">No conversations yet</p>
                   )}
