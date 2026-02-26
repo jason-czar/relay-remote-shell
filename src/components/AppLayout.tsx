@@ -6,11 +6,23 @@ import { useLocation } from "react-router-dom";
 const MIN_WIDTH = 180;
 const MAX_WIDTH = 480;
 const DEFAULT_WIDTH = 260;
+const LS_KEY = "sidebar-width";
+
+function getInitialWidth() {
+  try {
+    const stored = localStorage.getItem(LS_KEY);
+    if (stored) {
+      const n = parseInt(stored, 10);
+      if (n >= MIN_WIDTH && n <= MAX_WIDTH) return n;
+    }
+  } catch {}
+  return DEFAULT_WIDTH;
+}
 
 export function AppLayout({ children }: { children: ReactNode }) {
   const location = useLocation();
   const isChat = location.pathname === "/chat";
-  const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_WIDTH);
+  const [sidebarWidth, setSidebarWidth] = useState(getInitialWidth);
   const dragging = useRef(false);
 
   const onMouseDown = useCallback((e: React.MouseEvent) => {
@@ -23,6 +35,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
       if (!dragging.current) return;
       const newWidth = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, ev.clientX));
       setSidebarWidth(newWidth);
+      try { localStorage.setItem(LS_KEY, String(newWidth)); } catch {}
     };
     const onUp = () => {
       dragging.current = false;
