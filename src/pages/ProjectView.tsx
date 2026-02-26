@@ -168,9 +168,11 @@ export default function ProjectView() {
   };
 
   const deleteDevice = async (deviceId: string) => {
+    setDevices((prev) => prev.filter((d) => d.id !== deviceId));
     const { error } = await supabase.from("devices").delete().eq("id", deviceId);
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
+      load(); // restore on failure
     } else {
       toast({ title: "Device deleted" });
     }
@@ -179,14 +181,16 @@ export default function ProjectView() {
   const bulkDeleteDevices = async () => {
     setBulkDeleting(true);
     const ids = Array.from(selectedDevices);
+    setDevices((prev) => prev.filter((d) => !ids.includes(d.id)));
+    setSelectedDevices(new Set());
+    setBulkDeleteOpen(false);
     const { error } = await supabase.from("devices").delete().in("id", ids);
     setBulkDeleting(false);
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
+      load(); // restore on failure
     } else {
       toast({ title: `${ids.length} device${ids.length > 1 ? "s" : ""} deleted` });
-      setSelectedDevices(new Set());
-      setBulkDeleteOpen(false);
     }
   };
 
