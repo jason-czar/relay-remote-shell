@@ -6,6 +6,7 @@ export interface Conversation {
   id: string;
   title: string;
   agent: string;
+  model: string;
   created_at: string;
 }
 
@@ -37,7 +38,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     if (!user) return;
     supabase
       .from("chat_conversations")
-      .select("id, title, agent, created_at")
+      .select("id, title, agent, model, created_at")
       .eq("user_id", user.id)
       .order("updated_at", { ascending: false })
       .then(({ data }) => {
