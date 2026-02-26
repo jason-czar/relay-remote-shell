@@ -222,6 +222,7 @@ export default function TerminalSession() {
       setDevice(dev);
 
       let sessionId = resumeSessionId ?? getPersistedSessionId();
+      let isResume = false;
 
       if (sessionId) {
         const { data: existing } = await supabase.from("sessions").select("id, status").eq("id", sessionId).single();
@@ -229,6 +230,7 @@ export default function TerminalSession() {
           sessionId = null;
           clearPersistedSessionId();
         } else {
+          isResume = true;
           term.writeln(`\x1b[33m⟳ Resuming session ${sessionId.slice(0, 8)}...\x1b[0m`);
         }
       }
@@ -240,6 +242,7 @@ export default function TerminalSession() {
           .order("started_at", { ascending: false }).limit(1);
         if (activeSessions?.length) {
           sessionId = activeSessions[0].id;
+          isResume = true;
           term.writeln(`\x1b[33m⟳ Resuming active session ${sessionId.slice(0, 8)}...\x1b[0m`);
         }
       }
@@ -268,7 +271,7 @@ export default function TerminalSession() {
       term.writeln(`\x1b[2mDir    :\x1b[0m \x1b[90m${dev?.workdir ?? "~"}\x1b[0m`);
       term.writeln("");
 
-      connectWebSocket(term, dev, sessionId!);
+      connectWebSocket(term, dev, sessionId!, isResume);
     };
 
     init();
@@ -284,7 +287,7 @@ export default function TerminalSession() {
         if (termRef.current && sessionIdRef.current) {
           setBgReconnecting(true);
           intentionalCloseRef.current = false;
-          connectWebSocket(termRef.current, devRef.current, sessionIdRef.current);
+          connectWebSocket(termRef.current, devRef.current, sessionIdRef.current, true);
         }
       }
     };
@@ -307,7 +310,7 @@ export default function TerminalSession() {
   }, [deviceId, user]);
 
   // ── WebSocket ────────────────────────────────────────────────────────
-  const connectWebSocket = async (term: Terminal, dev: Tables<"devices"> | null, sessionId: string) => {
+  const connectWebSocket = async (term: Terminal, dev: Tables<"devices"> | null, sessionId: string, isResume = false) => {
     const relayUrl = import.meta.env.VITE_RELAY_URL || "wss://relay.privaclaw.com";
     if (!relayUrl) { fallbackToStub(term, dev, sessionId); return; }
 
@@ -344,7 +347,12 @@ export default function TerminalSession() {
             setConnectionStatus("online");
             setBgReconnecting(false);
             reconnectDelayRef.current = 1000;
-            ws.send(JSON.stringify({ type: "session_start", data: { session_id: sessionId, cols: term.cols, rows: term.rows } }));
+            // Only send session_start for brand-new sessions — resuming just needs a resize
+            if (isResume) {
+              ws.send(JSON.stringify({ type: "resize", data: { session_id: sessionId, cols: term.cols, rows: term.rows } }));
+            } else {
+              ws.send(JSON.stringify({ type: "session_start", data: { session_id: sessionId, cols: term.cols, rows: term.rows } }));
+            }
             if (pingTimerRef.current) clearInterval(pingTimerRef.current);
             pingTimerRef.current = setInterval(() => {
               if (ws.readyState === WebSocket.OPEN) {
@@ -377,7 +385,7 @@ export default function TerminalSession() {
         setConnectionStatus("connecting");
         reconnectTimerRef.current = setTimeout(() => {
           reconnectTimerRef.current = null;
-          connectWebSocket(term, dev, sessionId);
+          connectWebSocket(term, dev, sessionId, true);
         }, delay);
         reconnectDelayRef.current = Math.min(delay * 2, 30000);
       };
