@@ -77,6 +77,7 @@ const sections: Section[] = [
       { id: "starting-session", title: "Starting a Session" },
       { id: "session-features", title: "Session Features" },
       { id: "reconnection", title: "Reconnection & Resilience" },
+      { id: "mobile-keyboard", title: "Mobile Keyboard" },
       { id: "session-history", title: "Session History" },
     ],
   },
@@ -111,6 +112,8 @@ const sections: Section[] = [
       { id: "protocol-overview", title: "Protocol Overview" },
       { id: "connector-relay-messages", title: "Connector ↔ Relay" },
       { id: "browser-relay-messages", title: "Browser ↔ Relay" },
+      { id: "http-proxy", title: "HTTP Proxy" },
+      { id: "ws-proxy", title: "WebSocket Proxy" },
     ],
   },
   {
@@ -789,14 +792,33 @@ GOOS=linux GOARCH=arm GOARM=7 go build -o relay-connector-pi .`}</CodeBlock>
             <li><strong>Responsive resizing</strong> — Terminal dimensions sync with browser window; resize events forwarded to PTY</li>
             <li><strong>Latency indicator</strong> — Real-time ping/pong measurements shown in the header</li>
             <li><strong>Session resumption</strong> — If you have an active session on a device, it will be automatically resumed</li>
+            <li><strong>Mobile keyboard toolbar</strong> — On touch devices, a toolbar appears above the software keyboard with one-tap keys: Ctrl, Tab, Esc, and arrow keys (↑ ↓ ← →)</li>
+            <li><strong>Reconnecting indicator</strong> — A spinner banner appears in the terminal header when the app returns from background and is re-establishing the WebSocket</li>
           </ul>
 
           <Heading id="reconnection" level={3}>Reconnection & Resilience</Heading>
           <p className="text-sm text-muted-foreground leading-relaxed mb-4">
             If the WebSocket connection drops, the browser automatically reconnects with <strong>exponential backoff</strong>
             (1s → 2s → 4s → 8s → 16s → 30s max). The session is preserved on the relay side, so short disconnections
-            don't lose your shell state. You can also manually reconnect via the toolbar button.
+            don't lose your shell state. You can also manually reconnect via the toolbar button. When the app returns
+            from background (e.g. switching apps on mobile), a <strong>"Reconnecting…"</strong> banner is shown in the
+            terminal header until the relay confirms re-authentication with <code className="text-xs bg-muted px-1 py-0.5 rounded font-mono">auth_ok</code>.
           </p>
+
+          <Heading id="mobile-keyboard" level={3}>Mobile Keyboard</Heading>
+          <p className="text-sm text-muted-foreground leading-relaxed mb-4">
+            On touch devices, a <strong>keyboard toolbar</strong> automatically appears above the software keyboard when it is open.
+            It provides one-tap access to keys that are hard to reach on iOS/Android:
+          </p>
+          <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1 mb-4 ml-2">
+            <li><strong>Ctrl</strong> — toggles sticky Ctrl modifier (highlighted when active); combine with a letter key for Ctrl+C, Ctrl+D, etc.</li>
+            <li><strong>Tab</strong> — shell tab completion</li>
+            <li><strong>Esc</strong> — escape key</li>
+            <li><strong>↑ ↓ ← →</strong> — arrow keys for navigating history and text</li>
+          </ul>
+          <InfoBox variant="tip">
+            The toolbar is pinned to the visual viewport so it always sits just above the keyboard, even on iOS Safari where the viewport geometry behaves differently.
+          </InfoBox>
 
           <Heading id="session-history" level={3}>Session History</Heading>
           <p className="text-sm text-muted-foreground leading-relaxed mb-4">
@@ -1039,6 +1061,26 @@ GOOS=linux GOARCH=arm GOARM=7 go build -o relay-connector-pi .`}</CodeBlock>
 
 // Error
 { "type": "error", "data": { "message": "..." } }`}</CodeBlock>
+
+          <Heading id="http-proxy" level={3}>HTTP Proxy</Heading>
+          <p className="text-sm text-muted-foreground leading-relaxed mb-4">
+            The relay exposes an HTTP proxy endpoint for browsing localhost URLs on a remote device — useful for previewing
+            dev servers without port forwarding.
+          </p>
+          <CodeBlock language="text" copyable={false}>{`GET/POST/... /proxy/:deviceId/:host/:port/path
+Authorization: Bearer <supabase-jwt>`}</CodeBlock>
+          <p className="text-sm text-muted-foreground leading-relaxed mb-2">
+            Internally, the relay sends an <code className="text-xs bg-muted px-1 py-0.5 rounded font-mono">http_request</code> message to the connector, which
+            fetches from its localhost and responds with <code className="text-xs bg-muted px-1 py-0.5 rounded font-mono">http_response</code> (both base64-encoded).
+          </p>
+
+          <Heading id="ws-proxy" level={3}>WebSocket Proxy</Heading>
+          <p className="text-sm text-muted-foreground leading-relaxed mb-4">
+            The relay also tunnels WebSocket connections, enabling HMR/live-reload for remote dev servers. Upgrade
+            the connection to <code className="text-xs bg-muted px-1 py-0.5 rounded font-mono">ws-proxy</code> — auth is via a <code className="text-xs bg-muted px-1 py-0.5 rounded font-mono">token</code> query parameter
+            (WS upgrades cannot send <code className="text-xs bg-muted px-1 py-0.5 rounded font-mono">Authorization</code> headers).
+          </p>
+          <CodeBlock language="text" copyable={false}>{`wss://relay/ws-proxy/:deviceId/:host/:port/path?token=jwt`}</CodeBlock>
 
           <Separator className="my-10" />
 
