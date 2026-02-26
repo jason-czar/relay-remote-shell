@@ -1,4 +1,4 @@
-import { LayoutDashboard, FolderOpen, Settings, LogOut, Sun, Moon, Plug, BookOpen, Columns2 } from "lucide-react";
+import { LayoutDashboard, FolderOpen, Settings, LogOut, Sun, Moon, Plug, BookOpen, Columns2, MessageSquare } from "lucide-react";
 import logo from "@/assets/logo.png";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
@@ -22,6 +22,7 @@ const navItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Projects", url: "/projects", icon: FolderOpen },
   { title: "Multi-Session", url: "/multi-session", icon: Columns2 },
+  { title: "Chat", url: "/chat", icon: MessageSquare },
   { title: "PrivaClaw", url: "/skill/privaclaw", icon: Plug },
   { title: "Docs", url: "/docs", icon: BookOpen },
   { title: "Settings", url: "/settings", icon: Settings },
