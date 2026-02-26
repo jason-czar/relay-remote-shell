@@ -274,36 +274,81 @@ export default function Chat() {
       const command = await buildCommand(text, convId);
       const stdout = await sendViaRelay(command);
 
-      // parse response
-      let responseText = stdout.trim();
+      // 1. Strip ANSI / terminal escape codes
+      const stripAnsi = (s: string) => s.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, "").replace(/\x1b\][^\x07]*\x07/g, "");
+      const cleaned = stripAnsi(stdout);
 
-      // try to parse JSON for openclaw
       const { data: convData } = await supabase
         .from("chat_conversations")
-        .select("agent, claude_session_id")
+        .select("agent, openclaw_session_id, claude_session_id")
         .eq("id", convId)
         .single();
 
+      let responseText = "";
+
       if (convData?.agent === "openclaw") {
+        // Try to find and parse the last JSON object in stdout (--json output)
         try {
-          // find last JSON object in stdout
-          const jsonMatch = stdout.match(/\{[\s\S]*\}/g);
+          const jsonMatch = cleaned.match(/\{[\s\S]*?\}/g);
           if (jsonMatch) {
-            const parsed = JSON.parse(jsonMatch[jsonMatch.length - 1]);
-            if (parsed.content || parsed.message || parsed.response || parsed.text) {
-              responseText = parsed.content ?? parsed.message ?? parsed.response ?? parsed.text;
+            for (let i = jsonMatch.length - 1; i >= 0; i--) {
+              try {
+                const parsed = JSON.parse(jsonMatch[i]);
+                const text = parsed.content ?? parsed.message ?? parsed.response ?? parsed.text ?? parsed.result;
+                if (text) { responseText = String(text); break; }
+              } catch { /* try next */ }
             }
           }
-        } catch { /* use raw stdout */ }
-      } else if (convData?.agent === "claude" && !convData.claude_session_id) {
-        const claudeId = extractClaudeSessionId(stdout);
-        if (claudeId) {
-          await supabase.from("chat_conversations").update({ claude_session_id: claudeId }).eq("id", convId);
+        } catch { /* fall through */ }
+
+        // Fallback: strip shell noise lines
+        if (!responseText) {
+          responseText = cleaned
+            .split("\n")
+            .filter((line) => {
+              const t = line.trim();
+              if (!t) return false;
+              // skip shell prompt lines, command echo lines, "Restored session" header
+              if (/^Restored session:/i.test(t)) return false;
+              if (/^openclaw\s+agent/i.test(t)) return false;
+              if (/^claude\s+(-p|-c)/i.test(t)) return false;
+              if (/^\[[\d;]+[mhfA-Z]/.test(t)) return false; // leftover escape fragments
+              if (/^[\$%#>]\s/.test(t)) return false;        // shell prompt
+              if (/\$\s*(openclaw|claude)/i.test(t)) return false;
+              return true;
+            })
+            .join("\n")
+            .trim();
+        }
+      } else {
+        // Claude: strip the command echo, shell prompt lines, and "Restored session" header
+        const lines = cleaned.split("\n");
+        const filteredLines: string[] = [];
+        let pastHeader = false;
+        for (const line of lines) {
+          const t = line.trim();
+          if (!pastHeader) {
+            if (/^Restored session:/i.test(t)) continue;
+            if (/^claude\s+(-p|-c)/i.test(t)) { pastHeader = true; continue; }
+            if (/^\[[\d;]+[mhfA-Z]/.test(t)) continue;
+            if (/^[\$%#>]\s/.test(t)) continue;
+          }
+          if (/^[\$%#>]\s/.test(t)) continue; // shell prompts after content too
+          if (/^claude\s+(-p|-c)/i.test(t)) continue;
+          filteredLines.push(line);
+        }
+        responseText = filteredLines.join("\n").trim();
+
+        // Extract & persist Claude session ID if not yet stored
+        if (!convData?.claude_session_id) {
+          const claudeId = extractClaudeSessionId(stdout);
+          if (claudeId) {
+            await supabase.from("chat_conversations").update({ claude_session_id: claudeId }).eq("id", convId);
+          }
         }
       }
 
-      // strip ANSI escape codes for display
-      responseText = responseText.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, "").trim() || stdout.trim();
+      responseText = responseText || "(empty response)";
 
       const assistantMsg: Message = { role: "assistant", content: responseText || "(empty response)" };
       setMessages((prev) => [...prev, assistantMsg]);
