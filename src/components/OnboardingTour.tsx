@@ -2,8 +2,11 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { X, ArrowRight, ArrowLeft, FolderOpen, Monitor, Link2, Terminal, Sparkles } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 const TOUR_KEY = "relay-onboarding-complete";
+// Accounts created more than 5 minutes ago are considered returning users
+const NEW_ACCOUNT_THRESHOLD_MS = 5 * 60 * 1000;
 
 interface TourStep {
   title: string;
@@ -66,11 +69,21 @@ export function OnboardingTour() {
 
   useEffect(() => {
     const done = localStorage.getItem(TOUR_KEY);
-    if (!done) {
-      // Small delay so dashboard renders first
+    if (done) return;
+
+    // Only show to brand-new users (account created within the last 5 minutes)
+    supabase.auth.getUser().then(({ data }) => {
+      const createdAt = data?.user?.created_at;
+      if (!createdAt) return;
+      const ageMs = Date.now() - new Date(createdAt).getTime();
+      if (ageMs > NEW_ACCOUNT_THRESHOLD_MS) {
+        // Returning user — silently mark as done so it never shows again
+        localStorage.setItem(TOUR_KEY, "true");
+        return;
+      }
       const t = setTimeout(() => setActive(true), 800);
       return () => clearTimeout(t);
-    }
+    });
   }, []);
 
   const updateHighlight = useCallback(() => {
