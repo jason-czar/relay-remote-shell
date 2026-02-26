@@ -3,17 +3,11 @@ import { AppLayout } from "@/components/AppLayout";
 import { ChatMessage } from "@/components/ChatMessage";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Send, Monitor } from "lucide-react";
+import { Send, ChevronDown } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { Tables } from "@/integrations/supabase/types";
 import { useChatContext } from "@/contexts/ChatContext";
 
@@ -537,25 +531,41 @@ export default function Chat() {
                   </span>
                 ) : null;
               })()}
-              <Monitor className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0" />
-              <Select value={selectedDeviceId} onValueChange={setSelectedDeviceId}>
-                <SelectTrigger className="h-7 text-xs w-36 border-border/40 bg-transparent shadow-none">
-                  <SelectValue placeholder="Select device…" />
-                </SelectTrigger>
-                <SelectContent>
-                  {devices.length === 0 && (
-                    <SelectItem value="_none" disabled>No devices found</SelectItem>
+              {/* Device pill */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all duration-150 border border-border/40 bg-muted/30 hover:bg-muted/60 hover:border-border/70 text-foreground/70 hover:text-foreground">
+                    {(() => {
+                      const dev = devices.find(d => d.id === selectedDeviceId);
+                      return dev ? (
+                        <>
+                          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${dev.status === "online" ? "bg-status-online animate-pulse" : "bg-muted-foreground/40"}`} />
+                          <span className="max-w-[120px] truncate">{dev.name}</span>
+                        </>
+                      ) : (
+                        <span className="text-muted-foreground/50">No device</span>
+                      );
+                    })()}
+                    <ChevronDown className="h-3 w-3 shrink-0 opacity-50" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-48 p-1">
+                  {devices.length === 0 ? (
+                    <p className="text-xs text-muted-foreground px-2 py-1.5">No devices found</p>
+                  ) : (
+                    devices.map((d) => (
+                      <button
+                        key={d.id}
+                        onClick={() => setSelectedDeviceId(d.id)}
+                        className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs transition-colors ${selectedDeviceId === d.id ? "bg-accent text-accent-foreground font-medium" : "hover:bg-muted text-foreground/80"}`}
+                      >
+                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${d.status === "online" ? "bg-status-online" : "bg-muted-foreground/40"}`} />
+                        <span className="truncate">{d.name}</span>
+                      </button>
+                    ))
                   )}
-                  {devices.map((d) => (
-                    <SelectItem key={d.id} value={d.id}>
-                      <span className="flex items-center gap-2">
-                        <span className={`inline-block w-1.5 h-1.5 rounded-full ${d.status === "online" ? "bg-status-online" : "bg-muted-foreground/40"}`} />
-                        {d.name}
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
 
