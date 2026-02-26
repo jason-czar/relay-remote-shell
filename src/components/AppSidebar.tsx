@@ -1,13 +1,13 @@
 import {
   LayoutDashboard, FolderOpen, Settings, LogOut, Sun, Moon, Plug, BookOpen,
-  Columns2, MessageSquare, ChevronDown, Plus, Search, Trash2, User
+  Columns2, MessageSquare, ChevronDown, Plus, Search, Trash2, User, Pencil, Check, X
 } from "lucide-react";
 import logo from "@/assets/logo.png";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import { useTheme } from "next-themes";
 import { useNavigate, useLocation } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { useChatContext } from "@/contexts/ChatContext";
@@ -47,7 +47,24 @@ export function AppSidebar() {
   const [convOpen, setConvOpen] = useState(true);
   const [search, setSearch] = useState("");
   const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState("");
+  const editInputRef = useRef<HTMLInputElement>(null);
   const [displayName, setDisplayName] = useState<string | null>(null);
+
+  const startEdit = (e: React.MouseEvent, id: string, title: string) => {
+    e.stopPropagation();
+    setEditingId(id);
+    setEditValue(title);
+    setTimeout(() => editInputRef.current?.focus(), 0);
+  };
+
+  const commitEdit = () => {
+    if (editingId && editValue.trim()) handleRename(editingId, editValue.trim());
+    setEditingId(null);
+  };
+
+  const cancelEdit = () => setEditingId(null);
 
   useEffect(() => {
     if (!user) return;
@@ -59,7 +76,7 @@ export function AppSidebar() {
       .then(({ data }) => { if (data?.display_name) setDisplayName(data.display_name); });
   }, [user]);
 
-  const { conversations, activeConvId, setActiveConvId, handleDelete, handleNew, activeJobs } = useChatContext();
+  const { conversations, activeConvId, setActiveConvId, handleDelete, handleNew, handleRename, activeJobs } = useChatContext();
 
   const filtered = conversations.filter((c) =>
     c.title.toLowerCase().includes(search.toLowerCase())
@@ -147,7 +164,7 @@ export function AppSidebar() {
                               ? "bg-accent/80 text-foreground"
                               : "text-muted-foreground/70 hover:bg-accent/40 hover:text-foreground"
                           )}
-                          onClick={() => { setActiveConvId(conv.id); navigate("/chat"); }}
+                          onClick={() => { if (editingId !== conv.id) { setActiveConvId(conv.id); navigate("/chat"); } }}
                           onMouseEnter={() => setHoveredId(conv.id)}
                           onMouseLeave={() => setHoveredId(null)}
                         >
@@ -155,28 +172,64 @@ export function AppSidebar() {
                           {activeConvId === conv.id && (
                             <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-4 rounded-r-full bg-primary" />
                           )}
-                          <span className="flex-1 truncate text-sm leading-snug">{conv.title}</span>
-                          {activeJobs.has(conv.id) ? (
-                            <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-primary animate-pulse" title="Running…" />
+
+                          {editingId === conv.id ? (
+                            /* Inline rename */
+                            <div className="flex items-center gap-1 flex-1 min-w-0" onClick={e => e.stopPropagation()}>
+                              <input
+                                ref={editInputRef}
+                                value={editValue}
+                                onChange={e => setEditValue(e.target.value)}
+                                onKeyDown={e => {
+                                  if (e.key === "Enter") commitEdit();
+                                  if (e.key === "Escape") cancelEdit();
+                                }}
+                                onBlur={commitEdit}
+                                className="flex-1 min-w-0 bg-background/60 border border-primary/40 rounded px-1.5 py-0.5 text-sm text-foreground outline-none focus:border-primary/80 transition-colors"
+                              />
+                              <button onMouseDown={e => { e.preventDefault(); commitEdit(); }} className="p-0.5 rounded text-primary hover:bg-primary/10" title="Save">
+                                <Check className="h-3 w-3" />
+                              </button>
+                              <button onMouseDown={e => { e.preventDefault(); cancelEdit(); }} className="p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-accent/60" title="Cancel">
+                                <X className="h-3 w-3" />
+                              </button>
+                            </div>
                           ) : (
-                            <span className={cn(
-                              "shrink-0 text-[9px] font-mono font-semibold px-1 py-0.5 rounded",
-                              conv.agent === "openclaw"
-                                ? "text-primary bg-primary/10"
-                                : "text-muted-foreground/50 bg-muted/50"
-                            )}>
-                              {conv.agent === "openclaw" ? "OC" : "CC"}
-                            </span>
+                            <>
+                              <span className="flex-1 truncate text-sm leading-snug">{conv.title}</span>
+                              {activeJobs.has(conv.id) ? (
+                                <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-primary animate-pulse" title="Running…" />
+                              ) : (
+                                <span className={cn(
+                                  "shrink-0 text-[9px] font-mono font-semibold px-1 py-0.5 rounded",
+                                  conv.agent === "openclaw"
+                                    ? "text-primary bg-primary/10"
+                                    : "text-muted-foreground/50 bg-muted/50"
+                                )}>
+                                  {conv.agent === "openclaw" ? "OC" : "CC"}
+                                </span>
+                              )}
+                              <div className={cn(
+                                "shrink-0 flex items-center gap-0.5 transition-opacity",
+                                hoveredId === conv.id ? "opacity-100" : "opacity-0 pointer-events-none"
+                              )}>
+                                <button
+                                  className="p-0.5 rounded hover:text-foreground hover:bg-accent/60 transition-colors"
+                                  onClick={e => startEdit(e, conv.id, conv.title)}
+                                  title="Rename"
+                                >
+                                  <Pencil className="h-3 w-3" />
+                                </button>
+                                <button
+                                  className="p-0.5 rounded hover:text-destructive hover:bg-destructive/10 transition-colors"
+                                  onClick={e => { e.stopPropagation(); handleDelete(conv.id); }}
+                                  title="Delete"
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </button>
+                              </div>
+                            </>
                           )}
-                          <button
-                            className={cn(
-                              "shrink-0 p-0.5 rounded hover:text-destructive transition-all",
-                              hoveredId === conv.id ? "opacity-100" : "opacity-0 pointer-events-none"
-                            )}
-                            onClick={e => { e.stopPropagation(); handleDelete(conv.id); }}
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </button>
                         </div>
                       ))}
                     </div>
