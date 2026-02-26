@@ -3,7 +3,7 @@
 > Machine-readable documentation for AI agents and bots.
 > Full version with all source documents: /llms-full.txt
 > Human-friendly docs available at: https://privaclaw.com/docs
-> Last updated: 2025-02-24
+> Last updated: 2026-02-26
 
 ---
 
@@ -214,10 +214,16 @@ Status updates via Supabase Realtime subscriptions. Connector connects → statu
 - Responsive resizing (synced to browser window)
 - Latency indicator (ping/pong measurements)
 - Session resumption for active sessions
+- **Mobile keyboard toolbar** — visible above the software keyboard on touch devices with one-tap keys: Ctrl (sticky), Tab, Esc, ↑ ↓ ← →
+- **Reconnecting indicator** — spinner banner shown in terminal header when the app returns from background and re-establishes the WebSocket; dismissed automatically on `auth_ok`
 
 ### Reconnection & Resilience
 
-Automatic reconnection with exponential backoff: 1s → 2s → 4s → 8s → 16s → 30s max. Session preserved on relay side. Manual reconnect via toolbar.
+Automatic reconnection with exponential backoff: 1s → 2s → 4s → 8s → 16s → 30s max. Session preserved on relay side. Manual reconnect via toolbar. When returning from background (e.g. switching apps on mobile), a "Reconnecting…" banner appears until the relay confirms re-auth.
+
+### Mobile Keyboard
+
+On touch devices, a toolbar appears above the software keyboard with: **Ctrl** (sticky modifier — combine with a letter for Ctrl+C, Ctrl+D, etc.), **Tab** (shell completion), **Esc**, and arrow keys (**↑ ↓ ← →**). The toolbar is pinned to the `visualViewport` so it stays above the keyboard on iOS Safari. All key sequences use UTF-8-safe base64 encoding.
 
 ### Session History
 
@@ -388,6 +394,27 @@ All messages use JSON envelope: `{ "type": "message_type", "data": { ... } }`
 // Error
 { "type": "error", "data": { "message": "..." } }
 ```
+
+### HTTP Proxy
+
+The relay exposes an HTTP proxy endpoint for browsing localhost URLs on a remote device (e.g., previewing a dev server running on port 3000):
+
+```
+GET/POST/... /proxy/:deviceId/:host/:port/path
+Authorization: Bearer <supabase-jwt>
+```
+
+The relay sends an `http_request` message to the connector; the connector fetches from its localhost and responds with `http_response` (body base64-encoded).
+
+### WebSocket Proxy
+
+Tunnels WebSocket connections from the browser to the remote device's localhost — enables HMR/live-reload for dev servers. Auth is via `token` query parameter (WS upgrades cannot send `Authorization` headers):
+
+```
+wss://relay/ws-proxy/:deviceId/:host/:port/path?token=jwt
+```
+
+Messages: `ws_open` / `ws_opened` (handshake), `ws_frame` (bidirectional data), `ws_close`, `ws_error`.
 
 ---
 
