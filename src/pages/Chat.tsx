@@ -156,18 +156,10 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
     <div className="relative">
       {/* Slash command palette */}
       {showSlash && (
-        <div
-          className="absolute bottom-full mb-2 left-0 right-0 rounded-xl overflow-hidden z-30"
-          style={{
-            background: "rgba(18,18,24,0.92)",
-            backdropFilter: "blur(20px)",
-            border: "1px solid rgba(255,255,255,0.12)",
-            boxShadow: "0 -4px 32px rgba(0,0,0,0.4)",
-          }}
-        >
-          <div className="px-3 pt-2.5 pb-1 flex items-center gap-1.5 border-b border-white/[0.06]">
-            <span className="text-[10px] font-semibold text-primary/80 uppercase tracking-wider">Commands</span>
-            <span className="text-[10px] text-muted-foreground/40">· Tab or Enter to select · Esc to dismiss</span>
+        <div className="absolute bottom-full mb-2 left-0 right-0 rounded-xl overflow-hidden z-30 bg-popover border border-border shadow-xl">
+          <div className="px-3 pt-2.5 pb-1.5 flex items-center gap-2 border-b border-border/60">
+            <span className="text-[10px] font-semibold text-primary uppercase tracking-wider">Commands</span>
+            <span className="text-[10px] text-muted-foreground/50">Tab or Enter to select · Esc to dismiss</span>
           </div>
           {filteredCmds.map((cmd, i) => (
             <button
@@ -175,15 +167,9 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
               type="button"
               onMouseDown={(e) => { e.preventDefault(); setInput(""); onSlashCommand(cmd); }}
               onMouseEnter={() => setSlashIdx(i)}
-              className="w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors"
-              style={{
-                background: i === slashIdx ? "rgba(255,255,255,0.07)" : "transparent",
-              }}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors ${i === slashIdx ? "bg-accent" : "hover:bg-accent/50"}`}
             >
-              <span
-                className="shrink-0 w-6 h-6 rounded-md flex items-center justify-center text-xs font-bold font-mono"
-                style={{ background: "hsl(var(--primary) / 0.15)", color: "hsl(var(--primary))" }}
-              >
+              <span className="shrink-0 w-6 h-6 rounded-md bg-primary/10 text-primary flex items-center justify-center text-xs font-bold font-mono">
                 /
               </span>
               <div className="min-w-0 flex-1">
@@ -191,112 +177,105 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
                 <span className="text-xs text-muted-foreground ml-2">{cmd.description}</span>
               </div>
               {i === slashIdx && (
-                <kbd className="shrink-0 text-[10px] text-muted-foreground/50 border border-white/10 rounded px-1.5 py-0.5">↵</kbd>
+                <kbd className="shrink-0 text-[10px] text-muted-foreground border border-border rounded px-1.5 py-0.5">↵</kbd>
               )}
             </button>
           ))}
         </div>
       )}
 
-    <div
-      className="flex flex-col rounded-2xl p-1.5 transition-all duration-300"
-      style={{
-        background: "rgba(255,255,255,0.05)",
-        backdropFilter: "blur(24px) saturate(180%)",
-        WebkitBackdropFilter: "blur(24px) saturate(180%)",
-        border: focused
-          ? "1px solid rgba(255,255,255,0.22)"
-          : "1px solid rgba(255,255,255,0.10)",
-        boxShadow: focused
-          ? "0 8px 40px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.10), 0 0 0 3px hsl(var(--primary) / 0.15), 0 0 24px hsl(var(--primary) / 0.08)"
-          : "0 4px 24px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.06)",
-      }}
-    >
-      {/* File attachment chips */}
-      {attachedFiles.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 px-2 pt-1.5 pb-1">
-          {attachedFiles.map((f, i) => (
-            <div
-              key={i}
-              className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs max-w-[180px]"
-              style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.14)" }}
-            >
-              {isImage(f.type) ? (
-                <Image className="h-3 w-3 text-primary shrink-0" />
-              ) : (
-                <FileText className="h-3 w-3 text-primary shrink-0" />
-              )}
-              <span className="truncate text-foreground/80">{f.name}</span>
-              <span className="text-muted-foreground shrink-0">
-                {f.size < 1024 ? `${f.size}B` : `${(f.size / 1024).toFixed(0)}K`}
-              </span>
-              <button
-                onClick={() => onRemoveFile(i)}
-                className="shrink-0 hover:text-destructive transition-colors ml-0.5"
+      {/* Composer shell */}
+      <div
+        className="flex flex-col rounded-2xl transition-all duration-200 bg-card border"
+        style={{
+          borderColor: focused
+            ? "hsl(var(--primary) / 0.5)"
+            : "hsl(var(--border))",
+          boxShadow: focused
+            ? "0 0 0 3px hsl(var(--primary) / 0.10), 0 4px 24px hsl(var(--background) / 0.6)"
+            : "0 2px 12px hsl(var(--background) / 0.4)",
+        }}
+      >
+        {/* File attachment chips */}
+        {attachedFiles.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 px-3 pt-3 pb-0">
+            {attachedFiles.map((f, i) => (
+              <div
+                key={i}
+                className="flex items-center gap-1.5 rounded-lg bg-muted border border-border px-2 py-1 text-xs max-w-[180px]"
               >
-                <X className="h-3 w-3" />
-              </button>
-            </div>
-          ))}
+                {isImage(f.type) ? (
+                  <Image className="h-3 w-3 text-primary shrink-0" />
+                ) : (
+                  <FileText className="h-3 w-3 text-primary shrink-0" />
+                )}
+                <span className="truncate text-foreground/80">{f.name}</span>
+                <span className="text-muted-foreground shrink-0">
+                  {f.size < 1024 ? `${f.size}B` : `${(f.size / 1024).toFixed(0)}K`}
+                </span>
+                <button
+                  onClick={() => onRemoveFile(i)}
+                  className="shrink-0 text-muted-foreground hover:text-destructive transition-colors"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Input row */}
+        <div className="flex items-end gap-1 p-1.5">
+          {/* Attach button */}
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={disabled}
+            className="shrink-0 h-9 w-9 rounded-xl flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent transition-all duration-150 disabled:opacity-30 disabled:cursor-not-allowed"
+            title="Attach file"
+          >
+            <Paperclip className="h-3.5 w-3.5" />
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            className="hidden"
+            onChange={(e) => e.target.files && onFileSelect(e.target.files)}
+          />
+
+          <Textarea
+            ref={textareaRef}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleSlashKeyDown}
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
+            placeholder={placeholder}
+            disabled={disabled}
+            rows={1}
+            style={{ height: "40px", overflowY: "hidden" }}
+            className="resize-none text-sm min-h-[40px] max-h-[200px] flex-1 bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none px-2 py-2.5 overflow-y-auto placeholder:text-muted-foreground/50"
+          />
+
+          {/* Send button */}
+          <button
+            onClick={onSend}
+            disabled={sendDisabled}
+            className={`shrink-0 h-9 w-9 rounded-xl flex items-center justify-center transition-all duration-150 ${
+              sendDisabled
+                ? "text-muted-foreground/30 cursor-not-allowed"
+                : "bg-primary text-primary-foreground hover:bg-primary/90 active:scale-95 shadow-sm"
+            }`}
+          >
+            <Send className="h-3.5 w-3.5" />
+          </button>
         </div>
-      )}
-
-      {/* Input row */}
-      <div className="flex items-end gap-1">
-        {/* Attach button */}
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={disabled}
-          className="shrink-0 h-9 w-9 rounded-xl flex items-center justify-center transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed hover:scale-105 active:scale-95 ml-0.5"
-          style={{
-            background: "rgba(255,255,255,0.06)",
-            border: "1px solid rgba(255,255,255,0.10)",
-            color: "hsl(var(--muted-foreground))",
-          }}
-          title="Attach file"
-        >
-          <Paperclip className="h-3.5 w-3.5" />
-        </button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          multiple
-          className="hidden"
-          onChange={(e) => e.target.files && onFileSelect(e.target.files)}
-        />
-
-        <Textarea
-          ref={textareaRef}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={handleSlashKeyDown}
-          onFocus={() => setFocused(true)}
-          onBlur={() => setFocused(false)}
-          placeholder={placeholder}
-          disabled={disabled}
-          rows={1}
-          style={{ height: "40px", overflowY: "hidden" }}
-          className="resize-none text-sm min-h-[40px] max-h-[200px] flex-1 bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none px-3 py-2.5 overflow-y-auto"
-        />
-        <button
-          onClick={onSend}
-          disabled={sendDisabled}
-          className="shrink-0 h-9 w-9 rounded-xl flex items-center justify-center transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed hover:scale-105 active:scale-95"
-          style={{
-            background: sendDisabled ? "rgba(255,255,255,0.06)" : "hsl(var(--primary))",
-            border: sendDisabled ? "1px solid rgba(255,255,255,0.08)" : "1px solid hsl(var(--primary))",
-            boxShadow: sendDisabled ? "none" : "0 2px 12px hsl(var(--primary) / 0.45), inset 0 1px 0 rgba(255,255,255,0.2)",
-            color: sendDisabled ? "rgba(255,255,255,0.3)" : "hsl(var(--primary-foreground))",
-          }}
-        >
-          <Send className="h-3.5 w-3.5" />
-        </button>
       </div>
-    </div>
     </div>
   );
 }
+
 export default function Chat() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -1103,8 +1082,8 @@ export default function Chat() {
                 agent={agent}
                 onSlashCommand={handleSlashCommand}
               />
-              <p className="text-center text-[10px] text-muted-foreground/30 mt-2">
-                Enter to send · Shift+Enter for newline · Type <kbd className="font-mono">/</kbd> for commands
+              <p className="text-center text-[10px] text-muted-foreground/40 mt-2 select-none">
+                Enter to send · Shift+Enter for newline · <span className="font-mono">/</span> for commands
               </p>
             </div>
           </div>
