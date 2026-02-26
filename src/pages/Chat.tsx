@@ -39,6 +39,25 @@ interface RelayMsg {
 const RELAY_TIMEOUT_MS = 60000;
 const SILENCE_MS = 8000;
 
+// ── Agent models ─────────────────────────────────────────────────────────────
+export interface AgentModel {
+  id: string;
+  label: string;
+  description: string;
+}
+
+export const OPENCLAW_MODELS: AgentModel[] = [
+  { id: "claude-opus-4-5", label: "claude-opus-4-5", description: "Most capable" },
+  { id: "claude-sonnet-4-5", label: "claude-sonnet-4-5", description: "Balanced" },
+  { id: "claude-haiku-4-5", label: "claude-haiku-4-5", description: "Fast & compact" },
+];
+
+export const CLAUDE_MODELS: AgentModel[] = [
+  { id: "claude-opus-4-5", label: "claude-opus-4-5", description: "Most capable" },
+  { id: "claude-sonnet-4-5", label: "claude-sonnet-4-5", description: "Balanced" },
+  { id: "claude-haiku-4-5", label: "claude-haiku-4-5", description: "Fast & compact" },
+];
+
 // ── Slash commands ───────────────────────────────────────────────────────────
 interface SlashCommand {
   name: string;
@@ -111,11 +130,13 @@ interface ComposerBoxProps {
   onRemoveFile: (idx: number) => void;
   onFileSelect: (files: FileList) => void;
   agent: "openclaw" | "claude";
+  model: string;
   onSlashCommand: (cmd: SlashCommand) => void;
   onAgentChange: (agent: "openclaw" | "claude") => void;
+  onModelChange: (model: string) => void;
 }
 
-function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, onSend, disabled, sendDisabled, placeholder, attachedFiles, onRemoveFile, onFileSelect, agent, onSlashCommand, onAgentChange }: ComposerBoxProps) {
+function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, onSend, disabled, sendDisabled, placeholder, attachedFiles, onRemoveFile, onFileSelect, agent, model, onSlashCommand, onAgentChange, onModelChange }: ComposerBoxProps) {
   const [focused, setFocused] = useState(false);
   const [slashIdx, setSlashIdx] = useState(0);
   const [isDictating, setIsDictating] = useState(false);
@@ -269,7 +290,7 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
           </div>
         )}
 
-        {/* Agent selector dropdown */}
+        {/* Agent + model selector dropdown */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
@@ -277,34 +298,78 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
               className="shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-full bg-muted/60 text-xs font-medium text-muted-foreground border border-border/40 hover:bg-accent/60 hover:text-foreground hover:border-border/60 transition-all duration-150 select-none"
             >
               {agent === "openclaw" ? (
-                <><span className="text-primary">⬡</span> OpenClaw</>
+                <span className="text-primary">⬡</span>
               ) : (
-                <><span className="text-warning">✦</span> Claude</>
+                <span className="text-warning">✦</span>
               )}
+              <span className="max-w-[120px] truncate">{model}</span>
               <ChevronDown size={11} className="opacity-50 ml-0.5" />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="min-w-[160px]">
-            <DropdownMenuItem
-              onSelect={() => onAgentChange("openclaw")}
-              className={cn("flex items-center gap-2 cursor-pointer", agent === "openclaw" && "bg-accent")}
-            >
-              <span className="text-primary text-base">⬡</span>
-              <div>
-                <div className="font-medium">OpenClaw</div>
-                <div className="text-xs text-muted-foreground">Local AI agent</div>
-              </div>
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onSelect={() => onAgentChange("claude")}
-              className={cn("flex items-center gap-2 cursor-pointer", agent === "claude" && "bg-accent")}
-            >
-              <span className="text-warning text-base">✦</span>
-              <div>
-                <div className="font-medium">Claude Code</div>
-                <div className="text-xs text-muted-foreground">Anthropic</div>
-              </div>
-            </DropdownMenuItem>
+          <DropdownMenuContent align="end" className="min-w-[220px]">
+            {/* OpenClaw section */}
+            <div className="px-2 py-1.5">
+              <button
+                className={cn(
+                  "w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-left transition-colors",
+                  agent === "openclaw" ? "text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-accent/40"
+                )}
+                onClick={() => onAgentChange("openclaw")}
+              >
+                <span className="text-primary text-base leading-none">⬡</span>
+                <div>
+                  <div className="text-xs font-semibold">OpenClaw</div>
+                  <div className="text-[10px] text-muted-foreground">Local AI agent</div>
+                </div>
+              </button>
+              {agent === "openclaw" && OPENCLAW_MODELS.map((m) => (
+                <button
+                  key={m.id}
+                  onClick={() => onModelChange(m.id)}
+                  className={cn(
+                    "w-full flex items-center justify-between px-3 py-1.5 ml-4 rounded-md text-xs transition-colors",
+                    model === m.id
+                      ? "bg-primary/10 text-primary font-medium"
+                      : "text-muted-foreground hover:bg-accent/40 hover:text-foreground"
+                  )}
+                >
+                  <span className="font-mono">{m.label}</span>
+                  <span className="text-[10px] opacity-60">{m.description}</span>
+                </button>
+              ))}
+            </div>
+            <div className="border-t border-border/30 my-1" />
+            {/* Claude Code section */}
+            <div className="px-2 py-1.5">
+              <button
+                className={cn(
+                  "w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-left transition-colors",
+                  agent === "claude" ? "text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-accent/40"
+                )}
+                onClick={() => onAgentChange("claude")}
+              >
+                <span className="text-warning text-base leading-none">✦</span>
+                <div>
+                  <div className="text-xs font-semibold">Claude Code</div>
+                  <div className="text-[10px] text-muted-foreground">Anthropic</div>
+                </div>
+              </button>
+              {agent === "claude" && CLAUDE_MODELS.map((m) => (
+                <button
+                  key={m.id}
+                  onClick={() => onModelChange(m.id)}
+                  className={cn(
+                    "w-full flex items-center justify-between px-3 py-1.5 ml-4 rounded-md text-xs transition-colors",
+                    model === m.id
+                      ? "bg-warning/10 text-warning font-medium"
+                      : "text-muted-foreground hover:bg-accent/40 hover:text-foreground"
+                  )}
+                >
+                  <span className="font-mono">{m.label}</span>
+                  <span className="text-[10px] opacity-60">{m.description}</span>
+                </button>
+              ))}
+            </div>
           </DropdownMenuContent>
         </DropdownMenu>
 
@@ -360,6 +425,7 @@ export default function Chat() {
   // ── State ──────────────────────────────────────────────────────────────
   const [messages, setMessages] = useState<Message[]>([]);
   const [agent, setAgent] = useState<"openclaw" | "claude">("openclaw");
+  const [model, setModel] = useState<string>(OPENCLAW_MODELS[1].id);
   const [devices, setDevices] = useState<Tables<"devices">[]>([]);
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>("");
   const [input, setInput] = useState("");
@@ -418,7 +484,11 @@ export default function Chat() {
       });
     // also set agent from conversation
     const conv = conversations.find((c) => c.id === activeConvId);
-    if (conv) setAgent(conv.agent as "openclaw" | "claude");
+    if (conv) {
+      const a = conv.agent as "openclaw" | "claude";
+      setAgent(a);
+      setModel(a === "openclaw" ? OPENCLAW_MODELS[1].id : CLAUDE_MODELS[1].id);
+    }
   }, [activeConvId]);
 
   // ── Reload messages when a background job for the active conv finishes ──
@@ -893,7 +963,7 @@ export default function Chat() {
       setAgentSwitchPending(newAgent);
     } else {
       setAgent(newAgent);
-      // Persist agent to existing conversation if one is active (no messages yet)
+      setModel(newAgent === "openclaw" ? OPENCLAW_MODELS[1].id : CLAUDE_MODELS[1].id);
       if (activeConvId) {
         supabase.from("chat_conversations").update({ agent: newAgent }).eq("id", activeConvId);
         setConversations((prev) => prev.map((c) => c.id === activeConvId ? { ...c, agent: newAgent } : c));
@@ -1243,8 +1313,15 @@ export default function Chat() {
                 onRemoveFile={(i) => setAttachedFiles((prev) => prev.filter((_, idx) => idx !== i))}
                 onFileSelect={processFiles}
                 agent={agent}
+                model={model}
                 onSlashCommand={handleSlashCommand}
                 onAgentChange={handleAgentChange}
+                onModelChange={(m) => {
+                  setModel(m);
+                  if (activeConvId) {
+                    supabase.from("chat_conversations").update({ agent }).eq("id", activeConvId);
+                  }
+                }}
               />
               <p className="text-center text-[10px] text-muted-foreground/40 mt-2 select-none">
                 Enter to send · Shift+Enter for newline · <span className="font-mono">/</span> for commands
@@ -1268,6 +1345,7 @@ export default function Chat() {
               <AlertDialogCancel>Cancel</AlertDialogCancel>
               <AlertDialogAction onClick={() => {
                 setAgent(agentSwitchPending!);
+                setModel(agentSwitchPending === "openclaw" ? OPENCLAW_MODELS[1].id : CLAUDE_MODELS[1].id);
                 setAgentSwitchPending(null);
                 setActiveConvId(null);
                 handleNew();
