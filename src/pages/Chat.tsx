@@ -172,9 +172,13 @@ export default function Chat() {
       const resetSilence = () => {
         if (silenceTimer) clearTimeout(silenceTimer);
         silenceTimer = setTimeout(() => {
-          // For OpenClaw: only resolve on silence if we've received JSON content
-          // otherwise keep waiting (hard timeout will catch runaway cases)
+          // For OpenClaw: only resolve on silence if JSON has started
+          // For Claude: only resolve if there's non-noise content (letters/digits beyond just control sequences)
           if (isOpenClaw && !outputBuffer.includes("{")) return;
+          if (!isOpenClaw) {
+            const stripped = outputBuffer.replace(/\x1b[\s\S]{1,10}/g, "").replace(/[%$#>\[\]?;=\r\n\s]/g, "");
+            if (stripped.length < 5) return; // still just terminal init noise
+          }
           finish(outputBuffer);
         }, SILENCE_MS);
       };
@@ -282,9 +286,26 @@ export default function Chat() {
       // Debug: log raw stdout so we can inspect the payload shape
       console.debug("[Chat] raw stdout:", stdout);
 
-      // Strip ANSI / terminal escape codes
+      // Strip ANSI / terminal escape codes comprehensively
       const stripAnsi = (s: string) =>
-        s.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, "").replace(/\x1b\][^\x07]*\x07/g, "");
+        s
+          // OSC sequences: ESC ] ... ST (where ST is BEL \x07 or ESC \)
+          .replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, "")
+          // CSI sequences: ESC [ ... final byte
+          .replace(/\x1b\[[\x30-\x3f]*[\x20-\x2f]*[\x40-\x7e]/g, "")
+          // DCS / PM / APC sequences
+          .replace(/\x1b[PX^_].*?\x1b\\/g, "")
+          // Single-char ESC sequences
+          .replace(/\x1b[^[\]PX^_]/g, "")
+          // Bare ESC
+          .replace(/\x1b/g, "")
+          // Remove leftover bracket sequences that weren't caught (e.g. [?1004l after ESC was stripped)
+          .replace(/\[[\d;?<>!]*[a-zA-Z]/g, "")
+          // Remove OSC remnants like ]7;file://...
+          .replace(/\][\d;][^\r\n]*/g, "")
+          // Remove other control chars except newline/tab
+          .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, "");
+
       const cleaned = stripAnsi(stdout);
 
       const { data: convData } = await supabase
@@ -318,16 +339,22 @@ export default function Chat() {
           console.warn("[Chat] OpenClaw: no JSON payload found, raw cleaned:", cleaned);
         }
       } else {
-        // Claude: strip command echo, shell prompts, and trailing zsh/bash prompt characters
+        // Claude: after thorough ANSI stripping, filter remaining noise lines
         responseText = cleaned
           .split("\n")
           .filter((line) => {
             const t = line.trim();
-            if (!t || t === "%" || t === "$" || t === "#" || t === ">") return false;
+            if (!t) return false;
+            // shell prompts and bare characters
+            if (/^[%$#>→]\s*$/.test(t)) return false;
+            if (/^[%$#>→]\s/.test(t)) return false;
+            // session/terminal noise
             if (/^Restored session:/i.test(t)) return false;
             if (/^claude\s+(-p|-c|--print|--resume)/i.test(t)) return false;
-            if (/^\[[\d;]+[mhfA-Z]/.test(t)) return false;
-            if (/^[\$%#>]\s/.test(t)) return false;
+            // leftover bracket/escape fragments after stripping
+            if (/^\[[\d;?<>!]*[a-zA-Z]/.test(t)) return false;
+            // lines that are only punctuation/symbols after stripping
+            if (/^[=\-\+\*~\s]+$/.test(t)) return false;
             return true;
           })
           .join("\n")
