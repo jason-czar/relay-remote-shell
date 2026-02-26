@@ -174,10 +174,12 @@ export function ChatSidebar({ conversations, activeId, onSelect, onNew, onDelete
             >
               <span className="flex-1 truncate text-xs">{conv.title}</span>
               <span className={cn(
-                "text-[9px] px-1 py-0.5 rounded font-mono shrink-0 opacity-50",
-                conv.agent === "openclaw" ? "text-primary" : "text-muted-foreground"
+                "text-[9px] px-1.5 py-0.5 rounded font-mono shrink-0 whitespace-nowrap",
+                conv.agent === "openclaw"
+                  ? "bg-primary/10 text-primary"
+                  : "bg-warning/10 text-warning"
               )}>
-                {conv.agent === "openclaw" ? "OC" : "CC"}
+                {conv.agent === "openclaw" ? "OpenClaw" : "Claude"}
               </span>
               {(hoveredId === conv.id || activeId === conv.id) && (
                 <button
