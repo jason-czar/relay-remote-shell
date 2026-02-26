@@ -28,7 +28,7 @@ const setupItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Projects", url: "/projects", icon: FolderOpen },
   { title: "Multi-Session", url: "/multi-session", icon: Columns2 },
-  { title: "Chat", url: "/chat", icon: MessageSquare },
+  { title: "Chat", url: "/", icon: MessageSquare },
   { title: "PrivaClaw", url: "/skill/privaclaw", icon: Plug },
   { title: "Docs", url: "/docs", icon: BookOpen },
   { title: "Settings", url: "/settings", icon: Settings },
@@ -41,7 +41,7 @@ export function AppSidebar() {
   const { theme, setTheme } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
-  const isChat = location.pathname === "/chat";
+  const isChat = location.pathname === "/";
 
   const [setupOpen, setSetupOpen] = useState(true);
   const [convOpen, setConvOpen] = useState(true);
@@ -122,7 +122,7 @@ export function AppSidebar() {
               <div className="flex items-center justify-between w-full pr-1">
                 <span className="text-sm font-semibold text-foreground/70 tracking-tight">Conversations</span>
                 <button
-                  onClick={() => { handleNew(); navigate("/chat"); }}
+                  onClick={() => { handleNew(); navigate("/"); }}
                   className="flex items-center gap-1 text-xs text-primary/80 hover:text-primary font-medium transition-colors px-2 py-0.5 rounded-md hover:bg-primary/10"
                   title="New chat"
                 >
@@ -164,7 +164,7 @@ export function AppSidebar() {
                               ? "bg-accent/80 text-foreground"
                               : "text-muted-foreground/70 hover:bg-accent/40 hover:text-foreground"
                           )}
-                          onClick={() => { if (editingId !== conv.id) { setActiveConvId(conv.id); navigate("/chat"); } }}
+                          onClick={() => { if (editingId !== conv.id) { setActiveConvId(conv.id); navigate("/"); } }}
                           onMouseEnter={() => setHoveredId(conv.id)}
                           onMouseLeave={() => setHoveredId(null)}
                         >
