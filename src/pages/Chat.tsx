@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Send, ChevronDown, Paperclip, X, FileText, Image, Plus, Monitor, Terminal, Loader2, WifiOff } from "lucide-react";
+import { Send, ChevronDown, Paperclip, X, FileText, Image, Plus, Monitor, Terminal, Loader2, WifiOff, Square } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { Tables } from "@/integrations/supabase/types";
@@ -301,6 +301,7 @@ export default function Chat() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const streamIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const abortStreamRef = useRef(false);
 
   // ── Load devices ──────────────────────────────────────────────────────
 
@@ -554,6 +555,7 @@ export default function Chat() {
 
     setInput("");
     setAttachedFiles([]);
+    abortStreamRef.current = false;
     const userMsg: Message = { role: "user", content: text || `[${attachedFiles.map(f => f.name).join(", ")}]` };
     setMessages((prev) => [...prev, userMsg]);
     setThinking(true);
@@ -673,7 +675,7 @@ export default function Chat() {
         let revealed = "";
         if (streamIntervalRef.current) clearInterval(streamIntervalRef.current);
         streamIntervalRef.current = setInterval(() => {
-          if (tokenIdx >= tokens.length) {
+          if (abortStreamRef.current || tokenIdx >= tokens.length) {
             clearInterval(streamIntervalRef.current!);
             streamIntervalRef.current = null;
             setStreamingMsgIndex(null);
@@ -727,6 +729,18 @@ export default function Chat() {
       setTimeout(() => textareaRef.current?.focus(), 50);
     }
   }, [input, attachedFiles, thinking, selectedDeviceId, activeConvId, agent, createConversation, buildCommand, sendViaRelay, toast]);
+
+  // ── Abort streaming ────────────────────────────────────────────────────
+  const handleAbort = useCallback(() => {
+    abortStreamRef.current = true;
+    if (streamIntervalRef.current) {
+      clearInterval(streamIntervalRef.current);
+      streamIntervalRef.current = null;
+    }
+    setStreamingMsgIndex(null);
+    setThinking(false);
+    setTimeout(() => textareaRef.current?.focus(), 50);
+  }, []);
 
   // ── New conversation ───────────────────────────────────────────────────
   const handleNew = useCallback(() => {
@@ -1066,6 +1080,18 @@ export default function Chat() {
           {/* Floating composer */}
           <div className="shrink-0 px-6 pb-6 pt-2">
             <div className="max-w-[720px] mx-auto">
+              {/* Stop streaming button */}
+              {(thinking || streamingMsgIndex !== null) && (
+                <div className="flex justify-center mb-3">
+                  <button
+                    onClick={handleAbort}
+                    className="flex items-center gap-2 px-4 py-2 rounded-full border border-border bg-card text-sm text-muted-foreground hover:text-foreground hover:border-foreground/30 hover:bg-accent transition-all duration-150 shadow-sm animate-fade-in"
+                  >
+                    <Square className="h-3 w-3 fill-current" />
+                    Stop generating
+                  </button>
+                </div>
+              )}
               <ComposerBox
                 textareaRef={textareaRef}
                 fileInputRef={fileInputRef}
