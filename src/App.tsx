@@ -19,6 +19,7 @@ import Settings from "./pages/Settings";
 import SkillConfig from "./pages/SkillConfig";
 import MultiSession from "./pages/MultiSession";
 import Docs from "./pages/Docs";
+import Chat from "./pages/Chat";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -63,6 +64,7 @@ const App = () => (
                 <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
                 <Route path="/skill/privaclaw" element={<ProtectedRoute><SkillConfig /></ProtectedRoute>} />
                 <Route path="/multi-session" element={<ProtectedRoute><MultiSession /></ProtectedRoute>} />
+                <Route path="/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
                 <Route path="/docs" element={<Docs />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
