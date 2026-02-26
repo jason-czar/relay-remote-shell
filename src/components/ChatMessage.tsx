@@ -26,6 +26,7 @@ interface ChatMessageProps {
   thinking?: boolean;
   streaming?: boolean;
   rawStdout?: string;
+  createdAt?: string;
 }
 
 function CodeBlock({ language, value }: { language: string; value: string }) {
@@ -75,7 +76,7 @@ function CodeBlock({ language, value }: { language: string; value: string }) {
   );
 }
 
-export function ChatMessage({ role, content, thinking, streaming, rawStdout }: ChatMessageProps) {
+export function ChatMessage({ role, content, thinking, streaming, rawStdout, createdAt }: ChatMessageProps) {
   const isUser = role === "user";
   const [hovered, setHovered] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -86,6 +87,18 @@ export function ChatMessage({ role, content, thinking, streaming, rawStdout }: C
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
+
+  const formattedTime = createdAt
+    ? (() => {
+        const d = new Date(createdAt);
+        const now = new Date();
+        const diff = (now.getTime() - d.getTime()) / 1000;
+        if (diff < 60) return "just now";
+        if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+        if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+        return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+      })()
+    : null;
 
   if (thinking) {
     return (
@@ -108,7 +121,9 @@ export function ChatMessage({ role, content, thinking, streaming, rawStdout }: C
 
   if (isUser) {
     return (
-      <div className="flex justify-end mb-4 px-1 animate-[slide-in-from-right_0.25s_cubic-bezier(0.22,1,0.36,1)_both]">
+      <div
+        className="flex flex-col items-end mb-4 px-1 gap-1 group animate-[slide-in-from-right_0.25s_cubic-bezier(0.22,1,0.36,1)_both]"
+      >
         <div
           className="max-w-[72%] rounded-2xl rounded-tr-sm px-4 py-2.5 text-sm leading-relaxed break-words"
           style={{
@@ -122,6 +137,11 @@ export function ChatMessage({ role, content, thinking, streaming, rawStdout }: C
         >
           {content}
         </div>
+        {formattedTime && (
+          <span className="text-[10px] text-muted-foreground/40 opacity-0 group-hover:opacity-100 transition-opacity duration-150 pr-0.5">
+            {formattedTime}
+          </span>
+        )}
       </div>
     );
   }
@@ -215,6 +235,11 @@ export function ChatMessage({ role, content, thinking, streaming, rawStdout }: C
               <span className="text-[11px]">Raw</span>
               {debugOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
             </button>
+          )}
+          {formattedTime && (
+            <span className="ml-1 text-[10px] text-muted-foreground/40 select-none">
+              {formattedTime}
+            </span>
           )}
         </div>
 
