@@ -1,4 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from "react";
+import openclawImg from "@/assets/openclaw.png";
+import claudecodeImg from "@/assets/claudecode.png";
 import { Plus, Trash2, Search, MessageSquare, ChevronLeft, Pencil, Check, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -126,13 +128,13 @@ export function ChatSidebar({ conversations, activeId, onSelect, onNew, onDelete
             onClick={() => onSelect(conv.id)}
             title={conv.title}
             className={cn(
-              "w-8 h-8 rounded-lg flex items-center justify-center text-[9px] font-mono font-bold transition-all duration-150",
+              "w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-150 overflow-hidden",
               activeId === conv.id
-                ? "bg-primary/20 text-primary"
-                : "text-muted-foreground/60 hover:bg-accent hover:text-foreground"
+                ? "ring-1 ring-primary/40"
+                : "opacity-60 hover:opacity-100"
             )}
           >
-            {conv.agent === "openclaw" ? "OC" : "CC"}
+            <img src={conv.agent === "openclaw" ? openclawImg : claudecodeImg} alt={conv.agent} className="w-full h-full object-cover rounded-lg" />
           </button>
         ))}
       </div>
@@ -271,23 +273,9 @@ export function ChatSidebar({ conversations, activeId, onSelect, onNew, onDelete
                     >
                       <Trash2 className="h-3 w-3" />
                     </button>
-                    <span className={cn(
-                      "text-[9px] px-1.5 py-0.5 rounded font-mono shrink-0 whitespace-nowrap",
-                      conv.agent === "openclaw"
-                        ? "bg-primary/10 text-primary"
-                        : "bg-warning/10 text-warning"
-                    )}>
-                      {conv.agent === "openclaw" ? "OC" : "CC"}
-                    </span>
+                    <img src={conv.agent === "openclaw" ? openclawImg : claudecodeImg} alt={conv.agent} className="w-5 h-5 rounded object-cover shrink-0" />
                   </div>
-                  <span className={cn(
-                    "text-[9px] px-1.5 py-0.5 rounded font-mono shrink-0 whitespace-nowrap group-hover:hidden",
-                    conv.agent === "openclaw"
-                      ? "bg-primary/10 text-primary"
-                      : "bg-warning/10 text-warning"
-                  )}>
-                    {conv.agent === "openclaw" ? "OC" : "CC"}
-                  </span>
+                  <img src={conv.agent === "openclaw" ? openclawImg : claudecodeImg} alt={conv.agent} className="w-5 h-5 rounded object-cover shrink-0 group-hover:hidden" />
                 </>
               )}
             </div>
