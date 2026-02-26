@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Send, ChevronDown, Paperclip, X, FileText, Image, Plus, Monitor, Terminal, Loader2, WifiOff, Square, Mic, ArrowUp } from "lucide-react";
+import { Send, ChevronDown, Paperclip, X, FileText, Image, Plus, Monitor, Terminal, Loader2, WifiOff, Square, Mic, ArrowUp, RefreshCw } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -920,7 +920,99 @@ export default function Chat() {
     setTimeout(() => textareaRef.current?.focus(), 50);
   }, []);
 
-  // ── New conversation ───────────────────────────────────────────────────
+  // ── Regenerate ─────────────────────────────────────────────────────────
+  const handleRegenerate = useCallback(async () => {
+    // Find the last user message
+    const lastUserMsg = [...messages].reverse().find(m => m.role === "user");
+    if (!lastUserMsg || !selectedDeviceId) return;
+
+    // Remove the last assistant message from UI
+    setMessages(prev => {
+      const idx = [...prev].map(m => m.role).lastIndexOf("assistant");
+      return idx >= 0 ? prev.slice(0, idx) : prev;
+    });
+
+    setInput(lastUserMsg.content);
+    // Tiny delay so state settles, then fire
+    setTimeout(() => {
+      setInput("");
+      abortStreamRef.current = false;
+      const text = lastUserMsg.content;
+      const userMsg: Message = { role: "user", content: text };
+      setMessages(prev => [...prev, userMsg]);
+      setThinking(true);
+      const convId = activeConvId;
+      if (!convId) return;
+      saveMessage(convId, "user", text);
+      const jobConvId = convId;
+      const jobText = text;
+      addJob(jobConvId);
+      (async () => {
+        const stripAnsi = (s: string) =>
+          s.replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, "")
+           .replace(/\x1b\[[\x30-\x3f]*[\x20-\x2f]*[\x40-\x7e]/g, "")
+           .replace(/\x1b[PX^_].*?\x1b\\/g, "")
+           .replace(/\x1b[^[\]PX^_]/g, "")
+           .replace(/\x1b/g, "")
+           .replace(/\[[\d;?<>!]*[a-zA-Z]/g, "")
+           .replace(/\][\d;][^\r\n]*/g, "")
+           .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, "");
+        try {
+          const command = await buildCommand(text, jobConvId, model);
+          const stdout = await sendViaRelay(command, agent === "openclaw");
+          const cleaned = stripAnsi(stdout);
+          const { data: convData } = await supabase.from("chat_conversations").select("agent, openclaw_session_id, claude_session_id").eq("id", jobConvId).single();
+          let responseText = "";
+          if (convData?.agent === "openclaw") {
+            const jsonBlocks = cleaned.match(/\{[\s\S]*?\}/g) ?? [];
+            const greedyMatch = cleaned.match(/\{[\s\S]*\}/);
+            const candidates = greedyMatch ? [...jsonBlocks, greedyMatch[0]] : jsonBlocks;
+            for (let i = candidates.length - 1; i >= 0; i--) {
+              try {
+                const parsed = JSON.parse(candidates[i]);
+                const payloadText = parsed?.payloads?.[0]?.text;
+                if (payloadText) { responseText = String(payloadText); break; }
+                const fallback = parsed.content ?? parsed.message ?? parsed.response ?? parsed.text ?? parsed.result;
+                if (fallback && typeof fallback === "string") { responseText = fallback; break; }
+              } catch { /* next */ }
+            }
+          } else {
+            responseText = cleaned.split("\n").filter(line => {
+              const t = line.trim();
+              if (!t) return false;
+              if (/^[%$#>→]\s*$/.test(t)) return false;
+              if (/^[%$#>→]\s/.test(t)) return false;
+              if (/^Restored session:/i.test(t)) return false;
+              if (/^claude\s+(-p|-c|--print|--resume)/i.test(t)) return false;
+              if (/^\[[\d;?<>!]*[a-zA-Z]/.test(t)) return false;
+              if (/^[=\-\+\*~\s]+$/.test(t)) return false;
+              return true;
+            }).join("\n").trim();
+          }
+          responseText = responseText.trim() || "(empty response)";
+          await saveMessage(jobConvId, "assistant", responseText);
+          if (activeConvIdRef.current === jobConvId) {
+            setMessages(prev => [...prev, { role: "assistant", content: responseText }]);
+          }
+        } catch (err) {
+          const errMsg = err instanceof Error ? err.message : "Unknown error";
+          if (activeConvIdRef.current === jobConvId) {
+            setMessages(prev => [...prev, { role: "assistant", content: `⚠️ Error: ${errMsg}` }]);
+          }
+        } finally {
+          if (activeConvIdRef.current === jobConvId) {
+            setThinking(false);
+            setStreamingMsgIndex(null);
+            setRelayStatus("idle");
+            setTimeout(() => textareaRef.current?.focus(), 50);
+          }
+          removeJob(jobConvId);
+        }
+      })();
+    }, 0);
+  }, [messages, selectedDeviceId, activeConvId, agent, model, buildCommand, sendViaRelay, addJob, removeJob]);
+
+
   const handleNew = useCallback(() => {
     setMessages([]);
     setInput("");
@@ -1281,6 +1373,18 @@ export default function Chat() {
                 {thinking && (
                   <div className="animate-fade-in">
                     <ChatMessage role="assistant" content="" thinking />
+                  </div>
+                )}
+                {/* Regenerate button — shown after last assistant message when idle */}
+                {!thinking && streamingMsgIndex === null && messages.length > 0 && messages[messages.length - 1].role === "assistant" && (
+                  <div className="flex justify-center mt-2 animate-fade-in">
+                    <button
+                      onClick={handleRegenerate}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border/40 bg-background/60 text-xs text-muted-foreground hover:text-foreground hover:border-border/70 hover:bg-accent transition-all duration-150"
+                    >
+                      <RefreshCw className="h-3 w-3" />
+                      Regenerate
+                    </button>
                   </div>
                 )}
               </div>
