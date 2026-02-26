@@ -494,12 +494,14 @@ export default function Chat() {
       .then(({ data }) => {
         if (data) setMessages(data as Message[]);
       });
-    // also set agent from conversation
+    // restore agent + model from conversation
     const conv = conversations.find((c) => c.id === activeConvId);
     if (conv) {
       const a = conv.agent as "openclaw" | "claude";
       setAgent(a);
-      setModel(a === "openclaw" ? OPENCLAW_MODELS[1].id : CLAUDE_MODELS[1].id);
+      // use persisted model if available, else default to Sonnet
+      const defaultModel = a === "openclaw" ? OPENCLAW_MODELS[1].id : CLAUDE_MODELS[1].id;
+      setModel(conv.model || defaultModel);
     }
   }, [activeConvId]);
 
@@ -538,10 +540,11 @@ export default function Chat() {
         user_id: user.id,
         device_id: selectedDeviceId || null,
         agent: agentType,
+        model,
         title,
         openclaw_session_id,
       })
-      .select("id, title, agent, created_at")
+      .select("id, title, agent, model, created_at")
       .single();
 
     if (error || !data) {
@@ -1332,7 +1335,8 @@ export default function Chat() {
                 onModelChange={(m) => {
                   setModel(m);
                   if (activeConvId) {
-                    supabase.from("chat_conversations").update({ agent }).eq("id", activeConvId);
+                    supabase.from("chat_conversations").update({ model: m }).eq("id", activeConvId);
+                    setConversations((prev) => prev.map((c) => c.id === activeConvId ? { ...c, model: m } : c));
                   }
                 }}
               />

@@ -21,6 +21,7 @@ export type Database = {
           created_at: string
           device_id: string | null
           id: string
+          model: string
           openclaw_session_id: string | null
           title: string
           updated_at: string
@@ -32,6 +33,7 @@ export type Database = {
           created_at?: string
           device_id?: string | null
           id?: string
+          model?: string
           openclaw_session_id?: string | null
           title?: string
           updated_at?: string
@@ -43,6 +45,7 @@ export type Database = {
           created_at?: string
           device_id?: string | null
           id?: string
+          model?: string
           openclaw_session_id?: string | null
           title?: string
           updated_at?: string

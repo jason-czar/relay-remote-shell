@@ -1,0 +1,1 @@
+ALTER TABLE public.chat_conversations ADD COLUMN model text NOT NULL DEFAULT 'claude-sonnet-4-5';
