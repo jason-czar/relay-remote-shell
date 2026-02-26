@@ -1257,7 +1257,7 @@ export default function Chat() {
           <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto py-6">
             <div className="max-w-[720px] mx-auto px-6">
               {messages.length === 0 && !thinking && (
-                <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
+                <div className="flex flex-col items-center justify-center min-h-[80vh] text-center">
 
                   {/* ── No device paired: prominent CTA ─────────────────── */}
                   {devices.length === 0 ? (
