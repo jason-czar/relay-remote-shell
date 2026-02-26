@@ -587,13 +587,13 @@ export default function Chat() {
                       { icon: "✍️", title: "Write tests", prompt: "Write unit tests for the current file" },
                       { icon: "♻️", title: "Refactor", prompt: "Refactor this code to be cleaner and more readable" },
                       { icon: "📖", title: "Explain code", prompt: "Explain what this code does" },
-                    ]).map(({ icon, title, prompt }) => (
+                    ]).map(({ icon, title, prompt }, i) => (
                       <button
                         key={title}
                         onClick={() => setInput(prompt)}
                         disabled={!selectedDeviceId}
-                        className="group flex flex-col gap-2 px-5 py-4 rounded-xl border border-border/40 bg-card/40 hover:bg-card/80 hover:border-border/80 transition-all duration-200 text-left disabled:opacity-40 disabled:cursor-not-allowed"
-                        style={{ boxShadow: "0 0 0 0 transparent" }}
+                        className="animate-fade-in group flex flex-col gap-2 px-5 py-4 rounded-xl border border-border/40 bg-card/40 hover:bg-card/80 hover:border-border/80 transition-all duration-200 text-left disabled:opacity-40 disabled:cursor-not-allowed"
+                        style={{ animationDelay: `${420 + i * 80}ms`, animationFillMode: "both", boxShadow: "0 0 0 0 transparent" }}
                         onMouseEnter={e => (e.currentTarget.style.boxShadow = "0 0 18px 2px hsl(var(--primary) / 0.08), 0 2px 12px rgba(0,0,0,0.15)")}
                         onMouseLeave={e => (e.currentTarget.style.boxShadow = "0 0 0 0 transparent")}
                       >
