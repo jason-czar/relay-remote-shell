@@ -577,7 +577,7 @@ export default function Chat() {
                   </p>
 
                   {/* Starter prompt cards */}
-                  <div className="grid grid-cols-2 gap-2.5 w-full max-w-lg text-left">
+                  <div className="grid grid-cols-2 gap-2.5 w-full max-w-lg mx-auto">
                     {(agent === "openclaw" ? [
                       { icon: "📂", title: "List files", prompt: "List all files in the current directory" },
                       { icon: "🔍", title: "Search code", prompt: "Search for TODO comments in the codebase" },
