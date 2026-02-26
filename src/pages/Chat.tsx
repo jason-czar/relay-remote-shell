@@ -45,6 +45,15 @@ interface ComposerBoxProps {
 
 function ComposerBox({ textareaRef, input, setInput, onKeyDown, onSend, disabled, sendDisabled, placeholder }: ComposerBoxProps) {
   const [focused, setFocused] = useState(false);
+
+  // Auto-resize: recalculate height whenever input changes
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
+  }, [input, textareaRef]);
+
   return (
     <div
       className="flex items-end gap-2 rounded-2xl p-1.5 transition-all duration-300"
@@ -70,7 +79,8 @@ function ComposerBox({ textareaRef, input, setInput, onKeyDown, onSend, disabled
         placeholder={placeholder}
         disabled={disabled}
         rows={1}
-        className="resize-none text-sm min-h-[40px] max-h-48 flex-1 bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none px-3 py-2.5"
+        style={{ height: "40px", overflowY: "hidden" }}
+        className="resize-none text-sm min-h-[40px] max-h-[200px] flex-1 bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none px-3 py-2.5 overflow-y-auto"
       />
       <button
         onClick={onSend}
