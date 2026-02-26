@@ -82,6 +82,22 @@ export default function TerminalSession() {
     }
   }, []);
 
+  // Persist session ID across iOS app switches (iOS may remount the component instead of firing visibilitychange)
+  const sessionStorageKey = deviceId ? `relay-session-${deviceId}` : null;
+
+  const persistSessionId = useCallback((id: string) => {
+    if (sessionStorageKey) sessionStorage.setItem(sessionStorageKey, id);
+  }, [sessionStorageKey]);
+
+  const getPersistedSessionId = useCallback((): string | null => {
+    if (!sessionStorageKey) return null;
+    return sessionStorage.getItem(sessionStorageKey);
+  }, [sessionStorageKey]);
+
+  const clearPersistedSessionId = useCallback(() => {
+    if (sessionStorageKey) sessionStorage.removeItem(sessionStorageKey);
+  }, [sessionStorageKey]);
+
   // Initialize terminal
   useEffect(() => {
     if (!deviceId || !user || !terminalContainerRef.current) return;
@@ -156,9 +172,25 @@ export default function TerminalSession() {
       devRef.current = dev;
       setDevice(dev);
 
-      let sessionId = resumeSessionId;
+      // Priority: URL param > sessionStorage (iOS app-switch) > active DB session
+      let sessionId = resumeSessionId ?? getPersistedSessionId();
 
-      // If no explicit session to resume, check for existing active session on this device
+      if (sessionId) {
+        // Verify it's still active in DB before trusting it
+        const { data: existing } = await supabase
+          .from("sessions")
+          .select("id, status")
+          .eq("id", sessionId)
+          .single();
+        if (!existing || existing.status !== "active") {
+          sessionId = null;
+          clearPersistedSessionId();
+        } else {
+          term.writeln(`\x1b[33m⟳ Resuming session ${sessionId.slice(0, 8)}...\x1b[0m`);
+        }
+      }
+
+      // If still no session, check for any active session on this device
       if (!sessionId) {
         const { data: activeSessions } = await supabase
           .from("sessions")
@@ -198,6 +230,7 @@ export default function TerminalSession() {
       }
 
       sessionIdRef.current = sessionId;
+      persistSessionId(sessionId!);
 
       term.writeln(`\x1b[2m── PrivaClaw ──\x1b[0m`);
       term.writeln(`\x1b[2mDevice:\x1b[0m ${dev?.name ?? deviceId}`);
@@ -387,6 +420,7 @@ export default function TerminalSession() {
   };
 
   const handleReconnect = () => {
+    clearPersistedSessionId();
     cleanup();
     if (terminalContainerRef.current && deviceId && user) {
       window.location.reload();
@@ -394,6 +428,7 @@ export default function TerminalSession() {
   };
 
   const handleDisconnect = async () => {
+    clearPersistedSessionId();
     await endSessionInDb();
     cleanup();
     navigate(-1);
