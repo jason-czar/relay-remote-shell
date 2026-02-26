@@ -65,14 +65,14 @@ export function ChatMessage({ role, content, thinking }: ChatMessageProps) {
           <ReactMarkdown
             components={{
               p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
-              code: ({ className, children, ...props }) => {
+              code: ({ className, children }) => {
                 const isBlock = className?.includes("language-");
                 return isBlock ? (
-                  <code className="block bg-background/60 rounded-md px-3 py-2 my-2 text-xs font-mono whitespace-pre-wrap overflow-x-auto" {...props}>
+                  <code className="block bg-background/60 rounded-md px-3 py-2 my-2 text-xs font-mono whitespace-pre-wrap overflow-x-auto">
                     {children}
                   </code>
                 ) : (
-                  <code className="bg-background/60 rounded px-1 py-0.5 text-xs font-mono" {...props}>
+                  <code className="bg-background/60 rounded px-1 py-0.5 text-xs font-mono">
                     {children}
                   </code>
                 );
