@@ -32,6 +32,64 @@ interface RelayMsg {
 const RELAY_TIMEOUT_MS = 60000;
 const SILENCE_MS = 3000;
 
+// ── Composer component ──────────────────────────────────────────────────────
+interface ComposerBoxProps {
+  textareaRef: React.RefObject<HTMLTextAreaElement>;
+  input: string;
+  setInput: (v: string) => void;
+  onKeyDown: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
+  onSend: () => void;
+  disabled: boolean;
+  sendDisabled: boolean;
+  placeholder: string;
+}
+
+function ComposerBox({ textareaRef, input, setInput, onKeyDown, onSend, disabled, sendDisabled, placeholder }: ComposerBoxProps) {
+  const [focused, setFocused] = useState(false);
+  return (
+    <div
+      className="flex items-end gap-2 rounded-2xl p-1.5 transition-all duration-300"
+      style={{
+        background: "rgba(255,255,255,0.05)",
+        backdropFilter: "blur(24px) saturate(180%)",
+        WebkitBackdropFilter: "blur(24px) saturate(180%)",
+        border: focused
+          ? "1px solid rgba(255,255,255,0.22)"
+          : "1px solid rgba(255,255,255,0.10)",
+        boxShadow: focused
+          ? "0 8px 40px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.10), 0 0 0 3px rgba(255,255,255,0.04)"
+          : "0 4px 24px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.06)",
+      }}
+    >
+      <Textarea
+        ref={textareaRef}
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
+        onKeyDown={onKeyDown}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        placeholder={placeholder}
+        disabled={disabled}
+        rows={1}
+        className="resize-none text-sm min-h-[40px] max-h-48 flex-1 bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none px-3 py-2.5"
+      />
+      <button
+        onClick={onSend}
+        disabled={sendDisabled}
+        className="shrink-0 h-9 w-9 rounded-xl flex items-center justify-center transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed hover:scale-105 active:scale-95"
+        style={{
+          background: sendDisabled ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.14)",
+          border: "1px solid rgba(255,255,255,0.18)",
+          boxShadow: "0 2px 8px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.14)",
+          color: "hsl(var(--foreground))",
+        }}
+      >
+        <Send className="h-3.5 w-3.5" />
+      </button>
+    </div>
+  );
+}
+
 export default function Chat() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -430,6 +488,7 @@ export default function Chat() {
 
   return (
     <AppLayout>
+
       <div className="flex h-full overflow-hidden">
         {/* Chat sidebar */}
         <ChatSidebar
@@ -445,18 +504,19 @@ export default function Chat() {
         />
 
         {/* Main chat area */}
-        <div className="flex flex-col flex-1 min-w-0 h-full">
-          {/* Toolbar */}
-          <div className="shrink-0 border-b border-border px-4 py-3 flex items-center justify-center relative gap-3">
-            {/* Liquid glass agent switcher — centered */}
+        <div className="flex flex-col flex-1 min-w-0 h-full relative">
+
+          {/* Session header */}
+          <div className="shrink-0 px-6 py-3 flex items-center justify-center relative">
+            {/* Agent switcher — centered */}
             <div
-              className="relative flex items-center p-1 rounded-2xl gap-0.5"
+              className="flex items-center p-1 rounded-2xl gap-0.5"
               style={{
-                background: "rgba(255,255,255,0.06)",
+                background: "rgba(255,255,255,0.05)",
                 backdropFilter: "blur(20px) saturate(180%)",
                 WebkitBackdropFilter: "blur(20px) saturate(180%)",
-                border: "1px solid rgba(255,255,255,0.12)",
-                boxShadow: "0 4px 24px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.1)",
+                border: "1px solid rgba(255,255,255,0.10)",
+                boxShadow: "0 2px 16px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.08)",
               }}
             >
               {(["openclaw", "claude"] as const).map((a) => {
@@ -470,12 +530,11 @@ export default function Chat() {
                     style={
                       active
                         ? {
-                            background: "rgba(255,255,255,0.15)",
+                            background: "rgba(255,255,255,0.13)",
                             backdropFilter: "blur(12px)",
                             WebkitBackdropFilter: "blur(12px)",
-                            border: "1px solid rgba(255,255,255,0.25)",
-                            boxShadow:
-                              "0 2px 12px rgba(0,0,0,0.25), 0 1px 0 rgba(255,255,255,0.2) inset",
+                            border: "1px solid rgba(255,255,255,0.22)",
+                            boxShadow: "0 2px 10px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.18)",
                             color: "hsl(var(--foreground))",
                           }
                         : {
@@ -491,11 +550,11 @@ export default function Chat() {
               })}
             </div>
 
-            {/* Device selector — absolute right */}
-            <div className="absolute right-4 flex items-center gap-2">
-              <Monitor className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            {/* Device selector — right */}
+            <div className="absolute right-6 flex items-center gap-2">
+              <Monitor className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0" />
               <Select value={selectedDeviceId} onValueChange={setSelectedDeviceId}>
-                <SelectTrigger className="h-8 text-xs w-44">
+                <SelectTrigger className="h-7 text-xs w-40 border-border/40 bg-transparent shadow-none">
                   <SelectValue placeholder="Select device…" />
                 </SelectTrigger>
                 <SelectContent>
@@ -507,7 +566,7 @@ export default function Chat() {
                       <span className="flex items-center gap-2">
                         <span
                           className={`inline-block w-1.5 h-1.5 rounded-full ${
-                            d.status === "online" ? "bg-green-500" : "bg-muted-foreground"
+                            d.status === "online" ? "bg-status-online" : "bg-muted-foreground/40"
                           }`}
                         />
                         {d.name}
@@ -519,75 +578,63 @@ export default function Chat() {
             </div>
           </div>
 
-          {/* Messages */}
-          <div ref={scrollRef} className="flex-1 overflow-y-auto px-6 py-4 space-y-1">
-            {messages.length === 0 && !thinking && (
-              <div className="flex flex-col items-center justify-center h-full text-center py-12">
-                <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
-                  <span className="text-2xl">🐾</span>
+          {/* Messages — centered column */}
+          <div ref={scrollRef} className="flex-1 overflow-y-auto py-6">
+            <div className="max-w-[720px] mx-auto px-6">
+              {messages.length === 0 && !thinking && (
+                <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
+                  <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-5 ring-1 ring-primary/20">
+                    <span className="text-3xl">🐾</span>
+                  </div>
+                  <h3 className="font-semibold text-foreground mb-2 text-lg">
+                    {agent === "openclaw" ? "OpenClaw Agent" : "Claude Code"}
+                  </h3>
+                  <p className="text-sm text-muted-foreground max-w-sm leading-relaxed">
+                    {agent === "openclaw"
+                      ? "Ask your local OpenClaw agent anything. Commands run on your selected device."
+                      : "Send prompts directly to Claude Code running on your device."}
+                  </p>
+                  {!selectedDeviceId && (
+                    <p className="text-xs text-destructive mt-4">Select a device above to start</p>
+                  )}
                 </div>
-                <h3 className="font-semibold text-foreground mb-1">
-                  {agent === "openclaw" ? "OpenClaw Agent" : "Claude Code"}
-                </h3>
-                <p className="text-sm text-muted-foreground max-w-xs">
-                  {agent === "openclaw"
-                    ? "Ask your local OpenClaw agent anything. Commands run on your selected device."
-                    : "Send prompts directly to Claude Code running on your device."}
-                </p>
-                {!selectedDeviceId && (
-                  <p className="text-xs text-destructive mt-3">Select a device above to start</p>
+              )}
+              <div className="space-y-6">
+                {messages.map((msg, i) => (
+                  <div key={msg.id ?? i} className="animate-fade-in">
+                    <ChatMessage role={msg.role} content={msg.content} />
+                  </div>
+                ))}
+                {thinking && (
+                  <div className="animate-fade-in">
+                    <ChatMessage role="assistant" content="" thinking />
+                  </div>
                 )}
               </div>
-            )}
-            {messages.map((msg, i) => (
-              <ChatMessage key={msg.id ?? i} role={msg.role} content={msg.content} />
-            ))}
-            {thinking && <ChatMessage role="assistant" content="" thinking />}
+            </div>
           </div>
 
-          {/* Input area */}
-          <div className="shrink-0 px-4 py-4">
-            <div
-              className="flex items-end gap-2 max-w-4xl mx-auto rounded-2xl p-1.5"
-              style={{
-                background: "rgba(255,255,255,0.05)",
-                backdropFilter: "blur(20px) saturate(180%)",
-                WebkitBackdropFilter: "blur(20px) saturate(180%)",
-                border: "1px solid rgba(255,255,255,0.12)",
-                boxShadow: "0 4px 32px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.08), 0 0 0 1px rgba(255,255,255,0.04)",
-              }}
-            >
-              <Textarea
-                ref={textareaRef}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
+          {/* Floating composer */}
+          <div className="shrink-0 px-6 pb-6 pt-2">
+            <div className="max-w-[720px] mx-auto">
+              <ComposerBox
+                textareaRef={textareaRef}
+                input={input}
+                setInput={setInput}
                 onKeyDown={handleKeyDown}
+                onSend={handleSend}
+                disabled={thinking || !selectedDeviceId}
+                sendDisabled={thinking || !input.trim() || !selectedDeviceId}
                 placeholder={
                   selectedDeviceId
-                    ? `Message ${agent === "openclaw" ? "OpenClaw" : "Claude Code"}… (Enter to send, Shift+Enter for newline)`
+                    ? `Message ${agent === "openclaw" ? "OpenClaw" : "Claude Code"}…`
                     : "Select a device first…"
                 }
-                disabled={thinking || !selectedDeviceId}
-                rows={1}
-                className="resize-none text-sm min-h-[40px] max-h-48 flex-1 bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none px-3 py-2.5"
               />
-              <button
-                onClick={handleSend}
-                disabled={thinking || !input.trim() || !selectedDeviceId}
-                className="shrink-0 h-9 w-9 rounded-xl flex items-center justify-center transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
-                style={{
-                  background: "rgba(255,255,255,0.12)",
-                  border: "1px solid rgba(255,255,255,0.2)",
-                  boxShadow: "0 2px 8px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.15)",
-                  color: "hsl(var(--foreground))",
-                }}
-              >
-                <Send className="h-3.5 w-3.5" />
-              </button>
+              <p className="text-center text-[10px] text-muted-foreground/30 mt-2">
+                Enter to send · Shift+Enter for newline · Commands run on your device
+              </p>
             </div>
-            <p className="text-center text-[10px] text-muted-foreground/50 mt-1.5">
-              Commands execute on your device via relay
-            </p>
           </div>
         </div>
 
