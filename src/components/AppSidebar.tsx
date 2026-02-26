@@ -103,7 +103,7 @@ export function AppSidebar() {
           <SidebarGroup>
             <SidebarGroupLabel>
               <div className="flex items-center justify-between w-full pr-1">
-                <span className="text-xs font-semibold text-foreground/70 tracking-tight">Conversations</span>
+                <span className="text-sm font-semibold text-foreground/70 tracking-tight">Conversations</span>
                 <button
                   onClick={() => { handleNew(); navigate("/chat"); }}
                   className="flex items-center gap-1 text-xs text-primary/80 hover:text-primary font-medium transition-colors px-2 py-0.5 rounded-md hover:bg-primary/10"
@@ -125,7 +125,7 @@ export function AppSidebar() {
                       value={search}
                       onChange={e => setSearch(e.target.value)}
                       placeholder="Search conversations…"
-                      className="flex-1 bg-transparent text-xs outline-none placeholder:text-muted-foreground/30 text-foreground min-w-0"
+                      className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/30 text-foreground min-w-0"
                     />
                   </div>
                 </div>
@@ -137,7 +137,7 @@ export function AppSidebar() {
                   )}
                   {groups.map(group => (
                     <div key={group.label} className="mb-2">
-                      <p className="text-[10px] font-semibold text-muted-foreground/30 uppercase tracking-widest px-2 pt-2 pb-1.5">{group.label}</p>
+                      <p className="text-xs font-semibold text-muted-foreground/30 uppercase tracking-wider px-2 pt-2 pb-1.5">{group.label}</p>
                       {group.items.map(conv => (
                         <div
                           key={conv.id}
@@ -155,7 +155,7 @@ export function AppSidebar() {
                           {activeConvId === conv.id && (
                             <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-4 rounded-r-full bg-primary" />
                           )}
-                          <span className="flex-1 truncate text-[12px] leading-snug">{conv.title}</span>
+                          <span className="flex-1 truncate text-sm leading-snug">{conv.title}</span>
                           <span className={cn(
                             "shrink-0 text-[9px] font-mono font-semibold px-1 py-0.5 rounded",
                             conv.agent === "openclaw"
