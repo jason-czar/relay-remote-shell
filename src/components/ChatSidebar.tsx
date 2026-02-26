@@ -35,15 +35,18 @@ export function ChatSidebar({ conversations, activeId, onSelect, onNew, onDelete
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [agentFilter, setAgentFilter] = useState<"all" | "openclaw" | "claude">("all");
   const [collapsed, setCollapsed] = useState(false);
   const [width, setWidth] = useState(DEFAULT_WIDTH);
   const dragging = useRef(false);
   const startX = useRef(0);
   const startWidth = useRef(DEFAULT_WIDTH);
 
-  const filtered = conversations.filter((c) =>
-    c.title.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = conversations.filter((c) => {
+    const matchesSearch = c.title.toLowerCase().includes(search.toLowerCase());
+    const matchesAgent = agentFilter === "all" || c.agent === agentFilter;
+    return matchesSearch && matchesAgent;
+  });
 
   const onMouseDown = useCallback((e: React.MouseEvent) => {
     dragging.current = true;
@@ -147,6 +150,28 @@ export function ChatSidebar({ conversations, activeId, onSelect, onNew, onDelete
               className="flex-1 bg-transparent text-xs outline-none placeholder:text-muted-foreground/40 text-foreground"
             />
           </div>
+        </div>
+
+        {/* Agent filter pills */}
+        <div className="px-3 pb-2 flex items-center gap-1">
+          {(["all", "openclaw", "claude"] as const).map((f) => (
+            <button
+              key={f}
+              onClick={() => setAgentFilter(f)}
+              className={cn(
+                "flex-1 px-2 py-1 rounded-md text-[10px] font-medium transition-all duration-150",
+                agentFilter === f
+                  ? f === "openclaw"
+                    ? "bg-primary/15 text-primary"
+                    : f === "claude"
+                    ? "bg-warning/15 text-warning"
+                    : "bg-accent text-foreground"
+                  : "text-muted-foreground/60 hover:bg-accent/40 hover:text-muted-foreground"
+              )}
+            >
+              {f === "all" ? "All" : f === "openclaw" ? "⬡ OpenClaw" : "✦ Claude"}
+            </button>
+          ))}
         </div>
 
         {/* Conversations */}
