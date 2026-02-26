@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/StatusBadge";
 import { useToast } from "@/hooks/use-toast";
 import { ProjectViewSkeleton } from "@/components/LoadingSkeletons";
-import { Plus, Monitor, Terminal, Copy, Users, ArrowLeft, Mail, UserMinus, Clock, Pencil, Trash2, RefreshCw, MoreVertical, Play, Settings, Square } from "lucide-react";
+import { Plus, Monitor, Terminal, Copy, Users, ArrowLeft, Mail, UserMinus, Clock, Pencil, Trash2, RefreshCw, MoreVertical, Play, Settings, Square, CheckSquare } from "lucide-react";
 import { SetupWizard } from "@/components/SetupWizard";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useProjectRole } from "@/hooks/useProjectRole";
@@ -46,6 +46,9 @@ export default function ProjectView() {
   const [showWizard, setShowWizard] = useState(false);
   const [wizardDevice, setWizardDevice] = useState<Tables<"devices"> | null>(null);
   const [initialLoaded, setInitialLoaded] = useState(false);
+  const [selectedDevices, setSelectedDevices] = useState<Set<string>>(new Set());
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   const filteredSessions = sessions.filter((s) => {
     if (sessionDeviceFilter !== "all" && s.device_id !== sessionDeviceFilter) return false;
@@ -170,6 +173,36 @@ export default function ProjectView() {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
       toast({ title: "Device deleted" });
+    }
+  };
+
+  const bulkDeleteDevices = async () => {
+    setBulkDeleting(true);
+    const ids = Array.from(selectedDevices);
+    const { error } = await supabase.from("devices").delete().in("id", ids);
+    setBulkDeleting(false);
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: `${ids.length} device${ids.length > 1 ? "s" : ""} deleted` });
+      setSelectedDevices(new Set());
+      setBulkDeleteOpen(false);
+    }
+  };
+
+  const toggleSelectDevice = (id: string) => {
+    setSelectedDevices((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedDevices.size === devices.length) {
+      setSelectedDevices(new Set());
+    } else {
+      setSelectedDevices(new Set(devices.map((d) => d.id)));
     }
   };
 
@@ -299,10 +332,46 @@ export default function ProjectView() {
 
           <TabsContent value="devices" className="space-y-4">
             {isOwner && (
-            <div className="flex justify-end">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              {devices.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={toggleSelectAll}
+                    className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    {selectedDevices.size === devices.length && devices.length > 0
+                      ? <CheckSquare className="h-4 w-4 text-primary" />
+                      : <Square className="h-4 w-4" />}
+                    {selectedDevices.size === 0 ? "Select all" : `${selectedDevices.size} selected`}
+                  </button>
+                  {selectedDevices.size > 0 && (
+                    <AlertDialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
+                      <AlertDialogTrigger asChild>
+                        <Button size="sm" variant="destructive" className="gap-1.5 h-7">
+                          <Trash2 className="h-3 w-3" /> Delete {selectedDevices.size}
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete {selectedDevices.size} device{selectedDevices.size > 1 ? "s" : ""}?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This will permanently delete {selectedDevices.size} device{selectedDevices.size > 1 ? "s" : ""} and all associated sessions. This cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={bulkDeleteDevices} disabled={bulkDeleting}>
+                            {bulkDeleting ? "Deleting..." : `Delete ${selectedDevices.size}`}
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  )}
+                </div>
+              )}
               <Dialog open={addDeviceOpen} onOpenChange={setAddDeviceOpen}>
                 <DialogTrigger asChild>
-                  <Button className="gap-2"><Plus className="h-4 w-4" /> Add Device</Button>
+                  <Button className="gap-2 ml-auto"><Plus className="h-4 w-4" /> Add Device</Button>
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader><DialogTitle>Add Device</DialogTitle></DialogHeader>
@@ -340,94 +409,104 @@ export default function ProjectView() {
               </Card>
             ) : (
               <div className="space-y-3">
-                {devices.map((device) => (
-                  <Card key={device.id}>
-                    <CardContent className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4">
-                      <div className="flex items-start sm:items-center gap-3 min-w-0">
-                        <Monitor className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5 sm:mt-0" />
-                        <div className="min-w-0">
-                          <p className="font-medium truncate">{device.name}</p>
-                          <div className="flex flex-wrap items-center gap-2 mt-1">
-                            <StatusBadge status={device.status} />
-                            {device.pairing_code && !device.paired && (
-                              <>
-                                <button onClick={() => copyPairingCode(device.pairing_code!)} className="inline-flex items-center gap-1 text-xs font-mono bg-muted px-2 py-0.5 rounded hover:bg-accent transition-colors">
-                                  <Copy className="h-3 w-3" /> {device.pairing_code}
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    const cmd = `cd relay-connector && ./relay-connector --pair ${device.pairing_code} --api ${import.meta.env.VITE_SUPABASE_URL}/functions/v1 --name "${device.name || "MyDevice"}"`;
-                                    navigator.clipboard.writeText(cmd);
-                                    toast({ title: "Copied!", description: "Full pairing command copied to clipboard" });
-                                  }}
-                                  className="inline-flex items-center gap-1 text-xs bg-primary/10 text-primary px-2 py-0.5 rounded hover:bg-primary/20 transition-colors"
-                                >
-                                  <Copy className="h-3 w-3" /> <span className="hidden sm:inline">Copy pair command</span><span className="sm:hidden">Pair cmd</span>
-                                </button>
-                                <button
-                                  onClick={() => { setWizardDevice(device); setShowWizard(true); }}
-                                  className="inline-flex items-center gap-1 text-xs bg-primary/10 text-primary px-2 py-0.5 rounded hover:bg-primary/20 transition-colors"
-                                >
-                                  <Monitor className="h-3 w-3" /> Setup
-                                </button>
-                              </>
-                            )}
-                            {device.paired && <span className="text-xs text-primary">Paired</span>}
+                {devices.map((device) => {
+                  const isSelected = selectedDevices.has(device.id);
+                  return (
+                    <Card key={device.id} className={isSelected ? "ring-1 ring-primary" : ""}>
+                      <CardContent className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4">
+                        <div className="flex items-start sm:items-center gap-3 min-w-0">
+                          {isOwner && (
+                            <button onClick={() => toggleSelectDevice(device.id)} className="shrink-0 mt-0.5 sm:mt-0 text-muted-foreground hover:text-primary transition-colors">
+                              {isSelected
+                                ? <CheckSquare className="h-4 w-4 text-primary" />
+                                : <Square className="h-4 w-4" />}
+                            </button>
+                          )}
+                          <Monitor className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5 sm:mt-0" />
+                          <div className="min-w-0">
+                            <p className="font-medium truncate">{device.name}</p>
+                            <div className="flex flex-wrap items-center gap-2 mt-1">
+                              <StatusBadge status={device.status} />
+                              {device.pairing_code && !device.paired && (
+                                <>
+                                  <button onClick={() => copyPairingCode(device.pairing_code!)} className="inline-flex items-center gap-1 text-xs font-mono bg-muted px-2 py-0.5 rounded hover:bg-accent transition-colors">
+                                    <Copy className="h-3 w-3" /> {device.pairing_code}
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      const cmd = `cd relay-connector && ./relay-connector --pair ${device.pairing_code} --api ${import.meta.env.VITE_SUPABASE_URL}/functions/v1 --name "${device.name || "MyDevice"}"`;
+                                      navigator.clipboard.writeText(cmd);
+                                      toast({ title: "Copied!", description: "Full pairing command copied to clipboard" });
+                                    }}
+                                    className="inline-flex items-center gap-1 text-xs bg-primary/10 text-primary px-2 py-0.5 rounded hover:bg-primary/20 transition-colors"
+                                  >
+                                    <Copy className="h-3 w-3" /> <span className="hidden sm:inline">Copy pair command</span><span className="sm:hidden">Pair cmd</span>
+                                  </button>
+                                  <button
+                                    onClick={() => { setWizardDevice(device); setShowWizard(true); }}
+                                    className="inline-flex items-center gap-1 text-xs bg-primary/10 text-primary px-2 py-0.5 rounded hover:bg-primary/20 transition-colors"
+                                  >
+                                    <Monitor className="h-3 w-3" /> Setup
+                                  </button>
+                                </>
+                              )}
+                              {device.paired && <span className="text-xs text-primary">Paired</span>}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {device.status === "online" && (
-                          <>
-                            <Button size="sm" className="gap-1" onClick={() => navigate(`/terminal/${device.id}`)}>
-                              <Terminal className="h-3 w-3" /> Connect
-                            </Button>
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button size="sm" variant="outline" className="gap-1 border-destructive/50 text-destructive hover:bg-destructive/10">
-                                  <Square className="h-3 w-3" /> Disconnect
-                                </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>Disconnect {device.name}?</AlertDialogTitle>
-                                  <AlertDialogDescription>This will end all active sessions and mark the device as offline. The connector process on the remote machine will need to reconnect.</AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                  <AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={() => disconnectDevice(device.id)}>Disconnect</AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          </>
-                        )}
-                        {isOwner && (
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button size="icon" variant="ghost" className="h-8 w-8">
-                                <MoreVertical className="h-4 w-4" />
+                        <div className="flex items-center gap-2">
+                          {device.status === "online" && (
+                            <>
+                              <Button size="sm" className="gap-1" onClick={() => navigate(`/terminal/${device.id}`)}>
+                                <Terminal className="h-3 w-3" /> Connect
                               </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => { setRenameDeviceId(device.id); setRenameValue(device.name); }}>
-                                <Pencil className="h-4 w-4 mr-2" /> Rename
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => regeneratePairingCode(device.id)}>
-                                <RefreshCw className="h-4 w-4 mr-2" /> Regenerate Pairing Code
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => { setConfigDeviceId(device.id); setWorkdirValue((device as any).workdir || ""); }}>
-                                <Settings className="h-4 w-4 mr-2" /> Configure
-                              </DropdownMenuItem>
-                              <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => setDeleteDeviceId(device.id)}>
-                                <Trash2 className="h-4 w-4 mr-2" /> Delete Device
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button size="sm" variant="outline" className="gap-1 border-destructive/50 text-destructive hover:bg-destructive/10">
+                                    <Square className="h-3 w-3" /> Disconnect
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Disconnect {device.name}?</AlertDialogTitle>
+                                    <AlertDialogDescription>This will end all active sessions and mark the device as offline. The connector process on the remote machine will need to reconnect.</AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={() => disconnectDevice(device.id)}>Disconnect</AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </>
+                          )}
+                          {isOwner && (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button size="icon" variant="ghost" className="h-8 w-8">
+                                  <MoreVertical className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => { setRenameDeviceId(device.id); setRenameValue(device.name); }}>
+                                  <Pencil className="h-4 w-4 mr-2" /> Rename
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => regeneratePairingCode(device.id)}>
+                                  <RefreshCw className="h-4 w-4 mr-2" /> Regenerate Pairing Code
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => { setConfigDeviceId(device.id); setWorkdirValue((device as any).workdir || ""); }}>
+                                  <Settings className="h-4 w-4 mr-2" /> Configure
+                                </DropdownMenuItem>
+                                <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => setDeleteDeviceId(device.id)}>
+                                  <Trash2 className="h-4 w-4 mr-2" /> Delete Device
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
               </div>
             )}
           </TabsContent>
