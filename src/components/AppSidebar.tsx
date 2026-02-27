@@ -8,6 +8,7 @@ import {
   AlertDialogHeader, AlertDialogTitle } from
 "@/components/ui/alert-dialog";
 import logo from "@/assets/logo.png";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import { useTheme } from "next-themes";
@@ -56,6 +57,7 @@ export function AppSidebar() {
   const [editValue, setEditValue] = useState("");
   const editInputRef = useRef<HTMLInputElement>(null);
   const [displayName, setDisplayName] = useState<string | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
   const startEdit = (e: React.MouseEvent, id: string, title: string) => {
@@ -74,12 +76,15 @@ export function AppSidebar() {
 
   useEffect(() => {
     if (!user) return;
-    supabase.
-    from("profiles").
-    select("display_name").
-    eq("user_id", user.id).
-    maybeSingle().
-    then(({ data }) => {if (data?.display_name) setDisplayName(data.display_name);});
+    supabase
+      .from("profiles")
+      .select("display_name, avatar_url")
+      .eq("user_id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.display_name) setDisplayName(data.display_name);
+        if (data?.avatar_url) setAvatarUrl(data.avatar_url);
+      });
   }, [user]);
 
   const { conversations, activeConvId, setActiveConvId, handleDelete, handleNew, handleRename, activeJobs } = useChatContext();
@@ -296,9 +301,12 @@ export function AppSidebar() {
             "mt-1 border-t border-border/50 pt-2 flex items-center gap-2.5 px-2 py-2 rounded-lg hover:bg-accent/40 transition-colors cursor-default",
             collapsed && "justify-center px-0"
           )}>
-          <div className="h-7 w-7 rounded-full bg-primary/20 ring-1 ring-primary/30 flex items-center justify-center shrink-0">
-            <User className="h-3.5 w-3.5 text-primary" />
-          </div>
+          <Avatar className="h-7 w-7 shrink-0 ring-1 ring-primary/20">
+            <AvatarImage src={avatarUrl ?? undefined} alt={displayName ?? ""} />
+            <AvatarFallback className="bg-primary/10 text-primary text-[10px] font-semibold">
+              {(displayName ?? user?.email ?? "U").slice(0, 2).toUpperCase()}
+            </AvatarFallback>
+          </Avatar>
           {!collapsed &&
             <div className="flex-1 min-w-0">
               <p className="text-xs font-medium text-foreground truncate leading-tight">
