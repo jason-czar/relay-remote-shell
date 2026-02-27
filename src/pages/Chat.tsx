@@ -1262,7 +1262,7 @@ export default function Chat() {
                   {(["openclaw", "claude", "codex"] as const).map((a) => (
                     <DropdownMenuItem key={a} onClick={() => handleAgentChange(a)} className="flex items-center gap-3 cursor-pointer py-2.5 text-base">
                       <img src={a === "openclaw" ? openclawImg : a === "codex" ? codexImg : claudecodeImg} alt={a} className="w-6 h-6 rounded-sm object-cover" />
-                      <span>{a === "openclaw" ? "Remote OpenClaw" : a === "codex" ? "Remote Codex" : "Remote Claude Code"}</span>
+                      <span>{a === "openclaw" ? "OpenClaw" : a === "codex" ? "Codex" : "Claude Code"}</span>
                       {agent === a && <span className="ml-auto w-2 h-2 rounded-full bg-foreground/60" />}
                     </DropdownMenuItem>
                   ))}
@@ -1408,7 +1408,7 @@ export default function Chat() {
                         </div>
                       </div>
                       <h3 className="font-semibold text-foreground mb-2 text-xl animate-fade-in" style={{ animationDelay: "120ms", animationFillMode: "both" }}>
-                        {agent === "openclaw" ? "Remote OpenClaw" : agent === "codex" ? "Remote Codex" : "Remote Claude Code"}
+                        {agent === "openclaw" ? "OpenClaw" : agent === "codex" ? "Codex" : "Claude Code"}
                       </h3>
                       <p className="text-base text-muted-foreground max-w-sm leading-relaxed mb-8 animate-fade-in" style={{ animationDelay: "220ms", animationFillMode: "both" }}>
                         {agent === "openclaw"
