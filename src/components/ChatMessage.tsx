@@ -176,13 +176,9 @@ export function ChatMessage({ role, content, thinking, streaming, rawStdout, cre
         {/* Text content bubble */}
         {textContent && (
           <div
-            className="max-w-[72%] rounded-2xl rounded-tr-sm px-4 py-2.5 text-sm leading-relaxed break-words"
+            className="max-w-[72%] rounded-[20px] px-4 py-2.5 text-sm leading-relaxed break-words"
             style={{
-              background: "rgba(255,255,255,0.12)",
-              backdropFilter: "blur(12px)",
-              WebkitBackdropFilter: "blur(12px)",
-              border: "1px solid rgba(255,255,255,0.2)",
-              boxShadow: "0 2px 12px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.15)",
+              background: "hsl(var(--muted))",
               color: "hsl(var(--foreground))",
             }}
           >
