@@ -139,7 +139,7 @@ export function AppSidebar() {
         {/* ── Conversations ─────────────────────────────────────────────── */}
         {isChat && !collapsed && (
           <SidebarGroup className="flex flex-col flex-1 min-h-0">
-            <SidebarGroupLabel>
+            <SidebarGroupLabel className="pb-1">
               <div className="flex items-center justify-between w-full pr-1">
                 <span className="label-xs text-muted-foreground/60 uppercase tracking-widest">
                   Conversations
@@ -157,7 +157,7 @@ export function AppSidebar() {
 
             <SidebarGroupContent className="flex flex-col flex-1 min-h-0">
               {/* Search */}
-              <div className="px-2 pb-2">
+              <div className="px-2 pb-1">
                 <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-muted/30 border border-border/40 focus-within:border-border/70 transition-colors">
                   <Search className="h-3.5 w-3.5 text-muted-foreground/40 shrink-0" />
                   <input
