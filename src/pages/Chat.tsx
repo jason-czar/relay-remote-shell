@@ -440,7 +440,9 @@ export default function Chat() {
   // ── State ──────────────────────────────────────────────────────────────
   const [messages, setMessages] = useState<Message[]>([]);
   const [agent, setAgent] = useState<"openclaw" | "claude" | "codex" | "terminal">("openclaw");
-  const [model, setModel] = useState<string>("auto");
+  const [model, setModel] = useState<string>(() => {
+    return localStorage.getItem("chat-model-default") ?? "auto";
+  });
   const [devices, setDevices] = useState<Tables<"devices">[]>([]);
   const [selectedDeviceId, setSelectedDeviceIdState] = useState<string>(() => {
     return localStorage.getItem("chat-device-id") ?? "";
@@ -482,6 +484,8 @@ export default function Chat() {
       localStorage.setItem(`chat-agent-${selectedDeviceId}`, agent);
       localStorage.setItem(`chat-model-${selectedDeviceId}`, model);
     }
+    // Also persist as global default
+    localStorage.setItem("chat-model-default", model);
   }, [agent, model, selectedDeviceId]);
 
   // ── Load devices ──────────────────────────────────────────────────────
