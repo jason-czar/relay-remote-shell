@@ -316,8 +316,8 @@ export default function ProjectView() {
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight truncate">{project.name}</h1>
-            <p className="text-muted-foreground text-sm">Project overview</p>
+            <h1 className="heading-1 truncate">{project.name}</h1>
+            <p className="body-sm text-muted-foreground">Project overview</p>
           </div>
         </div>
 
@@ -402,8 +402,8 @@ export default function ProjectView() {
               <Card className="border-dashed">
                 <CardContent className="flex flex-col items-center py-12">
                   <Monitor className="h-12 w-12 text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold">No devices</h3>
-                  <p className="text-sm text-muted-foreground mb-4">Add a device to start connecting</p>
+                  <h3 className="heading-3">No devices</h3>
+                  <p className="body-sm text-muted-foreground mb-4">Add a device to start connecting</p>
                   {isOwner && (
                     <Button variant="outline" onClick={() => { setWizardDevice(null); setShowWizard(true); }} className="gap-2">
                       <Monitor className="h-4 w-4" /> Start Setup Wizard

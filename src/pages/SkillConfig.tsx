@@ -322,11 +322,11 @@ export default function SkillConfig() {
               <ArrowLeft className="h-4 w-4" />
             </Button>
             <div>
-              <h1 className="text-lg font-semibold text-foreground flex items-center gap-2">
+              <h1 className="heading-3 flex items-center gap-2">
                 <Settings2 className="h-5 w-5 text-muted-foreground" />
                 PrivaClaw Configuration
               </h1>
-              <p className="text-sm text-muted-foreground">Connect your OpenClaw nodes via PrivaClaw</p>
+              <p className="body-sm text-muted-foreground">Connect your OpenClaw nodes via PrivaClaw</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -352,7 +352,7 @@ export default function SkillConfig() {
         {/* Node Selector */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center justify-between text-base">
+            <CardTitle className="heading-4 flex items-center justify-between">
               <span className="flex items-center gap-2">
                 <Server className="h-4 w-4 text-primary" />
                 Your Nodes
@@ -362,7 +362,7 @@ export default function SkillConfig() {
                 New Node
               </Button>
             </CardTitle>
-            <CardDescription>Select a node to configure, or create a new one</CardDescription>
+            <CardDescription className="body-sm">Select a node to configure, or create a new one</CardDescription>
           </CardHeader>
           <CardContent>
             {savedNodes.length === 0 && !isUnsaved ? (
@@ -424,11 +424,11 @@ export default function SkillConfig() {
         {/* Section 1: Relay Connection */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
+            <CardTitle className="heading-4 flex items-center gap-2">
               <Globe className="h-4 w-4 text-primary" />
               Relay Connection
             </CardTitle>
-            <CardDescription>Configure the relay server your node will connect to</CardDescription>
+            <CardDescription className="body-sm">Configure the relay server your node will connect to</CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">
             <div className="space-y-2">
@@ -471,11 +471,11 @@ export default function SkillConfig() {
         {/* Section 2: Node Identity */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
+            <CardTitle className="heading-4 flex items-center gap-2">
               <Server className="h-4 w-4 text-primary" />
               Node Identity
             </CardTitle>
-            <CardDescription>Identify this node on the relay network</CardDescription>
+            <CardDescription className="body-sm">Identify this node on the relay network</CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">
             <div className="space-y-2">
@@ -510,11 +510,11 @@ export default function SkillConfig() {
         {/* Section 3: Security */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
+            <CardTitle className="heading-4 flex items-center gap-2">
               <Shield className="h-4 w-4 text-primary" />
               Security
             </CardTitle>
-            <CardDescription>Authentication and connection security settings</CardDescription>
+            <CardDescription className="body-sm">Authentication and connection security settings</CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">
             <div className="space-y-2">
@@ -564,11 +564,11 @@ export default function SkillConfig() {
         {/* Section 4: Status Panel */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
+            <CardTitle className="heading-4 flex items-center gap-2">
               <Activity className="h-4 w-4 text-primary" />
               Status
             </CardTitle>
-            <CardDescription>Live connection and node health</CardDescription>
+            <CardDescription className="body-sm">Live connection and node health</CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">
             <div className={`rounded-lg p-4 ${statusBg} border border-border`}>
@@ -620,7 +620,7 @@ export default function SkillConfig() {
           <Card>
             <CollapsibleTrigger asChild>
               <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors rounded-t-lg">
-                <CardTitle className="flex items-center justify-between text-base">
+                <CardTitle className="heading-4 flex items-center justify-between">
                   <span className="flex items-center gap-2">
                     <Settings2 className="h-4 w-4 text-primary" />
                     Advanced
@@ -668,11 +668,11 @@ export default function SkillConfig() {
         {/* Use in OpenClaw */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
+            <CardTitle className="heading-4 flex items-center gap-2">
               <Terminal className="h-4 w-4 text-primary" />
               Use in OpenClaw
             </CardTitle>
-            <CardDescription>Copy this config into your local OpenClaw skill settings</CardDescription>
+            <CardDescription className="body-sm">Copy this config into your local OpenClaw skill settings</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="rounded-lg bg-muted p-4 font-mono text-sm text-foreground relative">
