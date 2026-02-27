@@ -1290,6 +1290,13 @@ export default function Chat() {
               if (/^[=\-\+\*~\s]+$/.test(t)) return false;
               return true;
             }).join("\n").trim();
+            // Capture claude_session_id from first reply if not yet stored
+            if (!convData?.claude_session_id) {
+              const claudeId = extractClaudeSessionId(stdout);
+              if (claudeId) {
+                await supabase.from("chat_conversations").update({ claude_session_id: claudeId }).eq("id", jobConvId);
+              }
+            }
           }
           responseText = responseText.trim() || "(empty response)";
           await saveMessage(jobConvId, "assistant", responseText);
