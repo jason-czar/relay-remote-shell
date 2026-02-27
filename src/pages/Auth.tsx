@@ -149,8 +149,12 @@ export default function Auth() {
               { src: claudecodeIcon, alt: "Claude Code" },
               { src: codexIcon, alt: "Codex" },
               { src: terminalIcon, alt: "Terminal" },
-            ].map(({ src, alt }) => (
-              <div key={alt} className="h-12 w-12 rounded-xl bg-muted/60 border border-border/40 flex items-center justify-center">
+            ].map(({ src, alt }, i) => (
+              <div
+                key={alt}
+                className="h-12 w-12 rounded-xl bg-muted/60 border border-border/40 flex items-center justify-center animate-fade-in opacity-0"
+                style={{ animationDelay: `${i * 100}ms`, animationFillMode: "forwards" }}
+              >
                 <img src={src} alt={alt} className="h-7 w-7 object-contain" />
               </div>
             ))}
