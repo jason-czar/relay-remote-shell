@@ -156,6 +156,8 @@ const SLASH_COMMANDS: SlashCommand[] = [
 interface ComposerBoxProps {
   textareaRef: React.RefObject<HTMLTextAreaElement>;
   fileInputRef: React.RefObject<HTMLInputElement>;
+  isStreaming?: boolean;
+  onAbort?: () => void;
   input: string;
   setInput: (v: string) => void;
   onKeyDown: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
@@ -173,7 +175,7 @@ interface ComposerBoxProps {
   onModelChange: (model: string) => void;
 }
 
-function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, onSend, disabled, sendDisabled, placeholder, attachedFiles, onRemoveFile, onFileSelect, agent, model, onSlashCommand, onAgentChange, onModelChange }: ComposerBoxProps) {
+function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, onSend, disabled, sendDisabled, placeholder, attachedFiles, onRemoveFile, onFileSelect, agent, model, onSlashCommand, onAgentChange, onModelChange, isStreaming, onAbort }: ComposerBoxProps) {
   const [focused, setFocused] = useState(false);
   const [slashIdx, setSlashIdx] = useState(0);
   const [isDictating, setIsDictating] = useState(false);
@@ -374,17 +376,19 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
           {/* Right: send button */}
           <button
             type="button"
-            onClick={onSend}
-            disabled={sendDisabled || disabled}
-            title="Send"
+            onClick={isStreaming ? onAbort : onSend}
+            disabled={!isStreaming && (sendDisabled || disabled)}
+            title={isStreaming ? "Stop generating" : "Send"}
             className={cn(
               "flex items-center justify-center h-11 w-11 rounded-full transition-all duration-150",
-              sendDisabled || disabled
-                ? "bg-muted/30 text-muted-foreground/30 cursor-not-allowed"
-                : "bg-foreground text-background hover:opacity-80 shadow-md"
+              isStreaming
+                ? "bg-foreground text-background hover:opacity-80 shadow-md"
+                : sendDisabled || disabled
+                  ? "bg-muted/30 text-muted-foreground/30 cursor-not-allowed"
+                  : "bg-foreground text-background hover:opacity-80 shadow-md"
             )}
           >
-            <ArrowUp size={19} />
+            {isStreaming ? <Square size={16} className="fill-current" /> : <ArrowUp size={19} />}
           </button>
         </div>
       </div>
@@ -1515,21 +1519,12 @@ export default function Chat() {
           {/* Floating composer */}
           <div className="shrink-0 px-3 sm:px-6 pt-2" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 1rem)' }}>
             <div className="max-w-[900px] mx-auto">
-              {/* Stop streaming button */}
-              {(thinking || streamingMsgIndex !== null) && (
-                <div className="flex justify-center mb-3">
-                  <button
-                    onClick={handleAbort}
-                    className="flex items-center gap-2 px-4 py-2 rounded-full border border-border bg-card text-sm text-muted-foreground hover:text-foreground hover:border-foreground/30 hover:bg-accent transition-all duration-150 shadow-sm animate-fade-in"
-                  >
-                    <Square className="h-3 w-3 fill-current" />
-                    Stop generating
-                  </button>
-                </div>
-              )}
+              {/* Stop streaming button — now handled by composer send button */}
               <ComposerBox
                 textareaRef={textareaRef}
                 fileInputRef={fileInputRef}
+                isStreaming={!!(thinking || streamingMsgIndex !== null)}
+                onAbort={handleAbort}
                 input={input}
                 setInput={setInput}
                 onKeyDown={handleKeyDown}
