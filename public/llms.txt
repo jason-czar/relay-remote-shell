@@ -231,7 +231,49 @@ Logged in database: start time, end time, device, user. View in project → Sess
 
 ---
 
+## Session Recording
+
+PrivaClaw automatically records all terminal sessions as they happen.
+
+### Storage Format
+
+Recordings are stored in the `session_recordings` table as timestamped frames:
+
+```json
+{ "t": 1234, "d": "base64-encoded-stdout-bytes" }
+```
+
+Metadata per recording: `frame_count`, `size_bytes`, `duration_ms`.
+
+- **5 MB size limit** per recording to ensure database performance
+- Protected by RLS — only accessible to session owner / authorized project members
+- **stdout only** — stdin (keyboard input) is never recorded
+
+### Playback Controls
+
+Access from the Sessions tab → play icon on an ended session. Route: `/playback/:sessionId`
+
+| Control | Description |
+|---|---|
+| Play / Pause | Start or stop; at end, restarts from beginning |
+| Skip ±5s | Jump back or forward 5 seconds |
+| Scrubber | Seek to any point (100ms resolution) |
+| Speed | Cycle: 0.5× / 1× / 2× / 4× / 8× |
+
+Long idle gaps are capped at 2 seconds of real playback time regardless of speed.
+
+### Export (.cast)
+
+Click the **.cast** button to download as **asciicast v2** format, compatible with asciinema and any asciicast player. File named `session-<id>.cast`.
+
+```
+asciinema play session-abc12345.cast
+```
+
+---
+
 ## Teams & Collaboration
+
 
 ### Roles & Permissions
 
@@ -726,6 +768,7 @@ Go to `/settings`.
 | `/project/:id` | Project detail (devices, team, sessions) | Yes |
 | `/chat` | AI Chat (OpenClaw, Claude Code, Codex agents) | Yes |
 | `/terminal/:deviceId/:sessionId` | Live terminal session | Yes |
+| `/playback/:sessionId` | Session recording playback | Yes |
 | `/skill/privaclaw` | PrivaClaw skill configuration | Yes |
 | `/settings` | User profile and account settings | Yes |
 

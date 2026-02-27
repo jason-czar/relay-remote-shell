@@ -82,6 +82,17 @@ const sections: Section[] = [
     ],
   },
   {
+    id: "session-recording",
+    title: "Session Recording",
+    icon: Eye,
+    subsections: [
+      { id: "recording-overview", title: "Overview" },
+      { id: "recording-storage", title: "Storage & Limits" },
+      { id: "recording-playback", title: "Playback Controls" },
+      { id: "recording-export", title: "Export (.cast)" },
+    ],
+  },
+  {
     id: "teams",
     title: "Teams & Collaboration",
     icon: Users,
@@ -841,8 +852,71 @@ GOOS=linux GOARCH=arm GOARM=7 go build -o relay-connector-pi .`}</CodeBlock>
 
           <Separator className="my-10" />
 
+          {/* ─── SESSION RECORDING ─── */}
+          <Heading id="session-recording" level={2}>Session Recording</Heading>
+
+          <Heading id="recording-overview" level={3}>Overview</Heading>
+          <p className="text-sm text-muted-foreground leading-relaxed mb-4">
+            PrivaClaw automatically records all terminal sessions as they happen. Recordings capture every byte of stdout
+            output with precise timestamps, allowing full playback after the session ends. Access recordings from the
+            <strong> Sessions</strong> tab in any project view — click the play icon next to an ended session.
+          </p>
+          <p className="text-sm text-muted-foreground leading-relaxed mb-4">
+            The playback page is at <code className="text-xs bg-muted px-1 py-0.5 rounded font-mono">/playback/:sessionId</code> and is accessible to the session owner and project members with access.
+          </p>
+
+          <Heading id="recording-storage" level={3}>Storage & Limits</Heading>
+          <p className="text-sm text-muted-foreground leading-relaxed mb-4">
+            Recordings are stored in the <code className="text-xs bg-muted px-1 py-0.5 rounded font-mono">session_recordings</code> table as an array of timestamped frames:
+          </p>
+          <CodeBlock>{`// Each frame in the recording
+{
+  "t": 1234,   // milliseconds since session start
+  "d": "base64-encoded-stdout-bytes"
+}`}</CodeBlock>
+          <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1 mb-4 ml-2">
+            <li><strong>5 MB size limit</strong> per recording to ensure database performance</li>
+            <li>Metadata stored: <code className="text-xs bg-muted px-1 py-0.5 rounded font-mono">frame_count</code>, <code className="text-xs bg-muted px-1 py-0.5 rounded font-mono">size_bytes</code>, <code className="text-xs bg-muted px-1 py-0.5 rounded font-mono">duration_ms</code></li>
+            <li>Protected by RLS — only accessible to the session owner and authorized project members</li>
+          </ul>
+          <InfoBox variant="info">
+            Recordings store <strong>stdout only</strong>. Keyboard input (stdin) is never recorded, protecting passwords and sensitive commands typed during the session.
+          </InfoBox>
+
+          <Heading id="recording-playback" level={3}>Playback Controls</Heading>
+          <p className="text-sm text-muted-foreground leading-relaxed mb-4">
+            The playback UI renders the recording in a read-only xterm.js terminal with a full media-player-style control bar:
+          </p>
+          <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1 mb-4 ml-2">
+            <li><strong>Play / Pause</strong> — start or stop playback; at end, pressing play restarts from the beginning</li>
+            <li><strong>Skip ±5s</strong> — jump backward or forward by 5 seconds</li>
+            <li><strong>Scrubber</strong> — drag to seek to any point in the recording (100ms resolution)</li>
+            <li><strong>Speed</strong> — cycle through <code className="text-xs bg-muted px-1 py-0.5 rounded font-mono">0.5×</code> / <code className="text-xs bg-muted px-1 py-0.5 rounded font-mono">1×</code> / <code className="text-xs bg-muted px-1 py-0.5 rounded font-mono">2×</code> / <code className="text-xs bg-muted px-1 py-0.5 rounded font-mono">4×</code> / <code className="text-xs bg-muted px-1 py-0.5 rounded font-mono">8×</code></li>
+          </ul>
+          <InfoBox variant="tip">
+            Long idle gaps (e.g. waiting for a command to finish) are capped at <strong>2 seconds</strong> of real playback time regardless of speed setting, so you never wait through long pauses.
+          </InfoBox>
+
+          <Heading id="recording-export" level={3}>Export (.cast)</Heading>
+          <p className="text-sm text-muted-foreground leading-relaxed mb-4">
+            Click the <strong>.cast</strong> button in the playback header to download the recording as an <strong>asciicast v2</strong> file (<code className="text-xs bg-muted px-1 py-0.5 rounded font-mono">.cast</code>). This format is compatible with <a href="https://asciinema.org" target="_blank" rel="noopener" className="text-primary hover:underline">asciinema</a> and other asciicast-compatible players and tools.
+          </p>
+          <CodeBlock>{`// asciicast v2 header
+{ "version": 2, "width": 120, "height": 40, "timestamp": 1700000000,
+  "title": "Session abc12345", "env": { "TERM": "xterm-256color" } }
+// Followed by one event per line:
+[0.000, "o", "$ "]
+[0.412, "o", "ls -la\\r\\n"]
+...`}</CodeBlock>
+          <p className="text-sm text-muted-foreground leading-relaxed mb-4">
+            Downloaded file is named <code className="text-xs bg-muted px-1 py-0.5 rounded font-mono">session-{"<id>"}.cast</code>. Play it locally with <code className="text-xs bg-muted px-1 py-0.5 rounded font-mono">asciinema play session-abc12345.cast</code>.
+          </p>
+
+          <Separator className="my-10" />
+
           {/* ─── TEAMS ─── */}
           <Heading id="teams" level={2}>Teams & Collaboration</Heading>
+
 
           <Heading id="roles" level={3}>Roles & Permissions</Heading>
           <div className="overflow-x-auto">
