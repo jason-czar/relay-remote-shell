@@ -280,9 +280,7 @@ export function ChatSidebar({ conversations, activeId, onSelect, onNew, onDelete
                     >
                       <Trash2 className="h-3 w-3" />
                     </button>
-                    <img src={conv.agent === "openclaw" ? openclawImg : claudecodeImg} alt={conv.agent} className="w-5 h-5 rounded object-cover shrink-0" />
                   </div>
-                  <img src={conv.agent === "openclaw" ? openclawImg : claudecodeImg} alt={conv.agent} className="w-5 h-5 rounded object-cover shrink-0 group-hover:hidden" />
                 </>
               )}
             </div>
