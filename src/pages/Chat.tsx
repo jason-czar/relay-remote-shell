@@ -1529,7 +1529,7 @@ export default function Chat() {
           </div>
 
           {/* Floating composer */}
-          <div className="shrink-0 px-3 sm:px-6 pb-4 sm:pb-6 pt-2">
+          <div className="shrink-0 px-3 sm:px-6 pt-2" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 1rem)' }}>
             <div className="max-w-[860px] mx-auto">
               {/* Stop streaming button */}
               {(thinking || streamingMsgIndex !== null) && (
