@@ -260,7 +260,7 @@ export default function Landing() {
       </nav>
 
       {/* ── Hero ── */}
-      <section className="relative flex flex-col items-center justify-center pt-16 pb-14 px-5">
+      <section className="relative flex flex-col items-center justify-center pt-28 pb-24 px-5">
         {/* App icons row */}
         <div className="relative z-10 flex items-center justify-center gap-5 mb-10">
           {[
@@ -289,7 +289,7 @@ export default function Landing() {
             Access your home machine from anywhere
           </div>
 
-          <h1 className="heading-display mb-4 text-center">
+          <h1 className="heading-display mb-6 text-center text-[3.75rem] md:text-[4.5rem] leading-[1.1] tracking-[-0.04em]">
             Your home computer.<br />
             <span className="text-muted-foreground/55">In your browser.</span>
           </h1>
