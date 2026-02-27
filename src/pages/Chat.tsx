@@ -1516,31 +1516,17 @@ export default function Chat() {
             </div>
           </div>
 
-          {/* Jump-to-bottom FAB — sits between messages and composer, never overlapping */}
-          <div
-            className={cn(
-              "shrink-0 flex justify-center overflow-hidden transition-all duration-300 ease-out",
-              isScrolledUp ? "max-h-12 opacity-100 py-2 translate-y-0" : "max-h-0 opacity-0 py-0 translate-y-4 pointer-events-none"
-            )}
-          >
-            <button
-              onClick={scrollToBottom}
-              className={cn(
-                "flex items-center gap-1.5 px-3 py-1.5 rounded-full",
-                "bg-background/80 backdrop-blur-md border border-border/60",
-                "text-xs text-muted-foreground hover:text-foreground",
-                "shadow-lg hover:shadow-xl transition-all duration-200"
-              )}
-            >
-              {unreadCount > 0 && (
-                <span className="flex items-center justify-center w-4 h-4 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold leading-none">
-                  {unreadCount > 9 ? "9+" : unreadCount}
-                </span>
-              )}
-              <ChevronDown className="h-3.5 w-3.5 animate-bounce" />
-              <span>{unreadCount > 0 ? `${unreadCount} new` : "Jump to bottom"}</span>
-            </button>
-          </div>
+          {/* Jump-to-bottom FAB */}
+          {isScrolledUp && (
+            <div className="shrink-0 flex justify-end pr-4 py-1">
+              <button
+                onClick={scrollToBottom}
+                className="flex items-center justify-center w-8 h-8 rounded-full bg-background/80 backdrop-blur-md border border-border/60 text-muted-foreground hover:text-foreground shadow-md transition-colors duration-150"
+              >
+                <ChevronDown className="h-4 w-4" />
+              </button>
+            </div>
+          )}
 
           {/* Floating composer */}
           <div className="sticky bottom-0 z-20 shrink-0 px-3 sm:px-6 pt-2 backdrop-blur-md bg-background/80 border-t border-border/10" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 1rem)' }}>
