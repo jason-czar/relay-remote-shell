@@ -809,8 +809,11 @@ export default function Chat() {
       const modelPart = modelFlag ? ` ${modelFlag}` : "";
       return `openclaw agent --agent main --session-id ${sid}${modelPart} --message "${escaped}" --json --local\n`;
     } else if (conv.agent === "codex") {
-      // Codex CLI: `codex -q "<prompt>"` (non-interactive / print mode)
+      // Codex CLI: resume synced sessions by ID; otherwise fresh
       const modelPart = modelFlag ? ` --model ${selectedModel}` : "";
+      if (conv.claude_session_id) {
+        return `codex${modelPart} --resume ${conv.claude_session_id} -q "${escaped}"\n`;
+      }
       return `codex${modelPart} -q "${escaped}"\n`;
     } else {
       // claude
