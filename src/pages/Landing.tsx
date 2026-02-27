@@ -145,6 +145,13 @@ export default function Landing() {
           </p>
         </div>
       </div>
+
+      <footer className="border-t border-border/40 py-6">
+        <div className="max-w-2xl mx-auto px-4 flex gap-4 text-xs text-muted-foreground/50">
+          <button onClick={() => navigate("/terms")} className="hover:text-muted-foreground transition-colors">Terms of Service</button>
+          <button onClick={() => navigate("/privacy")} className="hover:text-muted-foreground transition-colors">Privacy Policy</button>
+        </div>
+      </footer>
     </div>
   );
 }

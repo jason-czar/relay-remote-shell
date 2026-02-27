@@ -22,6 +22,8 @@ import MultiSession from "./pages/MultiSession";
 import Docs from "./pages/Docs";
 import Chat from "./pages/Chat";
 import NotFound from "./pages/NotFound";
+import TermsOfService from "./pages/TermsOfService";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
 
 const queryClient = new QueryClient();
 
@@ -77,6 +79,8 @@ const App = () => (
                 <Route path="/multi-session" element={<ProtectedRoute><MultiSession /></ProtectedRoute>} />
                 <Route path="/chat" element={<Navigate to="/" replace />} />
                 <Route path="/docs" element={<Docs />} />
+                <Route path="/terms" element={<TermsOfService />} />
+                <Route path="/privacy" element={<PrivacyPolicy />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>
