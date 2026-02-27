@@ -1537,7 +1537,7 @@ export default function Chat() {
                   {unreadCount > 9 ? "9+" : unreadCount}
                 </span>
               )}
-              <ChevronDown className="h-3.5 w-3.5" />
+              <ChevronDown className="h-3.5 w-3.5 animate-bounce" />
               <span>{unreadCount > 0 ? `${unreadCount} new` : "Jump to bottom"}</span>
             </button>
           </div>
