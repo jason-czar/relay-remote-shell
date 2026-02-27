@@ -178,7 +178,7 @@ export function ChatMessage({ role, content, thinking, streaming, rawStdout, thi
         {/* Text content bubble */}
         {textContent && (
           <div
-            className="max-w-[88%] sm:max-w-[72%] rounded-[20px] px-5 py-3 text-[15px] leading-relaxed break-words"
+            className="max-w-[88%] sm:max-w-[72%] rounded-[22px] px-5 py-3.5 text-[16px] leading-relaxed break-words"
             style={{
               background: "hsl(var(--muted))",
               color: "hsl(var(--foreground))",
@@ -204,7 +204,7 @@ export function ChatMessage({ role, content, thinking, streaming, rawStdout, thi
       onMouseLeave={() => setHovered(false)}
     >
       <div className="flex-1 min-w-0">
-        <div className="text-[15px] md:text-[16px] leading-7 md:leading-8 text-foreground break-words pt-0.5">
+        <div className="text-[16px] md:text-[17px] leading-7 md:leading-8 text-foreground break-words pt-0.5">
           {/* Codex reasoning / thinking collapsible */}
           {thinkingContent && (
             <div className="mb-3">
