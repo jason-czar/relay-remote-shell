@@ -116,7 +116,7 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupLabel>
             <div className="flex items-center gap-2">
-              <img alt="PrivaClaw" className="h-5 w-5 rounded" src="/lovable-uploads/8f59b949-c7ab-4061-a2c9-5be4d2ff73a0.png" />
+              <img alt="PrivaClaw" className="h-5 w-5 rounded" src="/lovable-uploads/3c00a1cc-702c-41f2-b489-b7bfd8f24dee.png" />
               {!collapsed && <span className="font-mono text-sm font-bold">PrivaClaw</span>}
             </div>
           </SidebarGroupLabel>
