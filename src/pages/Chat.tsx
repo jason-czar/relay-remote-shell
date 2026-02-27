@@ -19,7 +19,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import type { Tables } from "@/integrations/supabase/types";
 import { useChatContext } from "@/contexts/ChatContext";
-import { useDeviceContext } from "@/contexts/DeviceContext";
 import { SetupWizard } from "@/components/SetupWizard";
 import { QuickStart } from "@/components/QuickStart";
 
@@ -434,7 +433,8 @@ export default function Chat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [agent, setAgent] = useState<"openclaw" | "claude" | "codex">("openclaw");
   const [model, setModel] = useState<string>("auto");
-  const { devices, setDevices, selectedDeviceId, setSelectedDeviceId } = useDeviceContext();
+  const [devices, setDevices] = useState<Tables<"devices">[]>([]);
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string>("");
   const [input, setInput] = useState("");
   const [thinking, setThinking] = useState(false);
   const [agentSwitchPending, setAgentSwitchPending] = useState<"openclaw" | "claude" | "codex" | null>(null);
@@ -1319,8 +1319,6 @@ export default function Chat() {
             </div>
             {/* Right — device pill + refresh + new chat */}
             <div className="ml-auto flex items-center gap-3">
-              {/* Device picker — hidden on mobile (lives in sidebar there) */}
-              <div className="hidden sm:block">
               <Popover>
                 <PopoverTrigger asChild>
                   <button className="flex items-center gap-2 px-3.5 py-2 rounded-full text-sm font-medium transition-all duration-150 border border-border/50 bg-[hsl(0,0%,14%)] hover:bg-[hsl(0,0%,18%)] text-foreground/80 hover:text-foreground">
@@ -1355,7 +1353,6 @@ export default function Chat() {
                   )}
                 </PopoverContent>
               </Popover>
-              </div> {/* end hidden sm:block device picker */}
               <button
                 onClick={() => window.location.reload()}
                 className="hidden sm:flex w-9 h-9 rounded-full items-center justify-center text-foreground/50 hover:text-foreground bg-[hsl(0,0%,14%)] hover:bg-[hsl(0,0%,18%)] border border-border/40 transition-all duration-150"
@@ -1515,7 +1512,7 @@ export default function Chat() {
 
           {/* Jump-to-bottom FAB — sits between messages and composer, never overlapping */}
           {isScrolledUp && (
-            <div className="shrink-0 flex justify-center py-2 animate-slide-up-fade">
+            <div className="shrink-0 flex justify-center py-2">
               <button
                 onClick={scrollToBottom}
                 className={cn(

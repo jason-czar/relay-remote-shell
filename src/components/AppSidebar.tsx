@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, FolderOpen, Settings, LogOut, Sun, Moon, Plug, BookOpen,
-  Columns2, MessageSquare, ChevronDown, Plus, Search, Trash2, Pencil, Check, X, Monitor,
+  Columns2, MessageSquare, ChevronDown, Plus, Search, Trash2, Pencil, Check, X,
 } from "lucide-react";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
@@ -16,7 +16,6 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { useChatContext } from "@/contexts/ChatContext";
-import { useDeviceContext } from "@/contexts/DeviceContext";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent,
   SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem,
@@ -80,7 +79,6 @@ export function AppSidebar() {
   }, [user]);
 
   const { conversations, activeConvId, setActiveConvId, handleDelete, handleNew, handleRename, activeJobs } = useChatContext();
-  const { devices, selectedDeviceId, setSelectedDeviceId } = useDeviceContext();
 
   const filtered = conversations.filter((c) =>
     c.title.toLowerCase().includes(search.toLowerCase())
@@ -260,40 +258,6 @@ export function AppSidebar() {
                       </div>
                     ))}
                   </div>
-                ))}
-              </div>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        )}
-
-        {/* ── Device selector — mobile only, shown in sidebar when on chat ─ */}
-        {isChat && !collapsed && devices.length > 0 && (
-          <SidebarGroup className="sm:hidden shrink-0 pb-2">
-            <SidebarGroupLabel>
-              <span className="label-xs text-muted-foreground/60 uppercase tracking-widest">Device</span>
-            </SidebarGroupLabel>
-            <SidebarGroupContent>
-              <div className="px-2 space-y-0.5">
-                {devices.map((d) => (
-                  <button
-                    key={d.id}
-                    onClick={() => setSelectedDeviceId(d.id)}
-                    className={cn(
-                      "w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all duration-100",
-                      selectedDeviceId === d.id
-                        ? "bg-accent/80 text-foreground"
-                        : "text-muted-foreground/60 hover:bg-accent/40 hover:text-foreground"
-                    )}
-                  >
-                    <Monitor className="h-3.5 w-3.5 shrink-0" />
-                    <span className="flex-1 truncate text-left">{d.name}</span>
-                    <span
-                      className={cn(
-                        "shrink-0 w-1.5 h-1.5 rounded-full",
-                        d.status === "online" ? "bg-status-online" : "bg-muted-foreground/30"
-                      )}
-                    />
-                  </button>
                 ))}
               </div>
             </SidebarGroupContent>
