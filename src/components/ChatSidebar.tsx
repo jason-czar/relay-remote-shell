@@ -224,7 +224,7 @@ export function ChatSidebar({ conversations, activeId, onSelect, onNew, onDelete
                 "group flex items-center gap-1.5 rounded-lg px-2 py-2 cursor-pointer transition-all duration-150",
                 activeId === conv.id
                   ? "bg-accent/60 text-foreground"
-                  : "text-muted-foreground hover:bg-accent/30 hover:text-foreground"
+                  : "text-muted-foreground/50 hover:bg-accent/30 hover:text-muted-foreground"
               )}
               onClick={() => editingId !== conv.id && onSelect(conv.id)}
               onMouseEnter={() => setHoveredId(conv.id)}
@@ -262,7 +262,7 @@ export function ChatSidebar({ conversations, activeId, onSelect, onNew, onDelete
               ) : (
                 /* ── Normal row ── */
                 <>
-                  <span className="flex-1 truncate text-xs">{conv.title}</span>
+                  <span className="flex-1 truncate text-xs text-muted-foreground/50 group-hover:text-muted-foreground transition-colors duration-150">{conv.title}</span>
                   <div className="shrink-0 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
                     <button
                       className="p-0.5 rounded hover:text-foreground hover:bg-accent/60 transition-colors"
