@@ -1025,10 +1025,10 @@ export default function Chat() {
           join("\n").
           trim();
 
-          if (!convData?.claude_session_id) {
-            const claudeId = extractClaudeSessionId(stdout);
-            if (claudeId) {
-              await supabase.from("chat_conversations").update({ claude_session_id: claudeId }).eq("id", jobConvId);
+          if (!convData?.claude_session_id && (convData?.agent === "claude" || convData?.agent === "codex")) {
+            const sessionId = extractClaudeSessionId(stdout);
+            if (sessionId) {
+              await supabase.from("chat_conversations").update({ claude_session_id: sessionId }).eq("id", jobConvId);
             }
           }
         }
@@ -1278,6 +1278,13 @@ export default function Chat() {
               if (/^[=\-\+\*~\s]+$/.test(t)) return false;
               return true;
             }).join("\n").trim();
+            // Capture session ID from first Codex reply
+            if (!convData?.claude_session_id) {
+              const sessionId = extractClaudeSessionId(stdout);
+              if (sessionId) {
+                await supabase.from("chat_conversations").update({ claude_session_id: sessionId }).eq("id", jobConvId);
+              }
+            }
           } else {
             responseText = cleaned.split("\n").filter((line) => {
               const t = line.trim();
