@@ -111,11 +111,11 @@ function AgentPreview() {
     return () => clearTimeout(t);
   }, [active]);
 
-  const tabs: { id: AgentId; label: string; icon: string }[] = [
-    { id: "openclaw",   label: "OpenClaw",    icon: "🦀" },
-    { id: "claudecode", label: "Claude Code", icon: "🤖" },
-    { id: "codex",      label: "Codex",       icon: "✦" },
-    { id: "terminal",   label: "Terminal",    icon: ">" },
+  const tabs: { id: AgentId; label: string; img: string }[] = [
+    { id: "openclaw",   label: "OpenClaw",    img: openclawIcon },
+    { id: "claudecode", label: "Claude Code", img: claudecodeIcon },
+    { id: "codex",      label: "Codex",       img: codexIcon },
+    { id: "terminal",   label: "Terminal",    img: terminalIcon },
   ];
 
   return (
@@ -140,7 +140,7 @@ function AgentPreview() {
                 : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/30"
             }`}
           >
-            <span className={`font-mono ${active === tab.id ? AGENT_PREVIEWS[tab.id].color : ""}`}>{tab.icon}</span>
+            <img src={tab.img} alt={tab.label} className={`w-4 h-4 rounded-md transition-opacity ${active === tab.id ? "opacity-100" : "opacity-50"}`} />
             {tab.label}
           </button>
         ))}
