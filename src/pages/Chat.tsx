@@ -710,6 +710,7 @@ export default function Chat() {
     setInput("");
     setAttachedFiles([]);
     abortStreamRef.current = false;
+    if (textareaRef.current) { textareaRef.current.style.height = "40px"; textareaRef.current.style.overflowY = "hidden"; }
 
     const displayText = text || `[${attachedFiles.map(f => f.name).join(", ")}]`;
     const userMsg: Message = { role: "user", content: displayText };
