@@ -138,14 +138,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
     window.addEventListener("mouseup", onUp);
   }, []);
 
-  const isMobile = useIsMobile();
-
   return (
-    <SidebarProvider
-      open={isMobile ? undefined : true}
-      onOpenChange={isMobile ? undefined : () => {}}
-      style={{ "--sidebar-width": `${sidebarWidth}px` } as React.CSSProperties}
-    >
+    <SidebarProvider style={{ "--sidebar-width": `${sidebarWidth}px` } as React.CSSProperties}>
       <Inner isChat={isChat} sidebarWidth={sidebarWidth} onMouseDown={onMouseDown}>
         {children}
       </Inner>
