@@ -20,6 +20,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import type { Tables } from "@/integrations/supabase/types";
 import { useChatContext } from "@/contexts/ChatContext";
 import { SetupWizard } from "@/components/SetupWizard";
+import { QuickStart } from "@/components/QuickStart";
 
 interface AttachedFile {
   name: string;
@@ -1384,53 +1385,16 @@ export default function Chat() {
               {messages.length === 0 && !thinking && (
                 <div className="flex flex-col items-center justify-center min-h-[70vh] sm:min-h-[80vh] text-center">
 
-                  {/* ── No device paired: prominent CTA ─────────────────── */}
+                  {/* ── No device paired: inline quick-start ─────────────── */}
                   {devices.length === 0 ? (
-                    <div className="flex flex-col items-center gap-6 max-w-sm">
-                      <div className="relative animate-fade-in" style={{ animationFillMode: "both" }}>
-                        <div className="absolute inset-0 rounded-3xl bg-primary/20 blur-xl scale-110" />
-                        <div className="relative w-24 h-24 rounded-3xl flex items-center justify-center ring-1 ring-primary/30"
-                          style={{
-                            background: "linear-gradient(135deg, hsl(var(--primary) / 0.18) 0%, hsl(var(--primary) / 0.08) 100%)",
-                            boxShadow: "0 8px 32px hsl(var(--primary) / 0.25), inset 0 1px 0 rgba(255,255,255,0.12)",
-                          }}
-                        >
-                          <Monitor className="w-10 h-10 text-primary/70" />
-                        </div>
-                      </div>
-
-                      <div className="animate-fade-in" style={{ animationDelay: "100ms", animationFillMode: "both" }}>
-                       <h3 className="font-semibold text-foreground text-xl mb-2">No device connected</h3>
-                        <p className="text-base text-muted-foreground leading-relaxed">
-                          Pair your first machine to start running commands and chatting with AI agents directly on your device.
-                        </p>
-                      </div>
-
-                      <div className="flex flex-col items-center gap-3 w-full animate-fade-in" style={{ animationDelay: "200ms", animationFillMode: "both" }}>
-                        <Button
-                          size="lg"
-                          className="w-full gap-2 text-sm font-medium"
-                          onClick={() => setShowWizard(true)}
-                        >
-                          <Plus className="h-4 w-4" />
-                          Pair your first device
-                        </Button>
-                        <p className="text-xs text-muted-foreground/50">Takes about 60 seconds · runs a single bash command</p>
-                      </div>
-
-                      {/* How it works */}
-                      <div className="grid grid-cols-3 gap-3 w-full mt-2 animate-fade-in" style={{ animationDelay: "300ms", animationFillMode: "both" }}>
-                        {[
-                          { icon: "1", label: "Name device" },
-                          { icon: "2", label: "Run installer" },
-                          { icon: "3", label: "Start chatting" },
-                        ].map(({ icon, label }) => (
-                          <div key={label} className="flex flex-col items-center gap-1.5 rounded-xl border border-border/30 bg-card/30 py-3 px-2">
-                            <span className="w-6 h-6 rounded-full bg-primary/15 text-primary text-xs font-bold flex items-center justify-center">{icon}</span>
-                            <span className="text-xs text-muted-foreground text-center leading-tight">{label}</span>
-                          </div>
-                        ))}
-                      </div>
+                    <div className="flex flex-col items-center gap-6 w-full max-w-xl px-2">
+                      <QuickStart
+                        projectId={projectId}
+                        onDeviceOnline={(dev) => {
+                          setDevices((prev) => [...prev, dev]);
+                          setSelectedDeviceId(dev.id);
+                        }}
+                      />
                     </div>
 
                   ) : (
