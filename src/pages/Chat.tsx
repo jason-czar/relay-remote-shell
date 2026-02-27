@@ -278,8 +278,9 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
       {/* Main pill bar */}
       <div
         className={cn(
-          "flex items-end gap-1.5 rounded-[28px] px-4 py-2 transition-all duration-200",
-          "bg-[hsl(var(--muted)/0.6)] border border-border/20",
+          "flex items-end gap-1 rounded-[28px] px-3 py-2.5 transition-all duration-150",
+          "bg-card border-2",
+          focused ? "border-foreground/20" : "border-border/40",
           disabled && "opacity-60 pointer-events-none"
         )}
       >
@@ -288,7 +289,7 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
           type="button"
           title="Attach file"
           onClick={() => fileInputRef.current?.click()}
-          className="shrink-0 p-2 rounded-full text-muted-foreground hover:text-foreground hover:bg-accent/60 transition-colors"
+          className="shrink-0 p-2 rounded-full text-muted-foreground/50 hover:text-foreground hover:bg-accent/60 transition-colors"
         >
           <Paperclip size={18} />
         </button>
@@ -313,7 +314,7 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
           disabled={disabled}
           rows={1}
           style={{ height: "44px", overflowY: "hidden", resize: "none" }}
-          className="text-[15px] min-h-[44px] flex-1 bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none px-2 py-3 placeholder:text-muted-foreground/40"
+          className="text-[15px] min-h-[44px] flex-1 bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none px-2 py-3 placeholder:text-muted-foreground/30 text-foreground"
         />
 
         {/* Waveform — shown while dictating */}
@@ -329,8 +330,6 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
           </div>
         )}
 
-        {/* Agent + model selector — hidden for now */}
-
         {/* Mic / dictation button */}
         <button
           type="button"
@@ -340,7 +339,7 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
             "shrink-0 p-2 rounded-full transition-all duration-200",
             isDictating
               ? "text-destructive animate-pulse"
-              : "text-muted-foreground hover:text-foreground"
+              : "text-muted-foreground/50 hover:text-foreground"
           )}
         >
           <Mic size={18} />
@@ -353,10 +352,10 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
           disabled={sendDisabled || disabled}
           title="Send"
           className={cn(
-            "shrink-0 p-2 rounded-full transition-all duration-200",
+            "shrink-0 p-2 rounded-full transition-all duration-150",
             sendDisabled || disabled
-              ? "bg-muted/40 text-muted-foreground/40 cursor-not-allowed"
-              : "bg-primary text-primary-foreground hover:opacity-90 shadow-sm"
+              ? "bg-muted/30 text-muted-foreground/30 cursor-not-allowed"
+              : "bg-foreground text-background hover:opacity-80 shadow-md"
           )}
         >
           <ArrowUp size={17} />
