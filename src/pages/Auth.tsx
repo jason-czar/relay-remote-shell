@@ -7,7 +7,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useToast } from "@/hooks/use-toast";
 import { Mail, Lock, ArrowRight } from "lucide-react";
 import logo from "@/assets/logo.png";
-import agentsGroup from "@/assets/agents-group.png";
+import openclawIcon from "@/assets/openclaw-icon.png";
+import claudecodeIcon from "@/assets/claudecode-icon.png";
+import codexIcon from "@/assets/codex-icon.png";
+import terminalIcon from "@/assets/terminal-icon.png";
 import { emailSchema, passwordSchema } from "@/lib/validations";
 
 export default function Auth() {
@@ -140,8 +143,17 @@ export default function Auth() {
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md border-border">
         <CardHeader className="text-center">
-          <div className="mx-auto mb-4 flex items-center justify-center">
-            <img src={agentsGroup} alt="OpenClaw & Claude Code" className="h-24 w-auto" />
+          <div className="mx-auto mb-4 flex items-center justify-center gap-3">
+            {[
+              { src: openclawIcon, alt: "OpenClaw" },
+              { src: claudecodeIcon, alt: "Claude Code" },
+              { src: codexIcon, alt: "Codex" },
+              { src: terminalIcon, alt: "Terminal" },
+            ].map(({ src, alt }) => (
+              <div key={alt} className="h-12 w-12 rounded-xl bg-muted/60 border border-border/40 flex items-center justify-center">
+                <img src={src} alt={alt} className="h-7 w-7 object-contain" />
+              </div>
+            ))}
           </div>
           <CardTitle className="text-xl">
             {isLogin ? "Welcome back" : "Create account"}
