@@ -1390,28 +1390,6 @@ export default function Chat() {
 
           {/* Messages — centered column */}
           {/* Scroll-to-bottom floating button */}
-          {isScrolledUp && (
-            <button
-              onClick={scrollToBottom}
-              className={cn(
-                "absolute bottom-[80px] sm:bottom-[88px] left-1/2 -translate-x-1/2 z-20",
-                "flex items-center gap-1.5 px-3 py-1.5 rounded-full",
-                "bg-background/80 backdrop-blur-md border border-border/60",
-                "text-xs text-muted-foreground hover:text-foreground",
-                "shadow-lg hover:shadow-xl transition-all duration-200",
-                "animate-[fade-in_0.2s_ease-out]"
-              )}
-            >
-              {unreadCount > 0 && (
-                <span className="flex items-center justify-center w-4 h-4 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold leading-none">
-                  {unreadCount > 9 ? "9+" : unreadCount}
-                </span>
-              )}
-              <ChevronDown className="h-3.5 w-3.5" />
-              <span>{unreadCount > 0 ? `${unreadCount} new` : "Jump to bottom"}</span>
-            </button>
-          )}
-
           <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto py-8 sm:py-10">
             <div className="max-w-[900px] mx-auto px-4 sm:px-8">
               {messages.length === 0 && !thinking && (
@@ -1515,6 +1493,30 @@ export default function Chat() {
               </div>
             </div>
           </div>
+
+          {/* Jump-to-bottom FAB — sits between messages and composer, never overlapping */}
+          {isScrolledUp && (
+            <div className="shrink-0 flex justify-center py-2">
+              <button
+                onClick={scrollToBottom}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-full",
+                  "bg-background/80 backdrop-blur-md border border-border/60",
+                  "text-xs text-muted-foreground hover:text-foreground",
+                  "shadow-lg hover:shadow-xl transition-all duration-200",
+                  "animate-[fade-in_0.2s_ease-out]"
+                )}
+              >
+                {unreadCount > 0 && (
+                  <span className="flex items-center justify-center w-4 h-4 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold leading-none">
+                    {unreadCount > 9 ? "9+" : unreadCount}
+                  </span>
+                )}
+                <ChevronDown className="h-3.5 w-3.5" />
+                <span>{unreadCount > 0 ? `${unreadCount} new` : "Jump to bottom"}</span>
+              </button>
+            </div>
+          )}
 
           {/* Floating composer */}
           <div className="shrink-0 px-3 sm:px-6 pt-2" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 1rem)' }}>
