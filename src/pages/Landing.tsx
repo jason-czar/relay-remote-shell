@@ -56,7 +56,7 @@ export default function Landing() {
 
       {/* Agent tabs */}
       <div className="border-b border-border/40">
-        <div className="max-w-2xl mx-auto flex items-center px-4">
+        <div className="max-w-2xl mx-auto flex items-center justify-center px-4">
           {AGENT_TABS.map((tab) => (
             <button
               key={tab}
