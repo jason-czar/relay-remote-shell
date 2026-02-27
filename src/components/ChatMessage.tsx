@@ -276,10 +276,7 @@ export function ChatMessage({ role, content, thinking, streaming, rawStdout, thi
         </div>
 
         {/* Hover action bar */}
-        <div className={cn(
-          "flex items-center gap-0.5 mt-1.5 transition-all duration-150",
-          hovered ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-1 pointer-events-none"
-        )}>
+        <div className="flex items-center gap-0.5 mt-1.5">
           <button
             onClick={handleCopy}
             className="flex items-center gap-1 px-2 py-1 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
