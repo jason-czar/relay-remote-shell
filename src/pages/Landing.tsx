@@ -295,10 +295,10 @@ export default function Landing() {
           </h1>
 
           {/* Core value prop */}
-          <p className="body-lg text-muted-foreground mb-3 max-w-2xl text-center">
+          <p className="body-lg text-muted-foreground mb-5 max-w-3xl text-center leading-[1.75]">
             PrivaClaw lets you access the <strong className="text-foreground/80">terminal</strong>, <strong className="text-foreground/80">OpenClaw</strong>, <strong className="text-foreground/80">Claude Code</strong>, and <strong className="text-foreground/80">Codex</strong> running on your home computer — from any device, anywhere in the world.
           </p>
-          <p className="text-sm text-muted-foreground/60 mb-7 max-w-lg text-center">
+          <p className="text-sm text-muted-foreground/60 mb-9 max-w-xl text-center leading-[1.8]">
             No port forwarding. No public IP. Just install the connector on your machine, pair it once, and everything runs on <em>your</em> hardware while you chat from your phone, tablet, or laptop.
           </p>
 
