@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Terminal, Zap, Shield, Cpu } from "lucide-react";
+import { LANDING_STATS } from "@/config/landing";
 import logo from "@/assets/privaclaw-icon.png";
 import openclawImg from "@/assets/openclaw.png";
 import claudecodeImg from "@/assets/claudecode.png";
@@ -278,12 +279,8 @@ function useCountUp(target: number, duration = 1400, active = false) {
   return count;
 }
 
-const STATS = [
-  { value: 3,    suffix: "",  label: "AI agents supported" },
-  { value: 100,  suffix: "%", label: "traffic stays on-device" },
-  { value: 5,    suffix: "s", label: "average pairing time" },
-  { value: 0,    suffix: "",  label: "port forwarding required" },
-];
+
+
 
 function StatCard({ value, suffix, label, active, delay }: { value: number; suffix: string; label: string; active: boolean; delay: number }) {
   const count = useCountUp(value, 1200, active);
@@ -307,7 +304,7 @@ function StatsSection() {
       <div className="max-w-4xl mx-auto">
         <p className="text-xs font-semibold tracking-widest text-muted-foreground/50 uppercase text-center mb-8">By the numbers</p>
         <div ref={ref} className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {STATS.map((s, i) => (
+          {LANDING_STATS.map((s, i) => (
             <StatCard key={s.label} {...s} active={visible} delay={i * 100} />
           ))}
         </div>
