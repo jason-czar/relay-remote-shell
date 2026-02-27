@@ -1269,7 +1269,7 @@ export default function Chat() {
           )}
 
           <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto py-6">
-            <div className="max-w-[720px] mx-auto px-6">
+            <div className="max-w-[860px] mx-auto px-6">
               {messages.length === 0 && !thinking && (
                 <div className="flex flex-col items-center justify-center min-h-[80vh] text-center">
 
@@ -1417,7 +1417,7 @@ export default function Chat() {
 
           {/* Floating composer */}
           <div className="shrink-0 px-6 pb-6 pt-2">
-            <div className="max-w-[720px] mx-auto">
+            <div className="max-w-[860px] mx-auto">
               {/* Stop streaming button */}
               {(thinking || streamingMsgIndex !== null) && (
                 <div className="flex justify-center mb-3">

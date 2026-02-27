@@ -199,7 +199,7 @@ export function ChatMessage({ role, content, thinking, streaming, rawStdout, cre
       onMouseLeave={() => setHovered(false)}
     >
       <div className="flex-1 min-w-0">
-        <div className="text-sm leading-relaxed text-foreground break-words pt-0.5">
+        <div className="text-sm md:text-[15px] leading-relaxed md:leading-7 text-foreground break-words pt-0.5">
           {streaming && !content && (
             <span className="inline-flex gap-1 items-center h-5">
               {[0, 1, 2].map((i) => (
