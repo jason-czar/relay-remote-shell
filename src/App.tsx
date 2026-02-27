@@ -7,6 +7,7 @@ import { ThemeProvider } from "next-themes";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { ChatProvider } from "@/contexts/ChatContext";
+import { DeviceProvider } from "@/contexts/DeviceContext";
 import { useInactivityTimeout } from "@/hooks/useInactivityTimeout";
 import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
@@ -59,6 +60,7 @@ const App = () => (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <ChatProvider>
+          <DeviceProvider>
         <TooltipProvider>
           <ErrorBoundary>
             <Toaster />
@@ -86,6 +88,7 @@ const App = () => (
             </BrowserRouter>
           </ErrorBoundary>
         </TooltipProvider>
+        </DeviceProvider>
         </ChatProvider>
       </AuthProvider>
     </QueryClientProvider>
