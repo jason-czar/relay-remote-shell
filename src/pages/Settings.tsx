@@ -179,17 +179,17 @@ export default function Settings() {
     <AppLayout>
       <div className="max-w-2xl space-y-6">
         <div>
-          <h1 className="heading-2">Settings</h1>
+          <h1 className="heading-1">Settings</h1>
           <p className="body-sm text-muted-foreground">Manage your profile and account</p>
         </div>
 
         {/* Avatar + Display Name */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
+            <CardTitle className="heading-4 flex items-center gap-2">
               <User className="h-4 w-4" /> Profile
             </CardTitle>
-            <CardDescription>Your public display information</CardDescription>
+            <CardDescription className="body-sm">Your public display information</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             {/* Avatar */}
@@ -255,10 +255,10 @@ export default function Settings() {
         {/* Change Password */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
+            <CardTitle className="heading-4 flex items-center gap-2">
               <Lock className="h-4 w-4" /> Change Password
             </CardTitle>
-            <CardDescription>Update your account password</CardDescription>
+            <CardDescription className="body-sm">Update your account password</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleChangePassword} className="space-y-4">
@@ -296,10 +296,10 @@ export default function Settings() {
         {/* Session Timeout */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
+            <CardTitle className="heading-4 flex items-center gap-2">
               <Timer className="h-4 w-4" /> Session Timeout
             </CardTitle>
-            <CardDescription>Automatically log out after a period of inactivity</CardDescription>
+            <CardDescription className="body-sm">Automatically log out after a period of inactivity</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
@@ -346,10 +346,10 @@ export default function Settings() {
         {/* Onboarding */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
+            <CardTitle className="heading-4 flex items-center gap-2">
               <RotateCcw className="h-4 w-4" /> Onboarding Tour
             </CardTitle>
-            <CardDescription>Restart the getting-started walkthrough</CardDescription>
+            <CardDescription className="body-sm">Restart the getting-started walkthrough</CardDescription>
           </CardHeader>
           <CardContent>
             <Button
@@ -367,10 +367,10 @@ export default function Settings() {
         {/* Danger Zone */}
         <Card className="border-destructive/30">
           <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2 text-destructive">
+            <CardTitle className="heading-4 flex items-center gap-2 text-destructive">
               <Trash2 className="h-4 w-4" /> Danger Zone
             </CardTitle>
-            <CardDescription>Irreversible actions for your account</CardDescription>
+            <CardDescription className="body-sm">Irreversible actions for your account</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between rounded-lg border border-destructive/20 bg-destructive/5 px-4 py-3">
