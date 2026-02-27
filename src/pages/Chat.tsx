@@ -1439,7 +1439,7 @@ export default function Chat() {
                 onSend={handleSend}
                 disabled={!selectedDeviceId}
                 sendDisabled={(!input.trim() && attachedFiles.length === 0)}
-                placeholder={selectedDeviceId ? `Message ${agent === "openclaw" ? "OpenClaw" : "Claude Code"}... (type / for commands)` : "Select a device first…"}
+                placeholder={selectedDeviceId ? `Message ${agent === "openclaw" ? "OpenClaw" : "Claude Code"}…` : "Select a device first…"}
                 attachedFiles={attachedFiles}
                 onRemoveFile={(i) => setAttachedFiles((prev) => prev.filter((_, idx) => idx !== i))}
                 onFileSelect={processFiles}
