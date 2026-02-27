@@ -380,15 +380,31 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
             disabled={!isStreaming && (sendDisabled || disabled)}
             title={isStreaming ? "Stop generating" : "Send"}
             className={cn(
-              "flex items-center justify-center h-11 w-11 rounded-full transition-all duration-150",
+              "relative flex items-center justify-center h-11 w-11 rounded-full",
+              "transition-all duration-300 ease-in-out overflow-hidden",
               isStreaming
-                ? "bg-foreground text-background hover:opacity-80 shadow-md"
+                ? "bg-foreground text-background hover:opacity-80 shadow-md scale-100"
                 : sendDisabled || disabled
-                  ? "bg-muted/30 text-muted-foreground/30 cursor-not-allowed"
-                  : "bg-foreground text-background hover:opacity-80 shadow-md"
+                  ? "bg-muted/30 text-muted-foreground/30 cursor-not-allowed scale-95"
+                  : "bg-foreground text-background hover:opacity-80 shadow-md scale-100"
             )}
           >
-            {isStreaming ? <Square size={16} className="fill-current" /> : <ArrowUp size={19} />}
+            <span
+              className={cn(
+                "absolute inset-0 flex items-center justify-center transition-all duration-200",
+                isStreaming ? "opacity-100 scale-100 rotate-0" : "opacity-0 scale-50 rotate-90"
+              )}
+            >
+              <Square size={15} className="fill-current" />
+            </span>
+            <span
+              className={cn(
+                "absolute inset-0 flex items-center justify-center transition-all duration-200",
+                isStreaming ? "opacity-0 scale-50 -rotate-90" : "opacity-100 scale-100 rotate-0"
+              )}
+            >
+              <ArrowUp size={19} />
+            </span>
           </button>
         </div>
       </div>
