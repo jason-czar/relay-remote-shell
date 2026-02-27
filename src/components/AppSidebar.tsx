@@ -33,7 +33,7 @@ const setupItems = [
 ];
 
 export function AppSidebar() {
-  const { state, setOpen } = useSidebar();
+  const { state, setOpen, setOpenMobile } = useSidebar();
   const collapsed = state === "collapsed";
   const { signOut, user } = useAuth();
   const { theme, setTheme } = useTheme();
@@ -105,7 +105,7 @@ export function AppSidebar() {
   const onTouchStart = useCallback((e: React.TouchEvent) => { touchStartX.current = e.touches[0].clientX; }, []);
   const onTouchEnd = useCallback((e: React.TouchEvent) => {
     if (touchStartX.current === null) return;
-    if (e.changedTouches[0].clientX - touchStartX.current < -60) { haptic(); setOpen(false); }
+    if (e.changedTouches[0].clientX - touchStartX.current < -60) { haptic(); setOpen(false); setOpenMobile(false); }
     touchStartX.current = null;
   }, [haptic, setOpen]);
 
@@ -196,7 +196,7 @@ export function AppSidebar() {
                             ? "bg-accent/80 text-foreground"
                             : "text-muted-foreground/60 hover:bg-accent/40 hover:text-foreground"
                         )}
-                        onClick={() => { if (editingId !== conv.id) { setActiveConvId(conv.id); navigate("/"); setOpen(false); } }}
+                        onClick={() => { if (editingId !== conv.id) { setActiveConvId(conv.id); navigate("/"); setOpen(false); setOpenMobile(false); } }}
                         onMouseEnter={() => setHoveredId(conv.id)}
                         onMouseLeave={() => setHoveredId(null)}
                       >
