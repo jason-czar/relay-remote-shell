@@ -12,7 +12,7 @@ import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import { useTheme } from "next-themes";
 import { useNavigate, useLocation } from "react-router-dom";
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { useChatContext } from "@/contexts/ChatContext";
@@ -99,24 +99,12 @@ export function AppSidebar() {
   const handleSignOut = async () => { await signOut(); navigate("/auth"); };
   const toggleTheme = () => setTheme(theme === "dark" ? "light" : "dark");
 
-  // ── Swipe-to-close + haptic ──────────────────────────────────────────────
-  const haptic = useCallback(() => { if ("vibrate" in navigator) navigator.vibrate(8); }, []);
-  const touchStartX = useRef<number | null>(null);
-  const onTouchStart = useCallback((e: React.TouchEvent) => { touchStartX.current = e.touches[0].clientX; }, []);
-  const onTouchEnd = useCallback((e: React.TouchEvent) => {
-    if (touchStartX.current === null) return;
-    if (e.changedTouches[0].clientX - touchStartX.current < -60) { haptic(); setOpen(false); setOpenMobile(false); }
-    touchStartX.current = null;
-  }, [haptic, setOpen]);
-
   return (
     <>
     <Sidebar collapsible="offcanvas">
       <SidebarContent
         className="flex flex-col min-h-0"
         style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
-        onTouchStart={onTouchStart}
-        onTouchEnd={onTouchEnd}
       >
         {/* ── Logo ──────────────────────────────────────────────────────── */}
         <SidebarGroup>
