@@ -1678,7 +1678,8 @@ export default function Chat() {
 
           {/* Floating composer — hidden in terminal mode */}
           {agent !== "terminal" && (
-          <div className="sticky bottom-0 z-20 shrink-0 px-3 sm:px-6 pt-2 backdrop-blur-md bg-background/80 border-t border-border/10" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 1rem)' }}>
+          <div className="sticky bottom-0 z-20 shrink-0 pt-2 backdrop-blur-md bg-background/80 border-t border-border/10" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 1rem)' }}>
+            <div className="max-w-[900px] mx-auto px-3 sm:px-8">
             <div className="max-w-[900px] mx-auto">
               {/* Stop streaming button — now handled by composer send button */}
               <ComposerBox
@@ -1712,6 +1713,7 @@ export default function Chat() {
                 Enter to send · Shift+Enter for newline · <span className="font-mono">/</span> for commands
               </p>
             </div>
+            </div>{/* end max-w centering wrapper */}
           </div>
           )} {/* end agent !== terminal */}
 
