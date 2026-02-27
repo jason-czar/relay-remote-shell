@@ -92,6 +92,19 @@ const sections: Section[] = [
     ],
   },
   {
+    id: "ai-chat",
+    title: "AI Chat",
+    icon: MessageSquare,
+    subsections: [
+      { id: "chat-overview", title: "Overview" },
+      { id: "chat-agents", title: "Supported Agents" },
+      { id: "chat-models", title: "Model Selection" },
+      { id: "chat-slash-commands", title: "Slash Commands" },
+      { id: "chat-file-attachments", title: "File Attachments" },
+      { id: "chat-voice", title: "Voice Dictation" },
+    ],
+  },
+  {
     id: "privaclaw",
     title: "PrivaClaw Skill",
     icon: Plug,
@@ -864,6 +877,98 @@ GOOS=linux GOARCH=arm GOARM=7 go build -o relay-connector-pi .`}</CodeBlock>
           <p className="text-sm text-muted-foreground leading-relaxed mb-4">
             Owners can remove members and cancel pending invitations from the Team tab.
             Members cannot transfer ownership or promote other members.
+          </p>
+
+          <Separator className="my-10" />
+
+          {/* ─── AI CHAT ─── */}
+          <Heading id="ai-chat" level={2}>AI Chat</Heading>
+
+          <Heading id="chat-overview" level={3}>Overview</Heading>
+          <p className="text-sm text-muted-foreground leading-relaxed mb-4">
+            The <strong>Chat</strong> page (<a href="/chat" className="text-primary hover:underline">/chat</a>) lets you send prompts directly to AI coding agents running on your connected devices — without opening a terminal. Messages are sent over the relay as terminal commands and streamed back as formatted responses.
+          </p>
+          <p className="text-sm text-muted-foreground leading-relaxed mb-4">
+            Conversations are persisted in the database and organized by device. You can resume previous conversations or start fresh at any time.
+          </p>
+
+          <Heading id="chat-agents" level={3}>Supported Agents</Heading>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm border border-border rounded-lg overflow-hidden my-4">
+              <thead className="bg-muted/50">
+                <tr>
+                  <th className="text-left p-3 font-semibold border-b border-border">Agent</th>
+                  <th className="text-left p-3 font-semibold border-b border-border">CLI Command</th>
+                  <th className="text-left p-3 font-semibold border-b border-border">Description</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-b border-border"><td className="p-3 font-medium">OpenClaw</td><td className="p-3 font-mono text-xs">openclaw -p "…"</td><td className="p-3 text-muted-foreground">Native OpenClaw agent with full relay integration and status/restart support</td></tr>
+                <tr className="border-b border-border"><td className="p-3 font-medium">Claude Code</td><td className="p-3 font-mono text-xs">claude -p "…"</td><td className="p-3 text-muted-foreground">Anthropic's Claude Code CLI agent running on your device</td></tr>
+                <tr><td className="p-3 font-medium">Codex</td><td className="p-3 font-mono text-xs">codex "…"</td><td className="p-3 text-muted-foreground">OpenAI Codex CLI agent running on your device</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <InfoBox variant="info">
+            The agent selector and device selector appear at the top of the chat composer. You must have at least one online device to send messages.
+          </InfoBox>
+
+          <Heading id="chat-models" level={3}>Model Selection</Heading>
+          <p className="text-sm text-muted-foreground leading-relaxed mb-4">
+            Each agent supports a model picker that passes <code className="text-xs bg-muted px-1 py-0.5 rounded font-mono">--model</code> to the CLI. Available models per agent:
+          </p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm border border-border rounded-lg overflow-hidden my-4">
+              <thead className="bg-muted/50">
+                <tr>
+                  <th className="text-left p-3 font-semibold border-b border-border">Agent</th>
+                  <th className="text-left p-3 font-semibold border-b border-border">Models</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-b border-border"><td className="p-3 font-medium">OpenClaw / Claude Code</td><td className="p-3 text-muted-foreground font-mono text-xs">Auto, claude-opus-4-5, claude-sonnet-4-5, claude-haiku-4-5, claude-opus-4, claude-sonnet-4, claude-haiku-3-5</td></tr>
+                <tr><td className="p-3 font-medium">Codex</td><td className="p-3 text-muted-foreground font-mono text-xs">Auto, o4-mini, o3, o3-mini, gpt-4.1, gpt-4.1-mini, gpt-4o</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p className="text-sm text-muted-foreground leading-relaxed mb-4">
+            <strong>Auto</strong> uses the agent's default model without passing <code className="text-xs bg-muted px-1 py-0.5 rounded font-mono">--model</code>.
+          </p>
+
+          <Heading id="chat-slash-commands" level={3}>Slash Commands</Heading>
+          <p className="text-sm text-muted-foreground leading-relaxed mb-4">
+            Type <code className="text-xs bg-muted px-1 py-0.5 rounded font-mono">/</code> in the composer to see available commands. Commands are filtered by the active agent.
+          </p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm border border-border rounded-lg overflow-hidden my-4">
+              <thead className="bg-muted/50">
+                <tr>
+                  <th className="text-left p-3 font-semibold border-b border-border">Command</th>
+                  <th className="text-left p-3 font-semibold border-b border-border">Agent</th>
+                  <th className="text-left p-3 font-semibold border-b border-border">Description</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-b border-border"><td className="p-3 font-mono text-xs">/clear</td><td className="p-3 text-muted-foreground">All</td><td className="p-3 text-muted-foreground">Clear the current conversation and start fresh</td></tr>
+                <tr className="border-b border-border"><td className="p-3 font-mono text-xs">/new</td><td className="p-3 text-muted-foreground">All</td><td className="p-3 text-muted-foreground">Start a new conversation</td></tr>
+                <tr className="border-b border-border"><td className="p-3 font-mono text-xs">/compact</td><td className="p-3 text-muted-foreground">All</td><td className="p-3 text-muted-foreground">Compact conversation context to save tokens</td></tr>
+                <tr className="border-b border-border"><td className="p-3 font-mono text-xs">/status</td><td className="p-3 text-muted-foreground">OpenClaw</td><td className="p-3 text-muted-foreground">Show agent status (uptime, tasks, last error)</td></tr>
+                <tr className="border-b border-border"><td className="p-3 font-mono text-xs">/restart</td><td className="p-3 text-muted-foreground">OpenClaw</td><td className="p-3 text-muted-foreground">Gracefully restart the OpenClaw agent process</td></tr>
+                <tr className="border-b border-border"><td className="p-3 font-mono text-xs">/resume</td><td className="p-3 text-muted-foreground">Claude Code</td><td className="p-3 text-muted-foreground">Resume the last Claude Code session (<code className="text-xs bg-muted px-1 py-0.5 rounded font-mono">claude -c -p "continue"</code>)</td></tr>
+                <tr className="border-b border-border"><td className="p-3 font-mono text-xs">/codex-resume</td><td className="p-3 text-muted-foreground">Codex</td><td className="p-3 text-muted-foreground">Resume the last Codex session (<code className="text-xs bg-muted px-1 py-0.5 rounded font-mono">codex --resume</code>)</td></tr>
+                <tr><td className="p-3 font-mono text-xs">/help</td><td className="p-3 text-muted-foreground">All</td><td className="p-3 text-muted-foreground">Show available slash commands</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <Heading id="chat-file-attachments" level={3}>File Attachments</Heading>
+          <p className="text-sm text-muted-foreground leading-relaxed mb-4">
+            Click the paperclip icon in the composer to attach files. Text files (code, logs, configs, markdown, etc.) are sent inline as part of the prompt. Binary files (images, PDFs) are sent as base64. Multiple files can be attached per message. Attachments are shown as chips above the input and can be removed individually.
+          </p>
+
+          <Heading id="chat-voice" level={3}>Voice Dictation</Heading>
+          <p className="text-sm text-muted-foreground leading-relaxed mb-4">
+            Click the microphone icon to toggle voice dictation. The app uses ElevenLabs Scribe (real-time) to transcribe speech directly into the composer field. Partial transcripts appear as you speak; the final committed transcript replaces them on pause. Requires microphone permissions in your browser.
           </p>
 
           <Separator className="my-10" />
