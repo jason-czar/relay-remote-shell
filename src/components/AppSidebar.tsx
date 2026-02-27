@@ -33,8 +33,8 @@ const setupItems = [
 ];
 
 export function AppSidebar() {
-  const { state, setOpen, setOpenMobile } = useSidebar();
-  const collapsed = state === "collapsed";
+  const { state, setOpen, setOpenMobile, openMobile, isMobile } = useSidebar();
+  const collapsed = state === "collapsed" && !(isMobile && openMobile);
   const { signOut, user } = useAuth();
   const { theme, setTheme } = useTheme();
   const navigate = useNavigate();
