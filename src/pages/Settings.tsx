@@ -11,14 +11,15 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Camera, User, Lock, Save, RotateCcw, Timer } from "lucide-react";
+import { Camera, User, Lock, Save, RotateCcw, Timer, Trash2 } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import type { Tables } from "@/integrations/supabase/types";
 import { displayNameSchema, passwordSchema } from "@/lib/validations";
 import { resetOnboardingTour } from "@/components/OnboardingTour";
 import { getInactivitySettings, saveInactivitySettings, type InactivitySettings } from "@/hooks/useInactivityTimeout";
 
 export default function Settings() {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -147,6 +148,23 @@ export default function Settings() {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     } finally {
       setChangingPassword(false);
+    }
+  };
+
+  const [deletingAccount, setDeletingAccount] = useState(false);
+
+  const handleDeleteAccount = async () => {
+    setDeletingAccount(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await supabase.functions.invoke("delete-account", {
+        headers: { Authorization: `Bearer ${session?.access_token}` },
+      });
+      if (res.error) throw res.error;
+      await signOut();
+    } catch (err: any) {
+      toast({ title: "Error deleting account", description: err.message, variant: "destructive" });
+      setDeletingAccount(false);
     }
   };
 
@@ -343,6 +361,50 @@ export default function Settings() {
             >
               Restart Tour
             </Button>
+          </CardContent>
+        </Card>
+
+        {/* Danger Zone */}
+        <Card className="border-destructive/30">
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2 text-destructive">
+              <Trash2 className="h-4 w-4" /> Danger Zone
+            </CardTitle>
+            <CardDescription>Irreversible actions for your account</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between rounded-lg border border-destructive/20 bg-destructive/5 px-4 py-3">
+              <div>
+                <p className="text-sm font-medium">Delete account</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Permanently delete your account and all associated data. This cannot be undone.
+                </p>
+              </div>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive" size="sm" disabled={deletingAccount}>
+                    {deletingAccount ? "Deleting…" : "Delete Account"}
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will permanently delete your account, all conversations, sessions, devices, and projects you own. <strong>This action cannot be undone.</strong>
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      onClick={handleDeleteAccount}
+                    >
+                      Yes, delete my account
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
           </CardContent>
         </Card>
       </div>
