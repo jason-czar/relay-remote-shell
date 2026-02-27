@@ -780,11 +780,13 @@ export default function Chat() {
     if (!convId) {
       convId = await createConversation(fullText, agent);
       if (!convId) { setThinking(false); return; }
-      // Switch active conv so the user sees their new conversation
+      // Save the user message BEFORE switching activeConvId so the
+      // message-load effect finds it already in the DB when it fires.
+      await saveMessage(convId, "user", fullText);
       setActiveConvId(convId);
+    } else {
+      await saveMessage(convId, "user", fullText);
     }
-
-    await saveMessage(convId, "user", fullText);
 
     // Run the actual relay call detached — background jobs continue when user switches conversation
     const jobConvId = convId;
