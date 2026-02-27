@@ -79,10 +79,10 @@ function CodeBlock({ language, value }: { language: string; value: string }) {
         style={codeTheme}
         language={language || "text"}
         PreTag="div"
-        customStyle={{
-          margin: 0,
-          padding: "12px 16px",
-          fontSize: "12px",
+            customStyle={{
+              margin: 0,
+              padding: "14px 18px",
+              fontSize: "13px",
           lineHeight: "1.6",
           overflowX: "auto",
           background: "hsl(0 0% 6%)",
@@ -178,7 +178,7 @@ export function ChatMessage({ role, content, thinking, streaming, rawStdout, thi
         {/* Text content bubble */}
         {textContent && (
           <div
-            className="max-w-[88%] sm:max-w-[72%] rounded-[20px] px-4 py-2.5 text-sm leading-relaxed break-words"
+            className="max-w-[88%] sm:max-w-[72%] rounded-[20px] px-5 py-3 text-[15px] leading-relaxed break-words"
             style={{
               background: "hsl(var(--muted))",
               color: "hsl(var(--foreground))",
@@ -204,7 +204,7 @@ export function ChatMessage({ role, content, thinking, streaming, rawStdout, thi
       onMouseLeave={() => setHovered(false)}
     >
       <div className="flex-1 min-w-0">
-        <div className="text-sm md:text-[15px] leading-relaxed md:leading-7 text-foreground break-words pt-0.5">
+        <div className="text-[15px] md:text-[16px] leading-7 md:leading-8 text-foreground break-words pt-0.5">
           {/* Codex reasoning / thinking collapsible */}
           {thinkingContent && (
             <div className="mb-3">
