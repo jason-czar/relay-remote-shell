@@ -1242,7 +1242,7 @@ export default function Chat() {
 
           {/* Top header bar */}
           <div
-            className="shrink-0 border-b border-border/10 flex items-center px-5 relative backdrop-blur-md bg-background/30"
+            className="shrink-0 border-b border-border/10 flex items-center px-5 relative backdrop-blur-md bg-background/10"
             style={{ paddingTop: 'env(safe-area-inset-top, 0px)', minHeight: 'calc(env(safe-area-inset-top, 0px) + 64px)' }}
           >
             {/* Left — sidebar trigger */}
