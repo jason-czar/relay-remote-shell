@@ -117,7 +117,7 @@ export function AppSidebar() {
     <>
     <Sidebar collapsible="offcanvas">
       {/* Logo */}
-      <SidebarContent className="flex flex-col min-h-0">
+      <SidebarContent className="flex flex-col min-h-0" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
         <SidebarGroup>
           <SidebarGroupLabel>
             <div className="flex items-center gap-2">
@@ -262,7 +262,7 @@ export function AppSidebar() {
       </SidebarContent>
 
       {/* Footer with Setup + user profile */}
-      <SidebarFooter>
+      <SidebarFooter style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
         <SidebarMenu>
           {/* Nav items expand upward above the Setup button */}
           {setupOpen && setupItems.map((item) =>
