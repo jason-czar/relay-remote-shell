@@ -706,16 +706,16 @@ export default function Chat() {
             const PROMPT_RE = /(?:[%$#➜❯>]\s*$)|(?:\$\s+$)/m;
             const PROMPT_TIMEOUT = 5000;
             const promptDeadline = setTimeout(() => {
-              if (!promptSent) {promptSent = true;sendCommand();}
+              if (!promptSent) { promptSent = true; sendCommand(); }
             }, PROMPT_TIMEOUT);
             const checkPrompt = () => {
               if (promptSent) return;
               // Strip ANSI from the accumulated buffer before testing
-              const plain = outputBuffer.
-              replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, "").
-              replace(/\x1b\[[\x30-\x3f]*[\x20-\x2f]*[\x40-\x7e]/g, "").
-              replace(/\x1b[^[\]]/g, "").
-              replace(/\x1b/g, "");
+              const plain = outputBuffer
+                .replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, "")
+                .replace(/\x1b\[[\x30-\x3f]*[\x20-\x2f]*[\x40-\x7e]/g, "")
+                .replace(/\x1b[^[\]]/g, "")
+                .replace(/\x1b/g, "");
               if (PROMPT_RE.test(plain)) {
                 clearTimeout(promptDeadline);
                 promptSent = true;
@@ -1015,9 +1015,9 @@ export default function Chat() {
                 try {
                   const parsed = JSON.parse(candidates[i]);
                   const payloadText = parsed?.payloads?.[0]?.text;
-                  if (payloadText) {responseText = String(payloadText);break;}
+                  if (payloadText) { responseText = String(payloadText); break; }
                   const fallback = parsed.content ?? parsed.message ?? parsed.response ?? parsed.text ?? parsed.result;
-                  if (fallback && typeof fallback === "string") {responseText = fallback;break;}
+                  if (fallback && typeof fallback === "string") { responseText = fallback; break; }
                 } catch {/* try next */}
               }
             } else if (convData?.agent === "codex") {
@@ -1133,10 +1133,10 @@ export default function Chat() {
               }
             } catch {
 
-
-
               // silently keep the fallback title
-            }})();}
+            }})();
+        }
+
         setConversations((prev) => {
           const conv = prev.find((c) => c.id === jobConvId);
           if (!conv) return prev;
@@ -1401,7 +1401,7 @@ export default function Chat() {
 
           {/* Top header bar */}
           <div
-            className="sticky top-0 z-20 shrink-0 border-b border-border/10 flex items-center px-5 relative backdrop-blur-md bg-transparent"
+            className="sticky top-0 z-20 shrink-0 border-b border-border/10 flex items-center px-5 relative backdrop-blur-md bg-background/80"
             style={{ paddingTop: 'env(safe-area-inset-top, 0px)', minHeight: 'calc(env(safe-area-inset-top, 0px) + 64px)' }}>
 
             {/* Left — sidebar trigger */}
@@ -1633,7 +1633,7 @@ export default function Chat() {
           }
 
           {/* Floating composer */}
-          <div className="sticky bottom-0 z-20 shrink-0 px-3 sm:px-6 pt-2 backdrop-blur-md border-t border-border/10 bg-transparent" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 1rem)' }}>
+          <div className="sticky bottom-0 z-20 shrink-0 px-3 sm:px-6 pt-2 backdrop-blur-md bg-background/80 border-t border-border/10" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 1rem)' }}>
             <div className="max-w-[900px] mx-auto">
               {/* Stop streaming button — now handled by composer send button */}
               <ComposerBox
