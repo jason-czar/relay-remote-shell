@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Copy, Check, Terminal, Loader2, Wifi } from "lucide-react";
+import { Copy, Check, Terminal, Loader2, Wifi, AlertCircle, Info } from "lucide-react";
 import type { Tables } from "@/integrations/supabase/types";
 
 const API_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
@@ -15,27 +15,42 @@ interface QuickStartProps {
 export function QuickStart({ projectId, onDeviceOnline }: QuickStartProps) {
   const [device, setDevice] = useState<Tables<"devices"> | null>(null);
   const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [online, setOnline] = useState(false);
   const [platform, setPlatform] = useState<Platform>("unix");
+  const didCreate = useRef(false); // prevent double-create in StrictMode
 
-  // Auto-create a device on mount
+  // Auto-create a device once projectId is available
   useEffect(() => {
-    if (!projectId) return;
+    if (!projectId || didCreate.current) return;
+    didCreate.current = true;
     setCreating(true);
+    setCreateError(null);
     const pairingCode = Math.random().toString(36).substring(2, 8).toUpperCase();
     supabase
       .from("devices")
       .insert({ project_id: projectId, name: "My Device", pairing_code: pairingCode })
       .select()
       .single()
-      .then(({ data }) => {
-        if (data) setDevice(data as Tables<"devices">);
+      .then(({ data, error }) => {
+        if (error) {
+          setCreateError(error.message);
+          didCreate.current = false; // allow retry
+        } else if (data) {
+          setDevice(data as Tables<"devices">);
+        }
         setCreating(false);
       });
   }, [projectId]);
 
-  // Watch for device to come online
+  // Stable callback so realtime effect doesn't re-subscribe on each render
+  const handleDeviceOnline = useCallback(
+    (dev: Tables<"devices">) => onDeviceOnline(dev),
+    [onDeviceOnline]
+  );
+
+  // Watch for device to come online via realtime
   useEffect(() => {
     if (!device) return;
     const channel = supabase
@@ -50,12 +65,12 @@ export function QuickStart({ projectId, onDeviceOnline }: QuickStartProps) {
         setDevice(updated);
         if (updated.paired && updated.status === "online") {
           setOnline(true);
-          onDeviceOnline(updated);
+          handleDeviceOnline(updated);
         }
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [device, onDeviceOnline]);
+  }, [device, handleDeviceOnline]);
 
   const unixCommand = device?.pairing_code
     ? `set -e
@@ -68,6 +83,8 @@ rm -rf "$RELAY_DIR"
 curl -fsSL "$API_URL/download-connector?install=1" | bash
 
 cd "$RELAY_DIR"
+# macOS only — clear Gatekeeper quarantine if needed:
+# xattr -d com.apple.quarantine ./relay-connector
 ./relay-connector --pair "$PAIR_CODE" --api "$API_URL" --name "$NAME"
 
 echo "Starting connector in background..."
@@ -80,9 +97,9 @@ echo "Connector running."`
 
   const windowsCommand = device?.pairing_code
     ? `$RelayDir = "$env:USERPROFILE\\relay-connector"
-$ApiUrl  = "${API_URL}"
+$ApiUrl   = "${API_URL}"
 $PairCode = "${device.pairing_code}"
-$Name    = "${device.name}"
+$Name     = "${device.name}"
 
 if (Test-Path $RelayDir) { Remove-Item -Recurse -Force $RelayDir }
 
@@ -100,9 +117,30 @@ Write-Host "Connector running."`
   const command = platform === "unix" ? unixCommand : windowsCommand;
 
   const copy = () => {
+    if (!command) return;
     navigator.clipboard.writeText(command);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const retry = () => {
+    didCreate.current = false;
+    setCreateError(null);
+    setDevice(null);
+    // Re-trigger by bumping — just reset the flag and re-run the effect manually
+    setCreating(true);
+    const pairingCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+    didCreate.current = true;
+    supabase
+      .from("devices")
+      .insert({ project_id: projectId, name: "My Device", pairing_code: pairingCode })
+      .select()
+      .single()
+      .then(({ data, error }) => {
+        if (error) { setCreateError(error.message); didCreate.current = false; }
+        else if (data) setDevice(data as Tables<"devices">);
+        setCreating(false);
+      });
   };
 
   return (
@@ -118,56 +156,87 @@ Write-Host "Connector running."`
         </div>
       </div>
 
-      {/* Platform toggle */}
-      <div className="flex items-center gap-1 p-1 rounded-lg bg-muted/40 border border-border/40 self-start">
-        {(["unix", "windows"] as Platform[]).map((p) => (
+      {/* Error state */}
+      {createError && (
+        <div className="flex items-start gap-3 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3">
+          <AlertCircle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm text-destructive font-medium">Failed to create device</p>
+            <p className="text-xs text-muted-foreground mt-0.5 break-words">{createError}</p>
+          </div>
           <button
-            key={p}
-            onClick={() => { setPlatform(p); setCopied(false); }}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-150 ${
-              platform === p
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
+            onClick={retry}
+            className="text-xs text-primary underline underline-offset-2 shrink-0"
           >
-            {p === "unix" ? (
-              <>
-                <span className="text-[11px]">🍎</span> macOS / Linux
-              </>
-            ) : (
-              <>
-                <span className="text-[11px]">🪟</span> Windows
-              </>
-            )}
+            Retry
           </button>
-        ))}
-      </div>
+        </div>
+      )}
+
+      {/* Platform toggle */}
+      {!createError && (
+        <div className="flex items-center gap-1 p-1 rounded-lg bg-muted/40 border border-border/40 self-start">
+          {(["unix", "windows"] as Platform[]).map((p) => (
+            <button
+              key={p}
+              onClick={() => { setPlatform(p); setCopied(false); }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-150 ${
+                platform === p
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {p === "unix" ? (
+                <><span className="text-[11px]">🍎</span> macOS / Linux</>
+              ) : (
+                <><span className="text-[11px]">🪟</span> Windows</>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Command box */}
-      <div className="relative rounded-xl border border-border/50 bg-muted/40 overflow-hidden">
-        {creating ? (
-          <div className="flex items-center gap-2 px-4 py-5 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Generating install command…
-          </div>
-        ) : (
-          <>
-            <pre className="px-4 py-4 pr-12 text-xs font-mono text-foreground/90 overflow-x-auto whitespace-pre leading-relaxed [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              <code>{command}</code>
-            </pre>
-            <button
-              onClick={copy}
-              className="absolute top-2 right-2 p-2 rounded-lg hover:bg-accent/60 text-muted-foreground hover:text-foreground transition-colors"
-              title="Copy command"
-            >
-              {copied ? <Check className="h-4 w-4 text-primary" /> : <Copy className="h-4 w-4" />}
-            </button>
-          </>
-        )}
-      </div>
+      {!createError && (
+        <div className="relative rounded-xl border border-border/50 bg-muted/40 overflow-hidden">
+          {creating ? (
+            <div className="flex items-center gap-2 px-4 py-5 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Generating install command…
+            </div>
+          ) : (
+            <>
+              <pre className="px-4 py-4 pr-12 text-xs font-mono text-foreground/90 overflow-x-auto whitespace-pre leading-relaxed [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <code>{command}</code>
+              </pre>
+              <button
+                onClick={copy}
+                className="absolute top-2 right-2 p-2 rounded-lg hover:bg-accent/60 text-muted-foreground hover:text-foreground transition-colors"
+                title="Copy command"
+              >
+                {copied ? <Check className="h-4 w-4 text-primary" /> : <Copy className="h-4 w-4" />}
+              </button>
+            </>
+          )}
+        </div>
+      )}
 
-      {/* Pairing code + status */}
-      {device && !online && (
+      {/* macOS hint */}
+      {!createError && platform === "unix" && device && !online && (
+        <div className="flex items-start gap-2 rounded-lg bg-muted/30 border border-border/30 px-3 py-2.5">
+          <Info className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            <strong className="text-foreground/70">macOS only:</strong> if the connector is blocked by Gatekeeper, run{" "}
+            <code className="font-mono bg-muted px-1 py-0.5 rounded text-[11px]">
+              xattr -d com.apple.quarantine ~/relay-connector/relay-connector
+            </code>{" "}
+            then re-run the last two lines.
+          </p>
+        </div>
+      )}
+
+      {/* Pairing code + waiting status */}
+      {device && !online && !createError && (
         <div className="flex items-center justify-between gap-3 rounded-xl border border-dashed border-border/50 bg-muted/20 px-4 py-3">
           <div className="flex items-center gap-2 text-sm">
             <span className="text-muted-foreground">Pairing code:</span>
@@ -177,11 +246,12 @@ Write-Host "Connector running."`
           </div>
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <Loader2 className="h-3 w-3 animate-spin" />
-            Waiting…
+            Waiting for connection…
           </div>
         </div>
       )}
 
+      {/* Connected */}
       {online && (
         <div className="flex items-center gap-2 rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 text-sm text-primary font-medium">
           <Wifi className="h-4 w-4 shrink-0" />
