@@ -239,11 +239,11 @@ export default function Landing() {
         <div className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[500px] rounded-full blur-3xl transition-all duration-700 bg-foreground/5" />
 
         <div className="relative z-10 flex flex-col items-center text-center max-w-2xl w-full">
-          <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-3 leading-tight">
+          <h1 className="heading-display mb-3 text-center">
             Chat with your machine.<br />
             <span className="text-muted-foreground/60">From anywhere.</span>
           </h1>
-          <p className="text-base text-muted-foreground leading-relaxed mb-8 max-w-xl">
+          <p className="body-lg text-muted-foreground mb-8 max-w-xl text-center">
             PrivaClaw connects OpenClaw, Claude Code, and Codex to your local machine through a secure relay — giving you a private AI terminal in the browser.
           </p>
 
