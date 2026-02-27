@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import openclawImg from "@/assets/openclaw.png";
 import claudecodeImg from "@/assets/claudecode.png";
-import { Plus, Trash2, Search, MessageSquare, ChevronLeft, Pencil, Check, X } from "lucide-react";
+import { Plus, Trash2, Search, MessageSquare, ChevronLeft, Pencil, Check, X, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   AlertDialog,
@@ -28,13 +28,15 @@ interface ChatSidebarProps {
   onNew: () => void;
   onDelete: (id: string) => void;
   onRename: (id: string, title: string) => void;
+  onSyncClaudeHistory?: () => void;
+  isSyncing?: boolean;
 }
 
 const MIN_WIDTH = 180;
 const MAX_WIDTH = 400;
 const DEFAULT_WIDTH = 256;
 
-export function ChatSidebar({ conversations, activeId, onSelect, onNew, onDelete, onRename }: ChatSidebarProps) {
+export function ChatSidebar({ conversations, activeId, onSelect, onNew, onDelete, onRename, onSyncClaudeHistory, isSyncing }: ChatSidebarProps) {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -154,6 +156,16 @@ export function ChatSidebar({ conversations, activeId, onSelect, onNew, onDelete
             <Plus className="h-3.5 w-3.5" />
             New Chat
           </button>
+          {onSyncClaudeHistory && (
+            <button
+              onClick={onSyncClaudeHistory}
+              disabled={isSyncing}
+              title="Sync Claude Code history from device"
+              className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground/50 hover:bg-accent/60 hover:text-foreground transition-all duration-150 disabled:opacity-40"
+            >
+              <RefreshCw className={cn("h-3.5 w-3.5", isSyncing && "animate-spin")} />
+            </button>
+          )}
           <button
             onClick={() => setCollapsed(true)}
             className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground/50 hover:bg-accent/60 hover:text-foreground transition-all duration-150"
