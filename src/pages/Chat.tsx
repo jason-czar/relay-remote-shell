@@ -445,15 +445,18 @@ export default function Chat() {
       .then(({ data }) => {
         if (data) setMessages(data as Message[]);
       });
-    // restore agent + model from conversation
+  }, [activeConvId]);
+
+  // Restore agent + model when conversation or conversations list changes (handles refresh where
+  // conversations may load after activeConvId is restored from localStorage)
+  useEffect(() => {
+    if (!activeConvId || !conversations.length) return;
     const conv = conversations.find((c) => c.id === activeConvId);
     if (conv) {
-      const a = conv.agent as "openclaw" | "claude" | "codex";
-      setAgent(a);
-      // use persisted model if available, else default to "auto"
+      setAgent(conv.agent as "openclaw" | "claude" | "codex");
       setModel(conv.model || "auto");
     }
-  }, [activeConvId]);
+  }, [activeConvId, conversations]);
 
   // ── Reload messages when a background job for the active conv finishes ──
   const prevJobsRef = useRef<Set<string>>(new Set());
