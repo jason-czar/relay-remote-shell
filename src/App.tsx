@@ -21,6 +21,7 @@ import SkillConfig from "./pages/SkillConfig";
 import MultiSession from "./pages/MultiSession";
 import Docs from "./pages/Docs";
 import Chat from "./pages/Chat";
+import Devices from "./pages/Devices";
 import NotFound from "./pages/NotFound";
 import TermsOfService from "./pages/TermsOfService";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
@@ -77,6 +78,7 @@ const App = () => (
                 <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
                 <Route path="/skill/privaclaw" element={<ProtectedRoute><SkillConfig /></ProtectedRoute>} />
                 <Route path="/multi-session" element={<ProtectedRoute><MultiSession /></ProtectedRoute>} />
+                <Route path="/devices" element={<ProtectedRoute><Devices /></ProtectedRoute>} />
                 <Route path="/chat" element={<Navigate to="/" replace />} />
                 <Route path="/docs" element={<Docs />} />
                 <Route path="/terms" element={<TermsOfService />} />

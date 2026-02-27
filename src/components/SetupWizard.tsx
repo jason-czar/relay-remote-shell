@@ -10,7 +10,7 @@ import { Check, Copy, Monitor, Terminal, ChevronRight, Loader2 } from "lucide-re
 import type { Tables } from "@/integrations/supabase/types";
 
 interface SetupWizardProps {
-  projectId: string;
+  projectId?: string;
   onComplete: () => void;
   onSkip: () => void;
   existingDevice?: Tables<"devices"> | null;
@@ -58,7 +58,7 @@ export function SetupWizard({ projectId, onComplete, onSkip, existingDevice }: S
     const pairingCode = Math.random().toString(36).substring(2, 8).toUpperCase();
     const { data, error } = await supabase
       .from("devices")
-      .insert({ project_id: projectId, name: deviceName.trim(), pairing_code: pairingCode })
+      .insert({ project_id: projectId || null, name: deviceName.trim(), pairing_code: pairingCode })
       .select()
       .single();
 
@@ -202,10 +202,10 @@ export function SetupWizard({ projectId, onComplete, onSkip, existingDevice }: S
             ))}
 
             {/* macOS Gatekeeper note */}
-            <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 flex gap-2.5">
+            <div className="rounded-lg border border-border bg-muted/40 p-3 flex gap-2.5">
               <span className="text-base shrink-0 mt-0.5">⚠️</span>
               <div className="space-y-1 min-w-0">
-                <p className="text-xs font-semibold text-amber-600 dark:text-amber-400">macOS: blocked by Gatekeeper?</p>
+                <p className="text-xs font-semibold text-foreground">macOS: blocked by Gatekeeper?</p>
                 <p className="text-xs text-muted-foreground">If macOS prevents the binary from running, clear the quarantine attribute first:</p>
                 <div className="relative mt-1">
                   <pre className="bg-muted rounded-md p-2 pr-9 text-xs font-mono overflow-x-auto whitespace-pre">
