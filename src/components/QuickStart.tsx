@@ -15,6 +15,7 @@ interface QuickStartProps {
 
 export function QuickStart({ userId, projectId, onDeviceOnline }: QuickStartProps) {
   const [device, setDevice] = useState<Tables<"devices"> | null>(null);
+  const [deviceName, setDeviceName] = useState("");
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -26,14 +27,14 @@ export function QuickStart({ userId, projectId, onDeviceOnline }: QuickStartProp
     [onDeviceOnline]
   );
 
-  const doCreate = useCallback(async () => {
+  const doCreate = useCallback(async (name: string) => {
     setCreating(true);
     setCreateError(null);
     const pairingCode = Math.random().toString(36).substring(2, 8).toUpperCase();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const insertPayload: any = projectId
-      ? { project_id: projectId, name: "My Device", pairing_code: pairingCode }
-      : { user_id: userId, name: "My Device", pairing_code: pairingCode };
+      ? { project_id: projectId, name, pairing_code: pairingCode }
+      : { user_id: userId, name, pairing_code: pairingCode };
     const { data, error } = await supabase.from("devices").insert(insertPayload).select().single();
     if (error) {
       setCreateError(error.message);
@@ -43,10 +44,12 @@ export function QuickStart({ userId, projectId, onDeviceOnline }: QuickStartProp
     setCreating(false);
   }, [userId, projectId]);
 
-  const createDevice = useCallback(() => {
+  const handleSubmit = useCallback((e: React.FormEvent) => {
+    e.preventDefault();
+    const name = deviceName.trim() || "My Device";
     if (!userId || creating) return;
-    doCreate();
-  }, [userId, creating, doCreate]);
+    doCreate(name);
+  }, [userId, creating, deviceName, doCreate]);
 
   // Watch for device to come online via realtime
   useEffect(() => {
@@ -124,7 +127,7 @@ Write-Host "Connector running."`
   const retry = () => {
     setCreateError(null);
     setDevice(null);
-    doCreate();
+    doCreate(deviceName.trim() || "My Device");
   };
 
   return (
@@ -180,16 +183,26 @@ Write-Host "Connector running."`
         </div>
       )}
 
-      {/* Command box or Generate button */}
+      {/* Name input + Generate button, or command box */}
       {!createError && (
         !device && !creating ? (
-          <button
-            onClick={createDevice}
-            className="flex items-center justify-center gap-2 w-full rounded-xl border border-border/50 bg-muted/40 px-4 py-5 text-sm font-medium text-foreground hover:bg-muted/70 transition-colors"
-          >
-            <Terminal className="h-4 w-4 text-primary" />
-            Generate install command
-          </button>
+          <form onSubmit={handleSubmit} className="flex gap-2">
+            <input
+              type="text"
+              value={deviceName}
+              onChange={(e) => setDeviceName(e.target.value)}
+              placeholder="Device name (e.g. Home Server)"
+              maxLength={64}
+              className="flex-1 rounded-lg border border-border/50 bg-muted/40 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
+            />
+            <button
+              type="submit"
+              className="flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors shrink-0"
+            >
+              <Terminal className="h-3.5 w-3.5" />
+              Generate
+            </button>
+          </form>
         ) : (
           <div className="relative rounded-xl border border-border/50 bg-muted/40 overflow-hidden">
             {creating ? (
