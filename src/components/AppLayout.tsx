@@ -28,38 +28,46 @@ function Inner({ children, sidebarWidth, onMouseDown, isChat }: {
   onMouseDown: (e: React.MouseEvent) => void;
   isChat: boolean;
 }) {
-  const { setOpen, open, openMobile, setOpenMobile, isMobile } = useSidebar();
+  const { openMobile, setOpenMobile, isMobile } = useSidebar();
   const MOBILE_SIDEBAR_WIDTH = 288; // matches SIDEBAR_WIDTH_MOBILE = "18rem"
 
   const touchStartX = useRef<number | null>(null);
+  const openMobileRef = useRef(openMobile);
+  useEffect(() => { openMobileRef.current = openMobile; }, [openMobile]);
 
+  // Single global swipe handler on the root element
   const onTouchStart = useCallback((e: React.TouchEvent) => {
-    const x = e.touches[0].clientX;
-    // Only arm the gesture when starting near the left edge
-    if (x <= EDGE_THRESHOLD) touchStartX.current = x;
-    else touchStartX.current = null;
+    touchStartX.current = e.touches[0].clientX;
   }, []);
 
   const onTouchEnd = useCallback((e: React.TouchEvent) => {
     if (touchStartX.current === null) return;
-    const dx = e.changedTouches[0].clientX - touchStartX.current;
-    // Swipe right ≥ 50px from edge → open sidebar
-    if (dx >= 50 && !(isMobile ? openMobile : open)) {
-      if ("vibrate" in navigator) navigator.vibrate(8);
-      isMobile ? setOpenMobile(true) : setOpen(true);
-    }
+    const startX = touchStartX.current;
+    const dx = e.changedTouches[0].clientX - startX;
     touchStartX.current = null;
-  }, [open, openMobile, isMobile, setOpen, setOpenMobile]);
 
-  // Tap on content area to close sidebar on mobile
-  const handleMainClick = useCallback(() => {
-    if (isMobile && openMobile) setOpenMobile(false);
-  }, [isMobile, openMobile, setOpenMobile]);
+    if (!isMobile) return;
+
+    // Swipe right from left edge → open
+    if (dx >= 50 && startX <= EDGE_THRESHOLD && !openMobileRef.current) {
+      if ("vibrate" in navigator) navigator.vibrate(8);
+      setOpenMobile(true);
+    }
+    // Swipe left anywhere when open → close
+    if (dx <= -50 && openMobileRef.current) {
+      if ("vibrate" in navigator) navigator.vibrate(8);
+      setOpenMobile(false);
+    }
+  }, [isMobile, setOpenMobile]);
 
   const mobileShift = isMobile && openMobile ? MOBILE_SIDEBAR_WIDTH : 0;
 
   return (
-    <div className="h-screen flex w-full overflow-hidden">
+    <div
+      className="h-screen flex w-full overflow-hidden"
+      onTouchStart={onTouchStart}
+      onTouchEnd={onTouchEnd}
+    >
       {/* Mobile scrim */}
       {isMobile && (
         <div
@@ -80,9 +88,6 @@ function Inner({ children, sidebarWidth, onMouseDown, isChat }: {
       <main
         className="flex-1 flex flex-col overflow-hidden transition-transform duration-300 ease-in-out"
         style={isMobile ? { transform: `translateX(${mobileShift}px)` } : undefined}
-        onClick={handleMainClick}
-        onTouchStart={onTouchStart}
-        onTouchEnd={onTouchEnd}
       >
         {!isChat && (
           <header className="h-12 flex items-center border-b border-border px-3 shrink-0">
