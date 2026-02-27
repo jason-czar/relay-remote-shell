@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, FolderOpen, Settings, LogOut, Sun, Moon, Plug, BookOpen,
-  Columns2, MessageSquare, ChevronDown, Plus, Search, Trash2, Pencil, Check, X, Monitor,
+  Columns2, MessageSquare, ChevronDown, Plus, Search, Trash2, Pencil, Check, X, Monitor, RefreshCw,
 } from "lucide-react";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
@@ -16,6 +16,7 @@ import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { useChatContext } from "@/contexts/ChatContext";
+import { useToast } from "@/hooks/use-toast";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent,
   SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem,
@@ -53,6 +54,25 @@ export function AppSidebar() {
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  // Read the selected device from Chat page's localStorage key for sync
+  const selectedDeviceId = typeof window !== "undefined" ? (localStorage.getItem("chat-device-id") ?? "") : "";
+
+  const handleSyncClaudeHistory = async () => {
+    if (!selectedDeviceId) {
+      toast({ title: "Select a device in Chat first", variant: "destructive" });
+      return;
+    }
+    try {
+      const { imported, updated } = await syncClaudeHistory(selectedDeviceId);
+      toast({
+        title: imported > 0 || updated > 0
+          ? `Synced ${imported} new + ${updated} updated`
+          : "Already up to date",
+      });
+    } catch (err) {
+      toast({ title: "Sync failed", description: err instanceof Error ? err.message : "Unknown error", variant: "destructive" });
+    }
+  };
 
   const startEdit = (e: React.MouseEvent, id: string, title: string) => {
     e.stopPropagation();
@@ -79,7 +99,8 @@ export function AppSidebar() {
       });
   }, [user]);
 
-  const { conversations, activeConvId, setActiveConvId, handleDelete, handleNew, handleRename, activeJobs } = useChatContext();
+  const { conversations, activeConvId, setActiveConvId, handleDelete, handleNew, handleRename, activeJobs, isSyncingClaudeHistory, syncClaudeHistory } = useChatContext();
+  const { toast } = useToast();
 
   const filtered = conversations.filter((c) =>
     c.title.toLowerCase().includes(search.toLowerCase())
@@ -133,14 +154,24 @@ export function AppSidebar() {
                 <span className="label-xs text-muted-foreground/60 uppercase tracking-widest">
                   Conversations
                 </span>
-                <button
-                  onClick={() => { handleNew(); navigate("/"); }}
-                  className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground px-2 py-1 rounded-md hover:bg-accent/60 transition-colors"
-                  title="New chat"
-                >
-                  <Plus className="h-3 w-3" />
-                  New
-                </button>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={handleSyncClaudeHistory}
+                    disabled={isSyncingClaudeHistory}
+                    title="Sync Claude Code history from device"
+                    className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground px-1.5 py-1 rounded-md hover:bg-accent/60 transition-colors disabled:opacity-40"
+                  >
+                    <RefreshCw className={cn("h-3 w-3", isSyncingClaudeHistory && "animate-spin")} />
+                  </button>
+                  <button
+                    onClick={() => { handleNew(); navigate("/"); }}
+                    className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground px-2 py-1 rounded-md hover:bg-accent/60 transition-colors"
+                    title="New chat"
+                  >
+                    <Plus className="h-3 w-3" />
+                    New
+                  </button>
+                </div>
               </div>
             </SidebarGroupLabel>
 
