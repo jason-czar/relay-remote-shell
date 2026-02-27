@@ -806,21 +806,39 @@ export default function Chat() {
             }
           }
         } else if (convData?.agent === "codex") {
-          // Codex CLI outputs plain text in -q mode; strip shell noise
-          responseText = cleaned
-            .split("\n")
-            .filter((line) => {
-              const t = line.trim();
-              if (!t) return false;
-              if (/^[%$#>→]\s*$/.test(t)) return false;
-              if (/^[%$#>→]\s/.test(t)) return false;
-              if (/^codex\s+/i.test(t)) return false;
-              if (/^\[[\d;?<>!]*[a-zA-Z]/.test(t)) return false;
-              if (/^[=\-\+\*~\s]+$/.test(t)) return false;
-              return true;
-            })
-            .join("\n")
-            .trim();
+          // Codex CLI outputs JSONL in -q mode — each line is a JSON object.
+          // We want the text from type:"message" / role:"assistant" objects.
+          const textParts: string[] = [];
+          for (const line of cleaned.split("\n")) {
+            const t = line.trim();
+            if (!t) continue;
+            if (t.startsWith("{")) {
+              try {
+                const obj = JSON.parse(t);
+                // type:"message" with role:"assistant"
+                if (obj.type === "message" && obj.role === "assistant" && Array.isArray(obj.content)) {
+                  for (const part of obj.content) {
+                    if (part.type === "output_text" && typeof part.text === "string") {
+                      textParts.push(part.text);
+                    }
+                  }
+                }
+                // Also handle simple {type:"text", text:...} shapes
+                if (obj.type === "text" && typeof obj.text === "string") {
+                  textParts.push(obj.text);
+                }
+                continue;
+              } catch { /* not JSON, fall through */ }
+            }
+            // Plain-text lines — strip shell noise
+            if (/^[%$#>→]\s*$/.test(t)) continue;
+            if (/^[%$#>→]\s/.test(t)) continue;
+            if (/^codex\s+/i.test(t)) continue;
+            if (/^\[[\d;?<>!]*[a-zA-Z]/.test(t)) continue;
+            if (/^[=\-\+\*~\s]+$/.test(t)) continue;
+            textParts.push(t);
+          }
+          responseText = textParts.join("\n").trim();
           if (!responseText) {
             const errorMatch = cleaned.match(/^Error:\s*(.+)/m) ?? cleaned.match(/error:\s*(.+)/im);
             if (errorMatch) responseText = `⚠️ Codex error: ${errorMatch[1].trim()}`;
