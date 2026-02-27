@@ -1137,28 +1137,26 @@ export default function Chat() {
           <div className="shrink-0 h-12 border-b border-border/30 flex items-center px-3 relative">
             {/* Left — sidebar trigger */}
             <SidebarTrigger />
-            {/* Center — agent tabs */}
-            <div className="absolute left-1/2 -translate-x-1/2 flex items-center">
-            {(["openclaw", "claude"] as const).map((a) => {
-                const active = agent === a;
-                  const label = a === "openclaw" ? "OpenClaw" : "Claude Code";
-                  const labelShort = a === "openclaw" ? "OpenClaw" : "Claude";
-                const img = a === "openclaw" ? openclawImg : claudecodeImg;
-                return (
-                  <button
-                    key={a}
-                    onClick={() => handleAgentChange(a)}
-                    className={`relative flex items-center gap-1.5 px-4 py-2 text-xs font-medium transition-all duration-200 select-none ${
-                      active ? "text-foreground" : "text-muted-foreground/50 hover:text-muted-foreground"
-                    }`}
-                  >
-                    <img src={img} alt={label} className="w-4 h-4 rounded-sm object-cover" />
-                    <span className="hidden xs:inline sm:inline">{label}</span>
-                    <span className="sm:hidden">{labelShort}</span>
-                    {active && <span className="absolute bottom-0 left-3 right-3 h-px bg-foreground/70 rounded-full" />}
+            {/* Center — agent dropdown */}
+            <div className="absolute left-1/2 -translate-x-1/2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-150 border border-border/30 bg-muted/20 hover:bg-muted/50 hover:border-border/60 text-foreground select-none">
+                    <img src={agent === "openclaw" ? openclawImg : claudecodeImg} alt={agent} className="w-4 h-4 rounded-sm object-cover" />
+                    <span>{agent === "openclaw" ? "OpenClaw" : "Claude Code"}</span>
+                    <ChevronDown className="h-3 w-3 opacity-50" />
                   </button>
-                );
-              })}
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="center" className="w-44">
+                  {(["openclaw", "claude"] as const).map((a) => (
+                    <DropdownMenuItem key={a} onClick={() => handleAgentChange(a)} className="flex items-center gap-2 cursor-pointer">
+                      <img src={a === "openclaw" ? openclawImg : claudecodeImg} alt={a} className="w-4 h-4 rounded-sm object-cover" />
+                      <span>{a === "openclaw" ? "Remote OpenClaw" : "Remote Claude Code"}</span>
+                      {agent === a && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-foreground/60" />}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
             {/* Right — new chat + refresh + device pill */}
             <div className="ml-auto flex items-center gap-2">
