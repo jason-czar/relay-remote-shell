@@ -6,6 +6,10 @@ import logo from "@/assets/privaclaw-icon.png";
 import openclawImg from "@/assets/openclaw.png";
 import claudecodeImg from "@/assets/claudecode.png";
 import codexImg from "@/assets/codex.png";
+import terminalIcon from "@/assets/terminal-icon.png";
+import codexIcon from "@/assets/codex-icon.png";
+import openclawIcon from "@/assets/openclaw-icon.png";
+import claudecodeIcon from "@/assets/claudecode-icon.png";
 
 // ── Terminal demo animation ──────────────────────────────────────────────────
 type TermLine =
@@ -235,6 +239,22 @@ export default function Landing() {
 
       {/* ── Hero ── */}
       <section className="relative flex flex-col items-center justify-center pt-16 pb-14 px-5">
+        {/* App icons row */}
+        <div className="relative z-10 flex items-center justify-center gap-5 mb-10">
+          {[
+            { src: terminalIcon, alt: "Terminal" },
+            { src: openclawIcon, alt: "OpenClaw" },
+            { src: claudecodeIcon, alt: "Claude Code" },
+            { src: codexIcon, alt: "Codex" },
+          ].map(({ src, alt }) => (
+            <img
+              key={alt}
+              src={src}
+              alt={alt}
+              className="w-16 h-16 rounded-2xl shadow-lg"
+            />
+          ))}
+        </div>
         {/* ambient glow */}
         <div className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[500px] rounded-full blur-3xl transition-all duration-700 bg-foreground/5" />
 
