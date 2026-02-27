@@ -119,9 +119,6 @@ export function ChatMessage({ role, content, thinking, streaming, rawStdout, cre
   if (thinking) {
     return (
       <div className="flex items-start gap-3 mb-4 px-1">
-        <div className="flex-shrink-0 w-6 h-6 rounded-full overflow-hidden mt-0.5">
-          <img src={agentImg} alt="agent" className="w-full h-full object-cover" />
-        </div>
         <span className="flex gap-1 items-center h-5 mt-1">
           {[0, 1, 2].map((i) => (
             <span
@@ -197,13 +194,10 @@ export function ChatMessage({ role, content, thinking, streaming, rawStdout, cre
   // Assistant — hover actions
   return (
     <div
-      className="group flex items-start gap-3 mb-5 px-1"
+      className="group flex items-start mb-5 px-1"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      <div className="flex-shrink-0 w-6 h-6 rounded-full overflow-hidden mt-0.5">
-        <img src={agentImg} alt="agent" className="w-full h-full object-cover" />
-      </div>
       <div className="flex-1 min-w-0">
         <div className="text-sm leading-relaxed text-foreground break-words pt-0.5">
           {streaming && !content && (
