@@ -199,6 +199,18 @@ export function ChatMessage({ role, content, thinking, streaming, rawStdout, cre
       onMouseLeave={() => setHovered(false)}
     >
       <div className="flex-1 min-w-0">
+        {/* Terminal button — always visible above message */}
+        <div className="flex items-center gap-1 mb-1.5">
+          <button
+            onClick={() => setDebugOpen((v) => !v)}
+            className="flex items-center gap-1 px-2 py-0.5 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+            title="Terminal output"
+          >
+            <Terminal className="h-3 w-3" />
+            <span className="text-[11px]">Terminal</span>
+            {debugOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+          </button>
+        </div>
         <div className="text-sm leading-relaxed text-foreground break-words pt-0.5">
           {streaming && !content && (
             <span className="inline-flex gap-1 items-center h-5">
@@ -266,15 +278,6 @@ export function ChatMessage({ role, content, thinking, streaming, rawStdout, cre
           >
             {copied ? <Check className="h-3.5 w-3.5 text-status-online" /> : <Copy className="h-3.5 w-3.5" />}
             <span className="text-[11px]">{copied ? "Copied" : "Copy"}</span>
-          </button>
-          <button
-            onClick={() => setDebugOpen((v) => !v)}
-            className="flex items-center gap-1 px-2 py-1 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-            title="Terminal output"
-          >
-            <Terminal className="h-3.5 w-3.5" />
-            <span className="text-[11px]">Terminal</span>
-            {debugOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
           </button>
           {formattedTime && (
             <span className="ml-1 text-[10px] text-muted-foreground/40 select-none">
