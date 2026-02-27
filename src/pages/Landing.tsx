@@ -147,17 +147,17 @@ function AgentPreview() {
       </div>
 
       {/* Messages */}
-      <div className="flex flex-col gap-3 p-4 min-h-[260px] font-mono text-sm">
+      <div className="flex flex-col gap-4 p-5 min-h-[260px] font-mono">
         {preview.messages.slice(0, visibleCount).map((msg, i) => (
-          <div key={`${active}-${i}`} className={`flex gap-2.5 animate-fade-in ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+          <div key={`${active}-${i}`} className={`flex gap-3 animate-fade-in ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
             {msg.role === "assistant" && (
-              <span className={`shrink-0 mt-0.5 text-xs font-bold ${preview.color}`}>&gt;</span>
+              <span className={`shrink-0 mt-1 text-sm font-bold ${preview.color}`}>&gt;</span>
             )}
             <div
-              className={`max-w-[85%] px-3 py-2 rounded-xl text-xs leading-relaxed whitespace-pre-wrap ${
+              className={`max-w-[85%] px-4 py-2.5 rounded-xl text-[0.8rem] leading-[1.6] whitespace-pre-wrap ${
                 msg.role === "user"
                   ? "bg-primary/15 text-foreground rounded-br-sm"
-                  : "bg-muted/50 text-muted-foreground rounded-bl-sm"
+                  : "bg-muted/50 text-foreground/80 rounded-bl-sm"
               }`}
             >
               {msg.text}
