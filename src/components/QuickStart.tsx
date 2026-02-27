@@ -8,11 +8,12 @@ const API_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
 type Platform = "unix" | "windows";
 
 interface QuickStartProps {
-  projectId: string;
+  userId: string;
+  projectId?: string;
   onDeviceOnline: (device: Tables<"devices">) => void;
 }
 
-export function QuickStart({ projectId, onDeviceOnline }: QuickStartProps) {
+export function QuickStart({ userId, projectId, onDeviceOnline }: QuickStartProps) {
   const [device, setDevice] = useState<Tables<"devices"> | null>(null);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -21,16 +22,20 @@ export function QuickStart({ projectId, onDeviceOnline }: QuickStartProps) {
   const [platform, setPlatform] = useState<Platform>("unix");
   const didCreate = useRef(false); // prevent double-create in StrictMode
 
-  // Auto-create a device once projectId is available
+  // Auto-create a device once userId is available
   useEffect(() => {
-    if (!projectId || didCreate.current) return;
+    if (!userId || didCreate.current) return;
     didCreate.current = true;
     setCreating(true);
     setCreateError(null);
     const pairingCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const insertPayload: any = projectId
+      ? { project_id: projectId, name: "My Device", pairing_code: pairingCode }
+      : { user_id: userId, name: "My Device", pairing_code: pairingCode };
     supabase
       .from("devices")
-      .insert({ project_id: projectId, name: "My Device", pairing_code: pairingCode })
+      .insert(insertPayload)
       .select()
       .single()
       .then(({ data, error }) => {
@@ -42,7 +47,7 @@ export function QuickStart({ projectId, onDeviceOnline }: QuickStartProps) {
         }
         setCreating(false);
       });
-  }, [projectId]);
+  }, [userId, projectId]);
 
   // Stable callback so realtime effect doesn't re-subscribe on each render
   const handleDeviceOnline = useCallback(
@@ -127,13 +132,16 @@ Write-Host "Connector running."`
     didCreate.current = false;
     setCreateError(null);
     setDevice(null);
-    // Re-trigger by bumping — just reset the flag and re-run the effect manually
     setCreating(true);
     const pairingCode = Math.random().toString(36).substring(2, 8).toUpperCase();
     didCreate.current = true;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const insertPayload: any = projectId
+      ? { project_id: projectId, name: "My Device", pairing_code: pairingCode }
+      : { user_id: userId, name: "My Device", pairing_code: pairingCode };
     supabase
       .from("devices")
-      .insert({ project_id: projectId, name: "My Device", pairing_code: pairingCode })
+      .insert(insertPayload)
       .select()
       .single()
       .then(({ data, error }) => {

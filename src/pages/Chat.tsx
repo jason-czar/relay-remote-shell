@@ -420,7 +420,7 @@ export default function Chat() {
     if (!user) return;
     // Load devices + first project in parallel
     Promise.all([
-      supabase.from("devices").select("id, name, status, project_id"),
+      supabase.from("devices").select("id, name, status, project_id, user_id"),
       supabase.from("projects").select("id").limit(1).single(),
     ]).then(([devRes, projRes]) => {
       const data = devRes.data;
@@ -1389,7 +1389,8 @@ export default function Chat() {
                   {devices.length === 0 ? (
                     <div className="flex flex-col items-center gap-6 w-full max-w-xl px-2">
                       <QuickStart
-                        projectId={projectId}
+                        userId={user?.id ?? ""}
+                        projectId={projectId || undefined}
                         onDeviceOnline={(dev) => {
                           setDevices((prev) => [...prev, dev]);
                           setSelectedDeviceId(dev.id);

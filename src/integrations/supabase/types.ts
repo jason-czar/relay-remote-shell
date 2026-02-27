@@ -102,9 +102,10 @@ export type Database = {
           name: string
           paired: boolean
           pairing_code: string | null
-          project_id: string
+          project_id: string | null
           status: Database["public"]["Enums"]["device_status"]
           updated_at: string
+          user_id: string | null
           workdir: string | null
         }
         Insert: {
@@ -115,9 +116,10 @@ export type Database = {
           name: string
           paired?: boolean
           pairing_code?: string | null
-          project_id: string
+          project_id?: string | null
           status?: Database["public"]["Enums"]["device_status"]
           updated_at?: string
+          user_id?: string | null
           workdir?: string | null
         }
         Update: {
@@ -128,9 +130,10 @@ export type Database = {
           name?: string
           paired?: boolean
           pairing_code?: string | null
-          project_id?: string
+          project_id?: string | null
           status?: Database["public"]["Enums"]["device_status"]
           updated_at?: string
+          user_id?: string | null
           workdir?: string | null
         }
         Relationships: [
