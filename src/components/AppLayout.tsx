@@ -60,6 +60,12 @@ function Inner({ children, sidebarWidth, onMouseDown, isChat }: {
 
   return (
     <div className="h-screen flex w-full overflow-hidden">
+      {/* Mobile scrim */}
+      {isMobile && (
+        <div
+          className={`fixed inset-0 z-30 bg-black transition-opacity duration-300 pointer-events-none ${openMobile ? "opacity-40" : "opacity-0"}`}
+        />
+      )}
       <div className="relative flex shrink-0">
         <AppSidebar />
         {/* Drag handle — desktop only */}
