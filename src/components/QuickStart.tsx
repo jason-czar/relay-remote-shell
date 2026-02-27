@@ -106,7 +106,7 @@ export function QuickStart({ userId, projectId, onDeviceOnline }: QuickStartProp
   };
 
   return (
-    <div className="w-full max-w-xl mx-auto flex flex-col gap-5 text-left animate-fade-in">
+    <div className="w-full max-w-xl mx-auto flex flex-col gap-4 text-left animate-fade-in px-1">
       {/* Header */}
       <div className="flex items-center gap-3">
         <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
@@ -189,7 +189,7 @@ export function QuickStart({ userId, projectId, onDeviceOnline }: QuickStartProp
               <div key={i} className="space-y-1">
                 <p className="text-xs font-medium text-muted-foreground">{label}</p>
                 <div className="relative rounded-xl border border-border/50 bg-muted/40 overflow-hidden">
-                  <pre className="px-4 py-3 pr-12 text-xs font-mono text-foreground/90 overflow-x-auto whitespace-pre [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                  <pre className="px-3 py-3 pr-10 text-xs font-mono text-foreground/90 overflow-x-auto whitespace-pre [scrollbar-width:none] [&::-webkit-scrollbar]:hidden max-w-full">
                     <code>{cmd}</code>
                   </pre>
                   <button
@@ -222,7 +222,7 @@ export function QuickStart({ userId, projectId, onDeviceOnline }: QuickStartProp
 
       {/* Pairing code + waiting status */}
       {device && !online && !createError && (
-        <div className="flex items-center justify-between gap-3 rounded-xl border border-dashed border-border/50 bg-muted/20 px-4 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-dashed border-border/50 bg-muted/20 px-4 py-3">
           <div className="flex items-center gap-2 text-sm">
             <span className="text-muted-foreground">Pairing code:</span>
             <code className="font-mono font-bold text-primary bg-primary/10 px-2 py-0.5 rounded">
