@@ -700,10 +700,17 @@ export default function Chat() {
           const msg: RelayMsg = JSON.parse(event.data);
           if (msg.type === "auth_ok") {
             ws.send(JSON.stringify({ type: "session_start", data: { session_id: sessionId, cols: 200, rows: 50 } }));
+            // Wait for shell to fully initialize (emits vi-mode/bracketed-paste sequences),
+            // send a bare \r to flush it to a clean prompt, then send the real command.
             setTimeout(() => {
-              ws.send(JSON.stringify({ type: "stdin", data: { session_id: sessionId, data_b64: btoa(command) } }));
-              resetSilence();
-            }, 100);
+              ws.send(JSON.stringify({ type: "stdin", data: { session_id: sessionId, data_b64: btoa("\r") } }));
+              setTimeout(() => {
+                // Discard any prompt echo accumulated so far before the real command
+                outputBuffer = "";
+                ws.send(JSON.stringify({ type: "stdin", data: { session_id: sessionId, data_b64: btoa(command) } }));
+                resetSilence();
+              }, 300);
+            }, 200);
           } else if (msg.type === "stdout") {
             const { data_b64 } = (msg.data ?? {}) as {data_b64: string;};
             if (data_b64) {
