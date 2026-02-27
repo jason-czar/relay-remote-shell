@@ -280,7 +280,7 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
       {/* Main composer card */}
       <div
         className={cn(
-          "flex flex-col rounded-[26px] px-4 pt-2.5 pb-2.5 transition-all duration-150",
+          "flex flex-col rounded-[26px] px-4 pt-2.5 pb-1.5 transition-all duration-150",
           "bg-[hsl(0,0%,11%)] border-2",
           focused ? "border-border/40" : "border-border/40",
           disabled && "opacity-60 pointer-events-none"
@@ -322,7 +322,7 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
         )}
 
         {/* Bottom action row */}
-        <div className="flex items-center justify-between mt-1.5">
+        <div className="flex items-center justify-between mt-1">
           {/* Left: attach + model/agent picker */}
           <div className="flex items-center gap-2">
             {/* Attach button */}
