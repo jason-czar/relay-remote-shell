@@ -234,7 +234,7 @@ export default function Landing() {
       </nav>
 
       {/* ── Hero ── */}
-      <section className="relative flex flex-col items-center justify-center pt-16 pb-14 px-5 overflow-hidden">
+      <section className="relative flex flex-col items-center justify-center pt-16 pb-14 px-5">
         {/* ambient glow */}
         <div className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[500px] rounded-full blur-3xl transition-all duration-700 bg-foreground/5" />
 
