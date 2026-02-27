@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
 import logo from "@/assets/logo.png";
+import openclawImg from "@/assets/openclaw.png";
+import claudecodeImg from "@/assets/claudecode.png";
 
 const AGENT_TABS = ["OpenClaw", "Claude Code"] as const;
 
@@ -21,9 +23,16 @@ const PROMPTS = {
   ],
 };
 
+const TILE_COLORS = {
+  OpenClaw: { hex: "#DA5048", rgb: [218, 80, 72] as [number, number, number] },
+  "Claude Code": { hex: "#D37551", rgb: [211, 117, 81] as [number, number, number] },
+};
+
 export default function Landing() {
   const navigate = useNavigate();
   const [activeAgent, setActiveAgent] = useState<keyof typeof PROMPTS>("OpenClaw");
+  const { hex, rgb } = TILE_COLORS[activeAgent];
+  const [r, g, b] = rgb;
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -45,19 +54,24 @@ export default function Landing() {
         </div>
       </nav>
 
-      {/* Agent tabs — visual only */}
+      {/* Agent tabs */}
       <div className="border-b border-border/40">
         <div className="max-w-2xl mx-auto flex items-center px-4">
           {AGENT_TABS.map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveAgent(tab as keyof typeof PROMPTS)}
-              className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+              className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
                 tab === activeAgent
                   ? "border-foreground text-foreground"
                   : "border-transparent text-muted-foreground hover:text-foreground"
               }`}
             >
+              <img
+                src={tab === "OpenClaw" ? openclawImg : claudecodeImg}
+                alt={tab}
+                className="w-4 h-4 rounded object-cover"
+              />
               {tab}
             </button>
           ))}
@@ -67,21 +81,28 @@ export default function Landing() {
       {/* Main empty-state preview */}
       <div className="flex-1 flex flex-col items-center justify-center px-4 py-12">
         <div key={activeAgent} className="flex flex-col items-center w-full animate-fade-in">
-          {/* Icon */}
+          {/* Icon tile */}
           <div className="relative mb-6">
-            <div className="absolute inset-0 rounded-3xl bg-primary/20 blur-xl scale-110" />
+            <div className="absolute inset-0 rounded-3xl blur-xl scale-110" style={{ background: hex, opacity: 0.3 }} />
             <div
-              className="relative w-24 h-24 rounded-3xl flex items-center justify-center ring-1 ring-primary/30"
+              className="relative w-24 h-24 rounded-3xl overflow-hidden"
               style={{
-                background: "linear-gradient(135deg, hsl(var(--primary) / 0.18) 0%, hsl(var(--primary) / 0.08) 100%)",
-                boxShadow: "0 8px 32px hsl(var(--primary) / 0.25), inset 0 1px 0 rgba(255,255,255,0.12)",
+                background: `linear-gradient(135deg, rgba(${r},${g},${b},0.35) 0%, rgba(${r},${g},${b},0.15) 100%)`,
+                boxShadow: `0 8px 32px rgba(${r},${g},${b},0.35), inset 0 1px 0 rgba(255,255,255,0.12)`,
+                outline: `1px solid rgba(${r},${g},${b},0.3)`,
               }}
             >
-              <span className="text-5xl">{activeAgent === "OpenClaw" ? "🐾" : "⌨️"}</span>
+              <img
+                src={activeAgent === "OpenClaw" ? openclawImg : claudecodeImg}
+                alt={activeAgent}
+                className="w-full h-full object-cover"
+              />
             </div>
           </div>
 
-          <h2 className="text-xl font-semibold text-foreground mb-2">{activeAgent === "OpenClaw" ? "OpenClaw Agent" : "Claude Code"}</h2>
+          <h2 className="text-xl font-semibold text-foreground mb-2">
+            {activeAgent === "OpenClaw" ? "OpenClaw Agent" : "Claude Code"}
+          </h2>
           <p className="text-sm text-muted-foreground text-center max-w-sm leading-relaxed mb-8">
             {activeAgent === "OpenClaw"
               ? "Ask your local OpenClaw agent anything. Commands run on your selected device."
@@ -97,7 +118,7 @@ export default function Landing() {
                 className="animate-fade-in group flex flex-col gap-2 px-5 py-4 rounded-xl border border-border/40 bg-card/40 hover:bg-card/80 hover:border-border/80 transition-all duration-200 text-left"
                 style={{ animationDelay: `${i * 60}ms`, animationFillMode: "both" }}
                 onMouseEnter={e =>
-                  (e.currentTarget.style.boxShadow = "0 0 18px 2px hsl(var(--primary) / 0.08), 0 2px 12px rgba(0,0,0,0.15)")
+                  (e.currentTarget.style.boxShadow = `0 0 18px 2px rgba(${r},${g},${b},0.12), 0 2px 12px rgba(0,0,0,0.15)`)
                 }
                 onMouseLeave={e => (e.currentTarget.style.boxShadow = "")}
               >
