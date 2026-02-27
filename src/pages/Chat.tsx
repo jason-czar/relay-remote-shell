@@ -1387,28 +1387,24 @@ export default function Chat() {
                     <ChatMessage
                       role={msg.role}
                       content={msg.content}
-                      rawStdout={msg.role === "assistant" ? rawStdoutMapRef.current.get(i) : undefined}
-                      streaming={i === streamingMsgIndex}
+                      streaming={streamingMsgIndex === i}
+                      rawStdout={msg.role === "assistant" ? (msg as any).rawStdout : undefined}
                       createdAt={msg.created_at}
                       agent={agent}
+                      onRegenerate={
+                        msg.role === "assistant" &&
+                        i === messages.length - 1 &&
+                        !thinking &&
+                        streamingMsgIndex === null
+                          ? handleRegenerate
+                          : undefined
+                      }
                     />
                   </div>
                 ))}
                 {thinking && (
                   <div className="animate-fade-in">
                     <ChatMessage role="assistant" content="" thinking agent={agent} />
-                  </div>
-                )}
-                {/* Regenerate button — shown after last assistant message when idle */}
-                {!thinking && streamingMsgIndex === null && messages.length > 0 && messages[messages.length - 1].role === "assistant" && (
-                  <div className="flex justify-center mt-2 animate-fade-in">
-                    <button
-                      onClick={handleRegenerate}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border/40 bg-background/60 text-xs text-muted-foreground hover:text-foreground hover:border-border/70 hover:bg-accent transition-all duration-150"
-                    >
-                      <RefreshCw className="h-3 w-3" />
-                      Regenerate
-                    </button>
                   </div>
                 )}
               </div>

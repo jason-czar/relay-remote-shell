@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { Copy, Check, Terminal, ChevronDown, ChevronRight } from "lucide-react";
+import { Copy, Check, Terminal, ChevronDown, ChevronRight, RefreshCw } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useState } from "react";
@@ -30,6 +30,7 @@ interface ChatMessageProps {
   rawStdout?: string;
   createdAt?: string;
   agent?: "openclaw" | "claude";
+  onRegenerate?: () => void;
 }
 
 function CodeBlock({ language, value }: { language: string; value: string }) {
@@ -91,7 +92,7 @@ function CodeBlock({ language, value }: { language: string; value: string }) {
   );
 }
 
-export function ChatMessage({ role, content, thinking, streaming, rawStdout, createdAt, agent }: ChatMessageProps) {
+export function ChatMessage({ role, content, thinking, streaming, rawStdout, createdAt, agent, onRegenerate }: ChatMessageProps) {
   const isUser = role === "user";
   const agentImg = agent === "claude" ? claudecodeImg : openclawImg;
   const [hovered, setHovered] = useState(false);
@@ -276,6 +277,16 @@ export function ChatMessage({ role, content, thinking, streaming, rawStdout, cre
             <span className="text-[11px]">Terminal</span>
             {debugOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
           </button>
+          {onRegenerate && (
+            <button
+              onClick={onRegenerate}
+              className="flex items-center gap-1 px-2 py-1 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+              title="Regenerate"
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              <span className="text-[11px]">Regenerate</span>
+            </button>
+          )}
           {formattedTime && (
             <span className="ml-1 text-[10px] text-muted-foreground/40 select-none">
               {formattedTime}
