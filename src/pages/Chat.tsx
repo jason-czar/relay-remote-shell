@@ -442,7 +442,9 @@ export default function Chat() {
   const [agent, setAgent] = useState<"openclaw" | "claude" | "codex" | "terminal">("openclaw");
   const [model, setModel] = useState<string>("auto");
   const [devices, setDevices] = useState<Tables<"devices">[]>([]);
-  const [selectedDeviceId, setSelectedDeviceId] = useState<string>("");
+  const [selectedDeviceId, setSelectedDeviceIdState] = useState<string>(() => {
+    return localStorage.getItem("chat-device-id") ?? "";
+  });
   const [input, setInput] = useState("");
   const [thinking, setThinking] = useState(false);
   const [agentSwitchPending, setAgentSwitchPending] = useState<"openclaw" | "claude" | "codex" | "terminal" | null>(null);
@@ -463,11 +465,23 @@ export default function Chat() {
   const [unreadCount, setUnreadCount] = useState(0);
   const prevMsgCountRef = useRef(0);
 
-  // ── Load devices ──────────────────────────────────────────────────────
+  // ── Device selection with per-device agent persistence ───────────────
+  const setSelectedDeviceId = useCallback((id: string) => {
+    setSelectedDeviceIdState(id);
+    localStorage.setItem("chat-device-id", id);
+    // Restore the agent that was last used with this device
+    const saved = localStorage.getItem(`chat-agent-${id}`);
+    if (saved) {
+      setAgent(saved as "openclaw" | "claude" | "codex" | "terminal");
+    }
+  }, []);
 
-
-  // ── Load conversations (now handled by ChatContext) ────────────────────
-  // (removed — context loads them)
+  // Persist agent selection keyed by device whenever either changes
+  useEffect(() => {
+    if (selectedDeviceId) {
+      localStorage.setItem(`chat-agent-${selectedDeviceId}`, agent);
+    }
+  }, [agent, selectedDeviceId]);
 
   // ── Load devices ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -480,9 +494,17 @@ export default function Chat() {
       const data = devRes.data;
       if (data) {
         setDevices(data as Tables<"devices">[]);
-        if (data.length > 0 && !selectedDeviceId) {
-          const online = data.find((d) => d.status === "online");
-          setSelectedDeviceId((online ?? data[0]).id);
+        if (data.length > 0) {
+          // Use persisted device if still valid, else pick online/first
+          const persisted = localStorage.getItem("chat-device-id");
+          const found = persisted ? data.find((d) => d.id === persisted) : null;
+          if (!found) {
+            const online = data.find((d) => d.status === "online");
+            setSelectedDeviceId((online ?? data[0]).id);
+          } else if (!selectedDeviceId) {
+            // restore without overwriting agent (setSelectedDeviceId handles it)
+            setSelectedDeviceId(found.id);
+          }
         }
       }
       if (projRes.data) setProjectId(projRes.data.id);
