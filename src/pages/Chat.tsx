@@ -305,7 +305,7 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
           disabled={disabled}
           rows={1}
           style={{ height: "48px", overflowY: "hidden", resize: "none" }}
-          className="text-[17px] min-h-[48px] w-full bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none p-0 placeholder:text-muted-foreground/30 text-foreground"
+          className="text-[19px] min-h-[48px] w-full bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none p-0 placeholder:text-muted-foreground/30 text-foreground"
         />
 
         {/* Waveform — shown while dictating */}
