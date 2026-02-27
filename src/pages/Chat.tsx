@@ -700,17 +700,39 @@ export default function Chat() {
           const msg: RelayMsg = JSON.parse(event.data);
           if (msg.type === "auth_ok") {
             ws.send(JSON.stringify({ type: "session_start", data: { session_id: sessionId, cols: 200, rows: 50 } }));
-            // Wait for shell to fully initialize (emits vi-mode/bracketed-paste sequences),
-            // send a bare \r to flush it to a clean prompt, then send the real command.
-            setTimeout(() => {
-              ws.send(JSON.stringify({ type: "stdin", data: { session_id: sessionId, data_b64: btoa("\r") } }));
-              setTimeout(() => {
-                // Discard any prompt echo accumulated so far before the real command
-                outputBuffer = "";
-                ws.send(JSON.stringify({ type: "stdin", data: { session_id: sessionId, data_b64: btoa(command) } }));
-                resetSilence();
-              }, 300);
-            }, 200);
+            // Prompt detection: wait until stdout contains a recognisable shell prompt
+            // before sending the command, rather than relying on fixed delays.
+            let promptSent = false;
+            const PROMPT_RE = /(?:[%$#➜❯>]\s*$)|(?:\$\s+$)/m;
+            const PROMPT_TIMEOUT = 5000;
+            const promptDeadline = setTimeout(() => {
+              if (!promptSent) { promptSent = true; sendCommand(); }
+            }, PROMPT_TIMEOUT);
+            const checkPrompt = () => {
+              if (promptSent) return;
+              // Strip ANSI from the accumulated buffer before testing
+              const plain = outputBuffer
+                .replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, "")
+                .replace(/\x1b\[[\x30-\x3f]*[\x20-\x2f]*[\x40-\x7e]/g, "")
+                .replace(/\x1b[^[\]]/g, "")
+                .replace(/\x1b/g, "");
+              if (PROMPT_RE.test(plain)) {
+                clearTimeout(promptDeadline);
+                promptSent = true;
+                sendCommand();
+              }
+            };
+            const sendCommand = () => {
+              outputBuffer = ""; // discard shell init noise
+              ws.send(JSON.stringify({ type: "stdin", data: { session_id: sessionId, data_b64: btoa(command) } }));
+              resetSilence();
+            };
+            // Patch the stdout handler to also run the prompt check
+            const origOnMessage = ws.onmessage;
+            ws.onmessage = (event) => {
+              origOnMessage?.call(ws, event);
+              if (!promptSent) checkPrompt();
+            };
           } else if (msg.type === "stdout") {
             const { data_b64 } = (msg.data ?? {}) as {data_b64: string;};
             if (data_b64) {
