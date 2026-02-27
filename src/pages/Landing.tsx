@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Terminal, Zap, Shield, Cpu } from "lucide-react";
-import logo from "@/assets/logo.png";
+import logo from "@/assets/privaclaw-icon.png";
 import openclawImg from "@/assets/openclaw.png";
 import claudecodeImg from "@/assets/claudecode.png";
 import codexImg from "@/assets/codex.png";
