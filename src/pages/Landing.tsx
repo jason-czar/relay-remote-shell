@@ -1,155 +1,289 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Terminal, Zap, Shield, Cpu } from "lucide-react";
 import logo from "@/assets/logo.png";
 import openclawImg from "@/assets/openclaw.png";
 import claudecodeImg from "@/assets/claudecode.png";
+import codexImg from "@/assets/codex.png";
+import agentsGroup from "@/assets/agents-group.png";
 
-const AGENT_TABS = ["OpenClaw", "Claude Code"] as const;
+const AGENTS = [
+  {
+    id: "openclaw" as const,
+    name: "OpenClaw",
+    tagline: "Local shell agent",
+    desc: "Execute shell commands, browse files, and control your machine remotely from anywhere.",
+    img: openclawImg,
+    hex: "#DA5048",
+    rgb: [218, 80, 72] as [number, number, number],
+    prompts: ["List files in project", "Show git status", "Run test suite", "Check system resources"],
+  },
+  {
+    id: "claude" as const,
+    name: "Claude Code",
+    tagline: "AI coding agent",
+    desc: "Pair with Claude Code running on your device to write, debug, and refactor code at speed.",
+    img: claudecodeImg,
+    hex: "#D37551",
+    rgb: [211, 117, 81] as [number, number, number],
+    prompts: ["Debug this error", "Write unit tests", "Refactor this file", "Explain the codebase"],
+  },
+  {
+    id: "codex" as const,
+    name: "Codex",
+    tagline: "OpenAI reasoning agent",
+    desc: "Harness OpenAI's o-series reasoning models to solve complex engineering problems step by step.",
+    img: codexImg,
+    hex: "#4ade80",
+    rgb: [74, 222, 128] as [number, number, number],
+    prompts: ["Fix this bug", "Refactor for clarity", "Generate unit tests", "Explain step by step"],
+  },
+];
 
-const PROMPTS = {
-  OpenClaw: [
-    { title: "List files", desc: "List all files in the current directory" },
-    { title: "Search code", desc: "Search for TODO comments in the codebase" },
-    { title: "System info", desc: "Show system info: OS, CPU, memory usage" },
-    { title: "Git status", desc: "Show the current git status and recent commits" },
-  ],
-  "Claude Code": [
-    { title: "Debug code", desc: "Help me debug an issue in my code" },
-    { title: "Write tests", desc: "Write unit tests for the current file" },
-    { title: "Refactor", desc: "Refactor this code to be cleaner and more readable" },
-    { title: "Explain code", desc: "Explain what this code does" },
-  ],
-};
-
-const TILE_COLORS = {
-  OpenClaw: { hex: "#DA5048", rgb: [218, 80, 72] as [number, number, number] },
-  "Claude Code": { hex: "#D37551", rgb: [211, 117, 81] as [number, number, number] },
-};
+const FEATURES = [
+  {
+    icon: Terminal,
+    title: "Remote terminal",
+    desc: "Full PTY terminal streamed securely to your browser over an encrypted WebSocket relay.",
+  },
+  {
+    icon: Zap,
+    title: "Background execution",
+    desc: "Switch between conversations while tasks run. Return to results whenever you're ready.",
+  },
+  {
+    icon: Shield,
+    title: "Private by design",
+    desc: "All traffic routes through your own connector. Your code and commands stay on your machine.",
+  },
+  {
+    icon: Cpu,
+    title: "Multi-agent",
+    desc: "Switch seamlessly between OpenClaw, Claude Code, and Codex from a single interface.",
+  },
+];
 
 export default function Landing() {
   const navigate = useNavigate();
-  const [activeAgent, setActiveAgent] = useState<keyof typeof PROMPTS>("OpenClaw");
-  const { hex, rgb } = TILE_COLORS[activeAgent];
-  const [r, g, b] = rgb;
+  const [activeIdx, setActiveIdx] = useState(0);
+  const agent = AGENTS[activeIdx];
+  const [r, g, b] = agent.rgb;
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      {/* Nav */}
-      <nav className="border-b border-border/40">
-        <div className="max-w-2xl mx-auto flex items-center justify-between px-4 py-3">
+    <div className="min-h-screen bg-background flex flex-col text-foreground">
+      {/* ── Nav ── */}
+      <nav className="sticky top-0 z-50 border-b border-border/30 backdrop-blur-md" style={{ background: "hsl(var(--background)/0.85)" }}>
+        <div className="max-w-5xl mx-auto flex items-center justify-between px-5 py-3">
           <div className="flex items-center gap-2">
             <img src={logo} alt="PrivaClaw" className="h-6 w-6 rounded" />
             <span className="text-sm font-bold tracking-tight">PrivaClaw</span>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={() => navigate("/auth")}>
+            <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground" onClick={() => navigate("/auth")}>
               Sign in
             </Button>
-            <Button size="sm" onClick={() => navigate("/auth")} className="gap-1.5">
-              Get Started <ArrowRight className="h-3.5 w-3.5" />
+            <Button size="sm" onClick={() => navigate("/auth")} className="gap-1.5 font-medium">
+              Get started <ArrowRight className="h-3.5 w-3.5" />
             </Button>
           </div>
         </div>
       </nav>
 
-      {/* Agent tabs */}
-      <div className="border-b border-border/40">
-        <div className="max-w-2xl mx-auto flex items-center justify-center px-4">
-          {AGENT_TABS.map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveAgent(tab as keyof typeof PROMPTS)}
-              className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
-                tab === activeAgent
-                  ? "border-foreground text-foreground"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <img
-                src={tab === "OpenClaw" ? openclawImg : claudecodeImg}
-                alt={tab}
-                className="w-4 h-4 rounded object-cover"
-              />
-              {tab}
-            </button>
-          ))}
-        </div>
-      </div>
+      {/* ── Hero ── */}
+      <section className="relative flex flex-col items-center justify-center pt-20 pb-16 px-5 overflow-hidden">
+        {/* background glow */}
+        <div
+          className="pointer-events-none absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[400px] rounded-full blur-3xl transition-all duration-700"
+          style={{ background: `radial-gradient(ellipse, rgba(${r},${g},${b},0.12) 0%, transparent 70%)` }}
+        />
 
-      {/* Main empty-state preview */}
-      <div className="flex-1 flex flex-col items-center justify-center px-4 py-12">
-        <div key={activeAgent} className="flex flex-col items-center w-full animate-fade-in">
-          {/* Icon tile */}
-          <div className="relative mb-6">
-            <div className="absolute inset-0 rounded-3xl blur-xl scale-110" style={{ background: hex, opacity: 0.3 }} />
+        <div className="relative z-10 flex flex-col items-center text-center max-w-2xl">
+          {/* Agent group image */}
+          <div className="mb-8 relative">
             <div
-              className="relative w-24 h-24 rounded-3xl overflow-hidden"
-              style={{
-                background: `linear-gradient(135deg, rgba(${r},${g},${b},0.35) 0%, rgba(${r},${g},${b},0.15) 100%)`,
-                boxShadow: `0 8px 32px rgba(${r},${g},${b},0.35), inset 0 1px 0 rgba(255,255,255,0.12)`,
-                outline: `1px solid rgba(${r},${g},${b},0.3)`,
-              }}
-            >
-              <img
-                src={activeAgent === "OpenClaw" ? openclawImg : claudecodeImg}
-                alt={activeAgent}
-                className="w-full h-full object-cover"
-              />
-            </div>
+              className="absolute inset-0 rounded-2xl blur-2xl scale-110 transition-all duration-700"
+              style={{ background: `rgba(${r},${g},${b},0.2)` }}
+            />
+            <img src={agentsGroup} alt="Agents" className="relative h-20 object-contain drop-shadow-xl" />
           </div>
 
-          <h2 className="text-xl font-semibold text-foreground mb-2">
-            {activeAgent === "OpenClaw" ? "OpenClaw Agent" : "Claude Code"}
-          </h2>
-          <p className="text-sm text-muted-foreground text-center max-w-sm leading-relaxed mb-8">
-            {activeAgent === "OpenClaw"
-              ? "Ask your local OpenClaw agent anything. Commands run on your selected device."
-              : "Send prompts directly to Claude Code running on your device."}
+          <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4 leading-tight">
+            Chat with your machine.<br />
+            <span className="text-muted-foreground/70">From anywhere.</span>
+          </h1>
+          <p className="text-base text-muted-foreground leading-relaxed mb-8 max-w-xl">
+            PrivaClaw connects OpenClaw, Claude Code, and Codex to your local machine through a secure relay — giving you a private AI terminal in the browser.
           </p>
+          <div className="flex items-center gap-3">
+            <Button size="lg" onClick={() => navigate("/auth")} className="gap-2 font-semibold px-6">
+              Start for free <ArrowRight className="h-4 w-4" />
+            </Button>
+            <Button size="lg" variant="outline" onClick={() => navigate("/docs")} className="px-6 border-border/50 text-muted-foreground hover:text-foreground">
+              View docs
+            </Button>
+          </div>
+          <p className="mt-4 text-xs text-muted-foreground/40">No credit card required · Works with your existing setup</p>
+        </div>
+      </section>
 
-          {/* Prompt suggestion cards */}
-          <div className="grid grid-cols-2 gap-2.5 w-full max-w-lg mx-auto mb-8">
-            {PROMPTS[activeAgent].map(({ title, desc }, i) => (
+      {/* ── Agent tabs + live preview ── */}
+      <section className="px-5 pb-20">
+        <div className="max-w-2xl mx-auto">
+          {/* Tab bar */}
+          <div className="flex items-center justify-center gap-1 mb-6 p-1 rounded-xl border border-border/30 w-fit mx-auto" style={{ background: "hsl(var(--muted)/0.4)" }}>
+            {AGENTS.map((a, i) => (
               <button
-                key={title}
-                onClick={() => navigate("/auth")}
-                className="animate-fade-in group flex flex-col gap-2 px-5 py-4 rounded-xl border border-border/40 bg-card/40 hover:bg-card/80 hover:border-border/80 transition-all duration-200 text-left"
-                style={{ animationDelay: `${i * 60}ms`, animationFillMode: "both" }}
-                onMouseEnter={e =>
-                  (e.currentTarget.style.boxShadow = `0 0 18px 2px rgba(${r},${g},${b},0.12), 0 2px 12px rgba(0,0,0,0.15)`)
-                }
-                onMouseLeave={e => (e.currentTarget.style.boxShadow = "")}
+                key={a.id}
+                onClick={() => setActiveIdx(i)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                  i === activeIdx
+                    ? "bg-card text-foreground shadow-sm border border-border/40"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
               >
-                <span className="text-xs font-semibold text-foreground">{title}</span>
-                <span className="text-xs text-muted-foreground/80 leading-snug">{desc}</span>
+                <img src={a.img} alt={a.name} className="w-4 h-4 rounded object-cover" />
+                <span className="hidden sm:inline">{a.name}</span>
               </button>
             ))}
           </div>
 
-          {/* Input bar (locked) */}
-          <div className="w-full max-w-lg relative" onClick={() => navigate("/auth")}>
-            <div className="flex items-center gap-2 rounded-xl border border-border/40 bg-card/40 px-4 py-3 cursor-pointer hover:border-border/80 hover:bg-card/60 transition-all duration-200 group">
-              <span className="flex-1 text-sm text-muted-foreground/50 select-none">
-                Sign in to start chatting…
-              </span>
-              <div className="shrink-0 w-7 h-7 rounded-lg bg-primary/20 flex items-center justify-center group-hover:bg-primary/30 transition-colors">
-                <ArrowRight className="h-3.5 w-3.5 text-primary/70" />
+          {/* Preview card */}
+          <div
+            key={agent.id}
+            className="rounded-2xl border border-border/30 overflow-hidden animate-fade-in"
+            style={{ background: "hsl(var(--card))" }}
+          >
+            {/* Card header */}
+            <div
+              className="flex items-center gap-4 px-6 py-5 border-b border-border/20"
+              style={{ background: `linear-gradient(135deg, rgba(${r},${g},${b},0.06) 0%, transparent 60%)` }}
+            >
+              <div className="relative shrink-0">
+                <div className="absolute inset-0 rounded-2xl blur-lg" style={{ background: `rgba(${r},${g},${b},0.4)` }} />
+                <div
+                  className="relative w-12 h-12 rounded-2xl overflow-hidden"
+                  style={{
+                    background: `linear-gradient(135deg, rgba(${r},${g},${b},0.3) 0%, rgba(${r},${g},${b},0.1) 100%)`,
+                    boxShadow: `0 4px 20px rgba(${r},${g},${b},0.3), inset 0 1px 0 rgba(255,255,255,0.1)`,
+                    outline: `1px solid rgba(${r},${g},${b},0.25)`,
+                  }}
+                >
+                  <img src={agent.img} alt={agent.name} className="w-full h-full object-cover" />
+                </div>
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-foreground">{agent.name}</span>
+                  <span
+                    className="text-[10px] font-medium px-2 py-0.5 rounded-full"
+                    style={{
+                      background: `rgba(${r},${g},${b},0.15)`,
+                      color: agent.hex,
+                      border: `1px solid rgba(${r},${g},${b},0.25)`,
+                    }}
+                  >
+                    {agent.tagline}
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed max-w-sm">{agent.desc}</p>
+              </div>
+            </div>
+
+            {/* Prompt suggestions */}
+            <div className="grid grid-cols-2 gap-2 p-4">
+              {agent.prompts.map((p, i) => (
+                <button
+                  key={p}
+                  onClick={() => navigate("/auth")}
+                  className="animate-fade-in flex items-start gap-2.5 px-4 py-3.5 rounded-xl border border-border/30 hover:border-border/60 transition-all duration-200 text-left group"
+                  style={{
+                    animationDelay: `${i * 50}ms`,
+                    animationFillMode: "both",
+                    background: "hsl(var(--muted)/0.3)",
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.boxShadow = `0 0 16px rgba(${r},${g},${b},0.1)`)}
+                  onMouseLeave={(e) => (e.currentTarget.style.boxShadow = "")}
+                >
+                  <ArrowRight
+                    className="h-3 w-3 mt-0.5 shrink-0 transition-transform group-hover:translate-x-0.5"
+                    style={{ color: agent.hex, opacity: 0.7 }}
+                  />
+                  <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors leading-snug">{p}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* Locked composer */}
+            <div className="px-4 pb-4">
+              <div
+                onClick={() => navigate("/auth")}
+                className="flex items-center gap-3 rounded-xl border border-border/30 px-4 py-3 cursor-pointer hover:border-border/60 transition-all duration-200 group"
+                style={{ background: "hsl(var(--muted)/0.3)" }}
+                onMouseEnter={(e) => (e.currentTarget.style.boxShadow = `0 0 20px rgba(${r},${g},${b},0.08)`)}
+                onMouseLeave={(e) => (e.currentTarget.style.boxShadow = "")}
+              >
+                <span className="flex-1 text-sm text-muted-foreground/40 select-none">Sign in to start chatting…</span>
+                <div
+                  className="shrink-0 w-7 h-7 rounded-lg flex items-center justify-center transition-colors"
+                  style={{ background: `rgba(${r},${g},${b},0.15)` }}
+                >
+                  <ArrowRight className="h-3.5 w-3.5" style={{ color: agent.hex }} />
+                </div>
               </div>
             </div>
           </div>
-
-          <p className="mt-4 text-xs text-muted-foreground/50">
-            Free to get started · No credit card required
-          </p>
         </div>
-      </div>
+      </section>
 
-      <footer className="border-t border-border/40 py-6">
-        <div className="max-w-2xl mx-auto px-4 flex gap-4 text-xs text-muted-foreground/50">
-          <button onClick={() => navigate("/terms")} className="hover:text-muted-foreground transition-colors">Terms of Service</button>
-          <button onClick={() => navigate("/privacy")} className="hover:text-muted-foreground transition-colors">Privacy Policy</button>
+      {/* ── Features ── */}
+      <section className="border-t border-border/20 px-5 py-16">
+        <div className="max-w-2xl mx-auto">
+          <p className="text-xs font-semibold tracking-widest text-muted-foreground/50 uppercase text-center mb-8">Why PrivaClaw</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {FEATURES.map(({ icon: Icon, title, desc }) => (
+              <div
+                key={title}
+                className="flex gap-4 p-5 rounded-xl border border-border/20"
+                style={{ background: "hsl(var(--card))" }}
+              >
+                <div className="shrink-0 w-8 h-8 rounded-lg border border-border/30 flex items-center justify-center" style={{ background: "hsl(var(--muted)/0.5)" }}>
+                  <Icon className="h-4 w-4 text-muted-foreground" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold mb-1">{title}</p>
+                  <p className="text-xs text-muted-foreground/70 leading-relaxed">{desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── CTA ── */}
+      <section className="px-5 py-16 border-t border-border/20">
+        <div className="max-w-md mx-auto flex flex-col items-center text-center">
+          <img src={logo} alt="PrivaClaw" className="h-10 w-10 rounded-xl mb-4" />
+          <h2 className="text-2xl font-bold tracking-tight mb-2">Ready to connect?</h2>
+          <p className="text-sm text-muted-foreground mb-6">Set up your connector, pair a device, and start chatting with your machine in minutes.</p>
+          <Button size="lg" onClick={() => navigate("/auth")} className="gap-2 font-semibold px-8">
+            Get started free <ArrowRight className="h-4 w-4" />
+          </Button>
+        </div>
+      </section>
+
+      {/* ── Footer ── */}
+      <footer className="border-t border-border/20 py-6">
+        <div className="max-w-5xl mx-auto px-5 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <img src={logo} alt="PrivaClaw" className="h-4 w-4 rounded" />
+            <span className="text-xs text-muted-foreground/50 font-medium">PrivaClaw</span>
+          </div>
+          <div className="flex gap-4 text-xs text-muted-foreground/40">
+            <button onClick={() => navigate("/terms")} className="hover:text-muted-foreground transition-colors">Terms</button>
+            <button onClick={() => navigate("/privacy")} className="hover:text-muted-foreground transition-colors">Privacy</button>
+            <button onClick={() => navigate("/docs")} className="hover:text-muted-foreground transition-colors">Docs</button>
+          </div>
         </div>
       </footer>
     </div>
