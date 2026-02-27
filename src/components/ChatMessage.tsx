@@ -155,7 +155,7 @@ export function ChatMessage({ role, content, thinking, streaming, rawStdout, thi
     }).trim();
 
     return (
-      <div className="flex flex-col items-end mb-4 px-1 gap-1.5 group animate-[slide-in-from-right_0.25s_cubic-bezier(0.22,1,0.36,1)_both]">
+      <div className="flex flex-col items-end pt-5 px-1 gap-1.5 group animate-[slide-in-from-right_0.25s_cubic-bezier(0.22,1,0.36,1)_both]">
         {/* Image previews */}
         {imageAttachments.map((f) => f.src ? (
           <img
@@ -199,7 +199,7 @@ export function ChatMessage({ role, content, thinking, streaming, rawStdout, thi
   // Assistant — hover actions
   return (
     <div
-      className="group flex items-start mb-5 px-1"
+      className="group flex items-start pt-2 pb-1 px-1"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >

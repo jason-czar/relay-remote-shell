@@ -1379,7 +1379,7 @@ export default function Chat() {
             </button>
           )}
 
-          <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto py-4 sm:py-6">
+          <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto py-6 sm:py-8">
             <div className="max-w-[860px] mx-auto px-3 sm:px-6">
               {messages.length === 0 && !thinking && (
                 <div className="flex flex-col items-center justify-center min-h-[70vh] sm:min-h-[80vh] text-center">
@@ -1499,7 +1499,7 @@ export default function Chat() {
                   )}
                 </div>
               )}
-              <div className="space-y-6">
+              <div className="space-y-1">
                 {messages.map((msg, i) => (
                   <div key={msg.id ?? i} className="animate-fade-in">
                     <ChatMessage
