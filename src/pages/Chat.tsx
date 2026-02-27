@@ -277,7 +277,7 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
       {/* Main pill bar */}
       <div
         className={cn(
-          "flex items-end gap-1 rounded-[24px] px-3 py-1.5 transition-all duration-200",
+          "flex items-end gap-1.5 rounded-[28px] px-4 py-2 transition-all duration-200",
           "bg-[hsl(var(--muted)/0.6)] border border-border/20",
           disabled && "opacity-60 pointer-events-none"
         )}
@@ -287,9 +287,9 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
           type="button"
           title="Attach file"
           onClick={() => fileInputRef.current?.click()}
-          className="shrink-0 p-1.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-accent/60 transition-colors"
+          className="shrink-0 p-2 rounded-full text-muted-foreground hover:text-foreground hover:bg-accent/60 transition-colors"
         >
-          <Paperclip size={16} />
+          <Paperclip size={18} />
         </button>
         <input ref={fileInputRef} type="file" className="hidden" multiple onChange={(e) => { if (e.target.files) onFileSelect(e.target.files); }} />
 
@@ -311,8 +311,8 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
           placeholder={placeholder}
           disabled={disabled}
           rows={1}
-          style={{ height: "40px", overflowY: "hidden", resize: "none" }}
-          className="text-sm min-h-[40px] flex-1 bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none px-2 py-2.5 placeholder:text-muted-foreground/40"
+          style={{ height: "44px", overflowY: "hidden", resize: "none" }}
+          className="text-[15px] min-h-[44px] flex-1 bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none px-2 py-3 placeholder:text-muted-foreground/40"
         />
 
         {/* Waveform — shown while dictating */}
@@ -342,7 +342,7 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
               : "text-muted-foreground hover:text-foreground"
           )}
         >
-          <Mic size={15} />
+          <Mic size={18} />
         </button>
 
         {/* Send button */}
@@ -358,7 +358,7 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
               : "bg-primary text-primary-foreground hover:opacity-90 shadow-sm"
           )}
         >
-          <ArrowUp size={15} />
+          <ArrowUp size={17} />
         </button>
       </div>
 
@@ -1397,8 +1397,8 @@ export default function Chat() {
                       </div>
 
                       <div className="animate-fade-in" style={{ animationDelay: "100ms", animationFillMode: "both" }}>
-                        <h3 className="font-semibold text-foreground text-lg mb-2">No device connected</h3>
-                        <p className="text-sm text-muted-foreground leading-relaxed">
+                       <h3 className="font-semibold text-foreground text-xl mb-2">No device connected</h3>
+                        <p className="text-base text-muted-foreground leading-relaxed">
                           Pair your first machine to start running commands and chatting with AI agents directly on your device.
                         </p>
                       </div>
@@ -1449,10 +1449,10 @@ export default function Chat() {
                           </>;
                         })()}
                       </div>
-                      <h3 className="font-semibold text-foreground mb-2 text-lg animate-fade-in" style={{ animationDelay: "120ms", animationFillMode: "both" }}>
+                      <h3 className="font-semibold text-foreground mb-2 text-xl animate-fade-in" style={{ animationDelay: "120ms", animationFillMode: "both" }}>
                         {agent === "openclaw" ? "Remote OpenClaw" : agent === "codex" ? "Remote Codex" : "Remote Claude Code"}
                       </h3>
-                      <p className="text-sm text-muted-foreground max-w-sm leading-relaxed mb-8 animate-fade-in" style={{ animationDelay: "220ms", animationFillMode: "both" }}>
+                      <p className="text-base text-muted-foreground max-w-sm leading-relaxed mb-8 animate-fade-in" style={{ animationDelay: "220ms", animationFillMode: "both" }}>
                         {agent === "openclaw"
                           ? "Ask your local OpenClaw agent anything. Commands run on your selected device."
                           : agent === "codex"
@@ -1487,8 +1487,8 @@ export default function Chat() {
                             onMouseEnter={e => (e.currentTarget.style.boxShadow = "0 0 18px 2px hsl(var(--primary) / 0.08), 0 2px 12px rgba(0,0,0,0.15)")}
                             onMouseLeave={e => (e.currentTarget.style.boxShadow = "0 0 0 0 transparent")}
                           >
-                            <span className="text-xs font-semibold text-foreground">{title}</span>
-                            <span className="text-xs text-muted-foreground/80 leading-snug line-clamp-2">{prompt}</span>
+                            <span className="text-sm font-semibold text-foreground">{title}</span>
+                            <span className="text-sm text-muted-foreground/80 leading-snug line-clamp-2">{prompt}</span>
                           </button>
                         ))}
                       </div>
