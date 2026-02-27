@@ -251,7 +251,7 @@ export default function Landing() {
               key={alt}
               src={src}
               alt={alt}
-              className="w-16 h-16 rounded-2xl shadow-lg"
+              className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl shadow-lg transition-transform duration-200 hover:scale-110 cursor-default"
             />
           ))}
         </div>
