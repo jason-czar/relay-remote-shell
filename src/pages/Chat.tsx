@@ -278,7 +278,7 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
       {/* Main pill bar */}
       <div
         className={cn(
-          "flex items-end gap-1 rounded-[28px] px-3 py-2.5 transition-all duration-150",
+          "flex items-center gap-1 rounded-[28px] px-3 py-2 transition-all duration-150",
           "bg-card border-2",
           focused ? "border-foreground/20" : "border-border/40",
           disabled && "opacity-60 pointer-events-none"
@@ -289,7 +289,7 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
           type="button"
           title="Attach file"
           onClick={() => fileInputRef.current?.click()}
-          className="shrink-0 p-2 rounded-full text-muted-foreground/50 hover:text-foreground hover:bg-accent/60 transition-colors"
+          className="shrink-0 self-center p-2 rounded-full text-muted-foreground/50 hover:text-foreground hover:bg-accent/60 transition-colors"
         >
           <Paperclip size={18} />
         </button>
@@ -314,7 +314,7 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
           disabled={disabled}
           rows={1}
           style={{ height: "44px", overflowY: "hidden", resize: "none" }}
-          className="text-[15px] min-h-[44px] flex-1 bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none px-2 py-3 placeholder:text-muted-foreground/30 text-foreground"
+          className="text-[15px] min-h-[44px] flex-1 bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none px-2 py-2.5 placeholder:text-muted-foreground/30 text-foreground self-center"
         />
 
         {/* Waveform — shown while dictating */}
