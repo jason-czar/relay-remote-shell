@@ -182,7 +182,7 @@ export function AppSidebar() {
                           "group relative flex items-center gap-2 rounded-lg px-2.5 py-2 cursor-pointer transition-all duration-100",
                           activeConvId === conv.id
                             ? "bg-accent/80 text-foreground"
-                            : "text-muted-foreground/60 hover:bg-accent/40 hover:text-foreground"
+                            : "text-foreground/75 hover:bg-accent/40 hover:text-foreground"
                         )}
                         onClick={() => { if (editingId !== conv.id) { setActiveConvId(conv.id); navigate("/"); if (isMobile) setOpenMobile(false); } }}
                         onTouchEnd={(e) => { e.stopPropagation(); if (editingId !== conv.id) { setActiveConvId(conv.id); navigate("/"); if (isMobile) setOpenMobile(false); } }}
