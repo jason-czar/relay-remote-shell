@@ -119,7 +119,7 @@ function AgentPreview() {
   ];
 
   return (
-    <div className="w-full max-w-2xl mx-auto rounded-2xl border border-border/40 bg-card/60 backdrop-blur-sm shadow-2xl overflow-hidden">
+    <div className="w-full max-w-3xl mx-auto rounded-2xl border border-border/40 bg-card/60 backdrop-blur-sm shadow-2xl overflow-hidden">
       {/* Window chrome */}
       <div className="flex items-center gap-1.5 px-4 py-3 border-b border-border/30 bg-muted/30">
         <span className="w-3 h-3 rounded-full bg-destructive/50" />
@@ -281,7 +281,7 @@ export default function Landing() {
         {/* ambient glow */}
         <div className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[500px] rounded-full blur-3xl transition-all duration-700 bg-foreground/5" />
 
-        <div className="relative z-10 flex flex-col items-center text-center max-w-2xl w-full">
+        <div className="relative z-10 flex flex-col items-center text-center max-w-3xl w-full">
 
           {/* Category badge */}
           <div className="inline-flex items-center gap-2 mb-6 px-3 py-1.5 rounded-full border border-border/40 text-xs text-muted-foreground/70 font-medium" style={{ background: "hsl(var(--muted)/0.4)" }}>
@@ -295,7 +295,7 @@ export default function Landing() {
           </h1>
 
           {/* Core value prop */}
-          <p className="body-lg text-muted-foreground mb-3 max-w-xl text-center">
+          <p className="body-lg text-muted-foreground mb-3 max-w-2xl text-center">
             PrivaClaw lets you access the <strong className="text-foreground/80">terminal</strong>, <strong className="text-foreground/80">OpenClaw</strong>, <strong className="text-foreground/80">Claude Code</strong>, and <strong className="text-foreground/80">Codex</strong> running on your home computer — from any device, anywhere in the world.
           </p>
           <p className="text-sm text-muted-foreground/60 mb-7 max-w-lg text-center">
@@ -340,7 +340,7 @@ export default function Landing() {
 
       {/* ── Agent tabs + live preview ── */}
       <section className="px-5 pb-20">
-        <div className="max-w-2xl mx-auto">
+        <div className="max-w-4xl mx-auto">
           {/* Tab bar */}
           <div className="flex items-center justify-center gap-1 mb-6 p-1 rounded-xl border border-border/30 w-fit mx-auto" style={{ background: "hsl(var(--muted)/0.4)" }}>
             {AGENTS.map((a, i) => (
@@ -426,7 +426,7 @@ export default function Landing() {
 
       {/* ── How it works ── */}
       <section className="border-t border-border/20 px-5 py-16">
-        <div className="max-w-2xl mx-auto">
+        <div className="max-w-4xl mx-auto">
           <p className="text-xs font-semibold tracking-widest text-muted-foreground/50 uppercase text-center mb-2">How it works</p>
           <h2 className="text-2xl font-bold tracking-tight text-center mb-10">Up and running in minutes</h2>
 
@@ -480,9 +480,9 @@ export default function Landing() {
         </div>
       </section>
       <section className="border-t border-border/20 px-5 py-16">
-        <div className="max-w-2xl mx-auto">
+        <div className="max-w-4xl mx-auto">
           <p className="text-xs font-semibold tracking-widest text-muted-foreground/50 uppercase text-center mb-8">Why PrivaClaw</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {FEATURES.map(({ icon: Icon, title, desc }) => (
               <div
                 key={title}
