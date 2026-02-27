@@ -132,6 +132,11 @@ export default {
           "0%": { opacity: "0", transform: "translateY(10px)" },
           "100%": { opacity: "1", transform: "translateY(0)" },
         },
+        "ping-ring": {
+          "0%":   { transform: "scale(1)",    opacity: "0.5" },
+          "70%":  { transform: "scale(1.55)", opacity: "0" },
+          "100%": { transform: "scale(1.55)", opacity: "0" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -139,6 +144,7 @@ export default {
         "pulse-glow": "pulse-glow 2s ease-in-out infinite",
         "fade-in": "fade-in 0.35s ease-out both",
         "slide-up-fade": "slide-up-fade 0.25s cubic-bezier(0.22,1,0.36,1) both",
+        "ping-ring": "ping-ring 1.5s ease-out infinite",
       },
     },
   },
