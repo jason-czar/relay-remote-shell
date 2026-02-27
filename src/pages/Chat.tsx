@@ -58,36 +58,36 @@ export interface AgentModel {
 
 // OpenClaw uses the same Anthropic models that openclaw agent supports via --model
 export const OPENCLAW_MODELS: AgentModel[] = [
-  { id: "auto", label: "Auto", description: "Use agent's default model" },
-  { id: "claude-opus-4-5", label: "Opus 4.5", description: "Most capable" },
-  { id: "claude-sonnet-4-5", label: "Sonnet 4.5", description: "Balanced" },
-  { id: "claude-haiku-4-5", label: "Haiku 4.5", description: "Fast & compact" },
-  { id: "claude-opus-4", label: "Opus 4", description: "Previous opus" },
-  { id: "claude-sonnet-4", label: "Sonnet 4", description: "Previous sonnet" },
-  { id: "claude-haiku-3-5", label: "Haiku 3.5", description: "Previous haiku" },
-];
+{ id: "auto", label: "Auto", description: "Use agent's default model" },
+{ id: "claude-opus-4-5", label: "Opus 4.5", description: "Most capable" },
+{ id: "claude-sonnet-4-5", label: "Sonnet 4.5", description: "Balanced" },
+{ id: "claude-haiku-4-5", label: "Haiku 4.5", description: "Fast & compact" },
+{ id: "claude-opus-4", label: "Opus 4", description: "Previous opus" },
+{ id: "claude-sonnet-4", label: "Sonnet 4", description: "Previous sonnet" },
+{ id: "claude-haiku-3-5", label: "Haiku 3.5", description: "Previous haiku" }];
+
 
 // Claude Code uses `claude --model <id>` — same model family
 export const CLAUDE_MODELS: AgentModel[] = [
-  { id: "auto", label: "Auto", description: "Use Claude Code's default model" },
-  { id: "claude-opus-4-5", label: "Opus 4.5", description: "Most capable" },
-  { id: "claude-sonnet-4-5", label: "Sonnet 4.5", description: "Balanced" },
-  { id: "claude-haiku-4-5", label: "Haiku 4.5", description: "Fast & compact" },
-  { id: "claude-opus-4", label: "Opus 4", description: "Previous opus" },
-  { id: "claude-sonnet-4", label: "Sonnet 4", description: "Previous sonnet" },
-  { id: "claude-haiku-3-5", label: "Haiku 3.5", description: "Previous haiku" },
-];
+{ id: "auto", label: "Auto", description: "Use Claude Code's default model" },
+{ id: "claude-opus-4-5", label: "Opus 4.5", description: "Most capable" },
+{ id: "claude-sonnet-4-5", label: "Sonnet 4.5", description: "Balanced" },
+{ id: "claude-haiku-4-5", label: "Haiku 4.5", description: "Fast & compact" },
+{ id: "claude-opus-4", label: "Opus 4", description: "Previous opus" },
+{ id: "claude-sonnet-4", label: "Sonnet 4", description: "Previous sonnet" },
+{ id: "claude-haiku-3-5", label: "Haiku 3.5", description: "Previous haiku" }];
+
 
 // Codex CLI uses `codex --model <id>`
 export const CODEX_MODELS: AgentModel[] = [
-  { id: "auto", label: "Auto", description: "Use Codex's default model" },
-  { id: "o4-mini", label: "o4-mini", description: "Fast & efficient" },
-  { id: "o3", label: "o3", description: "Most capable" },
-  { id: "o3-mini", label: "o3-mini", description: "Balanced" },
-  { id: "gpt-4.1", label: "GPT-4.1", description: "Latest GPT-4 series" },
-  { id: "gpt-4.1-mini", label: "GPT-4.1 mini", description: "Efficient GPT-4" },
-  { id: "gpt-4o", label: "GPT-4o", description: "Previous multimodal" },
-];
+{ id: "auto", label: "Auto", description: "Use Codex's default model" },
+{ id: "o4-mini", label: "o4-mini", description: "Fast & efficient" },
+{ id: "o3", label: "o3", description: "Most capable" },
+{ id: "o3-mini", label: "o3-mini", description: "Balanced" },
+{ id: "gpt-4.1", label: "GPT-4.1", description: "Latest GPT-4 series" },
+{ id: "gpt-4.1-mini", label: "GPT-4.1 mini", description: "Efficient GPT-4" },
+{ id: "gpt-4o", label: "GPT-4o", description: "Previous multimodal" }];
+
 
 // ── Slash commands ───────────────────────────────────────────────────────────
 interface SlashCommand {
@@ -101,56 +101,56 @@ interface SlashCommand {
 }
 
 const SLASH_COMMANDS: SlashCommand[] = [
-  {
-    name: "clear",
-    description: "Clear the current conversation and start fresh",
-    agents: ["both"],
-    clientAction: "clear",
-  },
-  {
-    name: "new",
-    description: "Start a new conversation",
-    agents: ["both"],
-    clientAction: "new",
-  },
-  {
-    name: "compact",
-    description: "Compact conversation context to save tokens",
-    agents: ["both"],
-    rawCommand: (agent) =>
-      agent === "openclaw" ? `openclaw compact\n` : agent === "codex" ? `codex --compact\n` : `claude --compact\n`,
-  },
-  {
-    name: "status",
-    description: "Show agent status (uptime, tasks, last error)",
-    agents: ["openclaw"],
-    rawCommand: () => `openclaw status --json\n`,
-  },
-  {
-    name: "restart",
-    description: "Gracefully restart the OpenClaw agent process",
-    agents: ["openclaw"],
-    rawCommand: () => `openclaw restart\n`,
-  },
-  {
-    name: "resume",
-    description: "Resume the last Claude Code session",
-    agents: ["claude"],
-    rawCommand: () => `claude -c -p "continue"\n`,
-  },
-  {
-    name: "codex-resume",
-    description: "Resume the last Codex session",
-    agents: ["codex"],
-    rawCommand: () => `codex --resume\n`,
-  },
-  {
-    name: "help",
-    description: "Show available slash commands",
-    agents: ["both"],
-    clientAction: "help",
-  },
-];
+{
+  name: "clear",
+  description: "Clear the current conversation and start fresh",
+  agents: ["both"],
+  clientAction: "clear"
+},
+{
+  name: "new",
+  description: "Start a new conversation",
+  agents: ["both"],
+  clientAction: "new"
+},
+{
+  name: "compact",
+  description: "Compact conversation context to save tokens",
+  agents: ["both"],
+  rawCommand: (agent) =>
+  agent === "openclaw" ? `openclaw compact\n` : agent === "codex" ? `codex --compact\n` : `claude --compact\n`
+},
+{
+  name: "status",
+  description: "Show agent status (uptime, tasks, last error)",
+  agents: ["openclaw"],
+  rawCommand: () => `openclaw status --json\n`
+},
+{
+  name: "restart",
+  description: "Gracefully restart the OpenClaw agent process",
+  agents: ["openclaw"],
+  rawCommand: () => `openclaw restart\n`
+},
+{
+  name: "resume",
+  description: "Resume the last Claude Code session",
+  agents: ["claude"],
+  rawCommand: () => `claude -c -p "continue"\n`
+},
+{
+  name: "codex-resume",
+  description: "Resume the last Codex session",
+  agents: ["codex"],
+  rawCommand: () => `codex --resume\n`
+},
+{
+  name: "help",
+  description: "Show available slash commands",
+  agents: ["both"],
+  clientAction: "help"
+}];
+
 
 // ── Composer component ──────────────────────────────────────────────────────
 interface ComposerBoxProps {
@@ -193,7 +193,7 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
     onCommittedTranscript: (data: any) => {
       const incoming = (data.text ?? "").trim();
       setInput(incoming);
-    },
+    }
   });
 
   const toggleDictation = useCallback(async () => {
@@ -209,8 +209,8 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${supabaseKey}`,
-        },
+          Authorization: `Bearer ${supabaseKey}`
+        }
       });
       const { token, error } = await resp.json();
       if (!token) throw new Error(error ?? "No token received");
@@ -229,9 +229,9 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
 
   // Slash command filtering
   const slashQuery = input.startsWith("/") ? input.slice(1).toLowerCase() : null;
-  const slashMatches = slashQuery !== null
-    ? SLASH_COMMANDS.filter((c) => c.name.toLowerCase().startsWith(slashQuery) || c.description.toLowerCase().includes(slashQuery))
-    : [];
+  const slashMatches = slashQuery !== null ?
+  SLASH_COMMANDS.filter((c) => c.name.toLowerCase().startsWith(slashQuery) || c.description.toLowerCase().includes(slashQuery)) :
+  [];
 
   // Auto-resize textarea
   const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -247,35 +247,35 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
   return (
     <div className="relative w-full">
       {/* Slash command menu */}
-      {slashMatches.length > 0 && (
-        <div className="absolute bottom-full mb-2 left-0 right-0 rounded-xl overflow-hidden z-30 bg-popover border border-border shadow-xl">
-          {slashMatches.map((cmd, i) => (
-            <button
-              key={cmd.name}
-              onMouseDown={(e) => { e.preventDefault(); onSlashCommand(cmd); }}
-              className={cn(
-                "w-full text-left px-4 py-2.5 text-sm flex items-center gap-3 hover:bg-accent transition-colors",
-                i === slashIdx && "bg-accent"
-              )}
-            >
+      {slashMatches.length > 0 &&
+      <div className="absolute bottom-full mb-2 left-0 right-0 rounded-xl overflow-hidden z-30 bg-popover border border-border shadow-xl">
+          {slashMatches.map((cmd, i) =>
+        <button
+          key={cmd.name}
+          onMouseDown={(e) => {e.preventDefault();onSlashCommand(cmd);}}
+          className={cn(
+            "w-full text-left px-4 py-2.5 text-sm flex items-center gap-3 hover:bg-accent transition-colors",
+            i === slashIdx && "bg-accent"
+          )}>
+
               <span className="font-mono text-primary">/{cmd.name}</span>
               <span className="text-muted-foreground">{cmd.description}</span>
             </button>
-          ))}
+        )}
         </div>
-      )}
+      }
 
       {/* File attachment chips */}
-      {attachedFiles.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 mb-2 px-1">
-          {attachedFiles.map((f, i) => (
-            <div key={i} className="flex items-center gap-1 bg-accent/50 rounded-full px-2.5 py-1 text-xs text-foreground/80 border border-border/50">
+      {attachedFiles.length > 0 &&
+      <div className="flex flex-wrap gap-1.5 mb-2 px-1">
+          {attachedFiles.map((f, i) =>
+        <div key={i} className="flex items-center gap-1 bg-accent/50 rounded-full px-2.5 py-1 text-xs text-foreground/80 border border-border/50">
               <span className="max-w-[120px] truncate">{f.name}</span>
               <button onClick={() => onRemoveFile(i)} className="text-muted-foreground hover:text-foreground ml-0.5">×</button>
             </div>
-          ))}
+        )}
         </div>
-      )}
+      }
 
       {/* Main composer card */}
       <div
@@ -284,8 +284,8 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
           "bg-[hsl(0,0%,11%)] border-2",
           focused ? "border-border/40" : "border-border/40",
           disabled && "opacity-60 pointer-events-none"
-        )}
-      >
+        )}>
+
         {/* Textarea row */}
         <textarea
           ref={textareaRef}
@@ -293,9 +293,9 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
           onChange={handleInput}
           onKeyDown={(e) => {
             if (slashMatches.length > 0) {
-              if (e.key === "ArrowDown") { e.preventDefault(); setSlashIdx((p) => Math.min(p + 1, slashMatches.length - 1)); return; }
-              if (e.key === "ArrowUp") { e.preventDefault(); setSlashIdx((p) => Math.max(p - 1, 0)); return; }
-              if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onSlashCommand(slashMatches[slashIdx]); return; }
+              if (e.key === "ArrowDown") {e.preventDefault();setSlashIdx((p) => Math.min(p + 1, slashMatches.length - 1));return;}
+              if (e.key === "ArrowUp") {e.preventDefault();setSlashIdx((p) => Math.max(p - 1, 0));return;}
+              if (e.key === "Enter" && !e.shiftKey) {e.preventDefault();onSlashCommand(slashMatches[slashIdx]);return;}
             }
             onKeyDown(e);
           }}
@@ -305,12 +305,12 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
           disabled={disabled}
           rows={1}
           style={{ height: "48px", overflowY: "hidden", resize: "none" }}
-          className="text-[19px] min-h-[48px] w-full bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none p-0 placeholder:text-muted-foreground/30 text-foreground"
-        />
+          className="text-[19px] min-h-[48px] w-full bg-transparent border-0 \nfocus:outline-none focus-visible:outline-none\nfocus:ring-0 focus:ring-offset-0\nfocus-visible:ring-0 focus-visible:ring-offset-0\nshadow-none p-0\nplaceholder:text-muted-foreground/30\ntext-foreground" />
+
 
         {/* Waveform — shown while dictating */}
-        {isDictating && (
-          <div className="flex items-center gap-[3px] py-1" aria-hidden>
+        {isDictating &&
+        <div className="flex items-center gap-[3px] py-1" aria-hidden>
             <div className="waveform-bar" />
             <div className="waveform-bar" />
             <div className="waveform-bar" />
@@ -319,7 +319,7 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
             <div className="waveform-bar" />
             <div className="waveform-bar" />
           </div>
-        )}
+        }
 
         {/* Bottom action row */}
         <div className="flex items-center justify-between mt-1">
@@ -330,30 +330,30 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
               type="button"
               title="Attach file"
               onClick={() => fileInputRef.current?.click()}
-              className="flex items-center justify-center h-10 w-10 rounded-full bg-[hsl(0,0%,22%)] text-foreground/70 hover:text-foreground hover:bg-[hsl(0,0%,28%)] transition-colors"
-            >
+              className="flex items-center justify-center h-10 w-10 rounded-full bg-[hsl(0,0%,22%)] text-foreground/70 hover:text-foreground hover:bg-[hsl(0,0%,28%)] transition-colors">
+
               <Paperclip size={18} />
             </button>
-            <input ref={fileInputRef} type="file" className="hidden" multiple onChange={(e) => { if (e.target.files) onFileSelect(e.target.files); }} />
+            <input ref={fileInputRef} type="file" className="hidden" multiple onChange={(e) => {if (e.target.files) onFileSelect(e.target.files);}} />
 
             {/* Agent + model selector pill */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  className="flex items-center gap-2 h-10 px-4 rounded-full bg-[hsl(0,0%,22%)] text-foreground/70 hover:text-foreground hover:bg-[hsl(0,0%,28%)] transition-colors text-[15px] font-medium"
-                >
+                  className="flex items-center gap-2 h-10 px-4 rounded-full bg-[hsl(0,0%,22%)] text-foreground/70 hover:text-foreground hover:bg-[hsl(0,0%,28%)] transition-colors text-[15px] font-medium">
+
                   {agent === "openclaw" ? <img src={openclawImg} className="w-5 h-5 object-contain" alt="" /> : agent === "claude" ? <img src={claudecodeImg} className="w-5 h-5 object-contain" alt="" /> : <img src={codexImg} className="w-5 h-5 object-contain" alt="" />}
                   <span>{model === "auto" ? "Auto" : model.split("-").slice(-2).join(" ")}</span>
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="min-w-[200px]">
-                {(agent === "openclaw" ? OPENCLAW_MODELS : agent === "claude" ? CLAUDE_MODELS : CODEX_MODELS).map((m) => (
-                  <DropdownMenuItem key={m.id} onSelect={() => onModelChange(m.id)} className={cn(model === m.id && "bg-accent")}>
+                {(agent === "openclaw" ? OPENCLAW_MODELS : agent === "claude" ? CLAUDE_MODELS : CODEX_MODELS).map((m) =>
+                <DropdownMenuItem key={m.id} onSelect={() => onModelChange(m.id)} className={cn(model === m.id && "bg-accent")}>
                     <span className="font-medium">{m.label}</span>
                     <span className="ml-auto text-xs text-muted-foreground">{m.description}</span>
                   </DropdownMenuItem>
-                ))}
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
 
@@ -364,11 +364,11 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
               onClick={toggleDictation}
               className={cn(
                 "flex items-center justify-center h-10 w-10 rounded-full transition-all duration-200",
-                isDictating
-                  ? "bg-destructive/20 text-destructive animate-pulse"
-                  : "bg-[hsl(0,0%,22%)] text-foreground/70 hover:text-foreground hover:bg-[hsl(0,0%,28%)]"
-              )}
-            >
+                isDictating ?
+                "bg-destructive/20 text-destructive animate-pulse" :
+                "bg-[hsl(0,0%,22%)] text-foreground/70 hover:text-foreground hover:bg-[hsl(0,0%,28%)]"
+              )}>
+
               <Mic size={18} />
             </button>
           </div>
@@ -376,38 +376,38 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
           {/* Right: send button */}
           <div className="relative flex items-center justify-center">
             {/* Pulse ring while streaming */}
-            {isStreaming && (
-              <span className="absolute inset-0 rounded-full animate-ping bg-foreground/20 pointer-events-none" />
-            )}
+            {isStreaming &&
+            <span className="absolute inset-0 rounded-full animate-ping bg-foreground/20 pointer-events-none" />
+            }
           <button
-            type="button"
-            onClick={isStreaming ? onAbort : onSend}
-            disabled={!isStreaming && (sendDisabled || disabled)}
-            title={isStreaming ? "Stop generating" : "Send"}
-            className={cn(
-              "relative flex items-center justify-center h-11 w-11 rounded-full",
-              "transition-all duration-300 ease-in-out overflow-hidden",
-              isStreaming
-                ? "bg-foreground text-background hover:opacity-80 shadow-md scale-100"
-                : sendDisabled || disabled
-                  ? "bg-muted/30 text-muted-foreground/30 cursor-not-allowed scale-95"
-                  : "bg-foreground text-background hover:opacity-80 shadow-md scale-100"
-            )}
-          >
-            <span
+              type="button"
+              onClick={isStreaming ? onAbort : onSend}
+              disabled={!isStreaming && (sendDisabled || disabled)}
+              title={isStreaming ? "Stop generating" : "Send"}
               className={cn(
-                "absolute inset-0 flex items-center justify-center transition-all duration-200",
-                isStreaming ? "opacity-100 scale-100 rotate-0" : "opacity-0 scale-50 rotate-90"
-              )}
-            >
+                "relative flex items-center justify-center h-11 w-11 rounded-full",
+                "transition-all duration-300 ease-in-out overflow-hidden",
+                isStreaming ?
+                "bg-foreground text-background hover:opacity-80 shadow-md scale-100" :
+                sendDisabled || disabled ?
+                "bg-muted/30 text-muted-foreground/30 cursor-not-allowed scale-95" :
+                "bg-foreground text-background hover:opacity-80 shadow-md scale-100"
+              )}>
+
+            <span
+                className={cn(
+                  "absolute inset-0 flex items-center justify-center transition-all duration-200",
+                  isStreaming ? "opacity-100 scale-100 rotate-0" : "opacity-0 scale-50 rotate-90"
+                )}>
+
               <Square size={15} className="fill-current" />
             </span>
             <span
-              className={cn(
-                "absolute inset-0 flex items-center justify-center transition-all duration-200",
-                isStreaming ? "opacity-0 scale-50 -rotate-90" : "opacity-100 scale-100 rotate-0"
-              )}
-            >
+                className={cn(
+                  "absolute inset-0 flex items-center justify-center transition-all duration-200",
+                  isStreaming ? "opacity-0 scale-50 -rotate-90" : "opacity-100 scale-100 rotate-0"
+                )}>
+
               <ArrowUp size={19} />
             </span>
           </button>
@@ -415,11 +415,11 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
         </div>
       </div>
 
-      {dictateError && (
-        <p className="text-xs text-destructive mt-1 pl-3">{dictateError}</p>
-      )}
-    </div>
-  );
+      {dictateError &&
+      <p className="text-xs text-destructive mt-1 pl-3">{dictateError}</p>
+      }
+    </div>);
+
 }
 
 export default function Chat() {
@@ -433,7 +433,7 @@ export default function Chat() {
   // Store codex reasoning summaries keyed by message array index
   const thinkingMapRef = useRef<Map<number, string>>(new Map());
   const thinkingDurationMapRef = useRef<Map<number, number>>(new Map());
-  useEffect(() => { activeConvIdRef.current = activeConvId; }, [activeConvId]);
+  useEffect(() => {activeConvIdRef.current = activeConvId;}, [activeConvId]);
 
   // ── State ──────────────────────────────────────────────────────────────
   const [messages, setMessages] = useState<Message[]>([]);
@@ -472,9 +472,9 @@ export default function Chat() {
     if (!user) return;
     // Load devices + first project in parallel
     Promise.all([
-      supabase.from("devices").select("id, name, status, project_id, user_id"),
-      supabase.from("projects").select("id").limit(1).single(),
-    ]).then(([devRes, projRes]) => {
+    supabase.from("devices").select("id, name, status, project_id, user_id"),
+    supabase.from("projects").select("id").limit(1).single()]
+    ).then(([devRes, projRes]) => {
       const data = devRes.data;
       if (data) {
         setDevices(data as Tables<"devices">[]);
@@ -489,15 +489,15 @@ export default function Chat() {
 
   // ── Load messages on conversation select ──────────────────────────────
   useEffect(() => {
-    if (!activeConvId) { setMessages([]); return; }
-    supabase
-      .from("chat_messages")
-      .select("id, role, content, created_at")
-      .eq("conversation_id", activeConvId)
-      .order("created_at", { ascending: true })
-      .then(({ data }) => {
-        if (data) setMessages(data as Message[]);
-      });
+    if (!activeConvId) {setMessages([]);return;}
+    supabase.
+    from("chat_messages").
+    select("id, role, content, created_at").
+    eq("conversation_id", activeConvId).
+    order("created_at", { ascending: true }).
+    then(({ data }) => {
+      if (data) setMessages(data as Message[]);
+    });
   }, [activeConvId]);
 
   // Restore agent + model when conversation or conversations list changes (handles refresh where
@@ -519,12 +519,12 @@ export default function Chat() {
     const isRunning = activeJobs.has(activeConvId);
     // Job just finished for the active conversation → reload from DB
     if (wasRunning && !isRunning) {
-      supabase
-        .from("chat_messages")
-        .select("id, role, content")
-        .eq("conversation_id", activeConvId)
-        .order("created_at", { ascending: true })
-        .then(({ data }) => { if (data) setMessages(data as Message[]); });
+      supabase.
+      from("chat_messages").
+      select("id, role, content").
+      eq("conversation_id", activeConvId).
+      order("created_at", { ascending: true }).
+      then(({ data }) => {if (data) setMessages(data as Message[]);});
     }
     prevJobsRef.current = new Set(activeJobs);
   }, [activeJobs, activeConvId]);
@@ -546,8 +546,8 @@ export default function Chat() {
     } else if (messages.length > prevMsgCountRef.current) {
       const newMsgs = messages.length - prevMsgCountRef.current;
       // Only count assistant messages as "unread"
-      const newAssistant = messages.slice(prevMsgCountRef.current).filter(m => m.role === "assistant").length;
-      if (newAssistant > 0) setUnreadCount(c => c + newAssistant);
+      const newAssistant = messages.slice(prevMsgCountRef.current).filter((m) => m.role === "assistant").length;
+      if (newAssistant > 0) setUnreadCount((c) => c + newAssistant);
     }
     prevMsgCountRef.current = messages.length;
   }, [messages, thinking, isScrolledUp]);
@@ -563,18 +563,18 @@ export default function Chat() {
     const title = firstMessage.slice(0, 40) + (firstMessage.length > 40 ? "…" : "");
     const openclaw_session_id = agentType === "openclaw" ? crypto.randomUUID() : null;
 
-    const { data, error } = await supabase
-      .from("chat_conversations")
-      .insert({
-        user_id: user.id,
-        device_id: selectedDeviceId || null,
-        agent: agentType,
-        model,
-        title,
-        openclaw_session_id,
-      })
-      .select("id, title, agent, model, created_at")
-      .single();
+    const { data, error } = await supabase.
+    from("chat_conversations").
+    insert({
+      user_id: user.id,
+      device_id: selectedDeviceId || null,
+      agent: agentType,
+      model,
+      title,
+      openclaw_session_id
+    }).
+    select("id, title, agent, model, created_at").
+    single();
 
     if (error || !data) {
       toast({ title: "Error", description: error?.message, variant: "destructive" });
@@ -625,7 +625,7 @@ export default function Chat() {
   const sendViaRelayOnce = useCallback(async (command: string, isOpenClaw = false): Promise<string> => {
     // 1. Start session
     const { data: sesData, error: sesErr } = await supabase.functions.invoke("start-session", {
-      body: { device_id: selectedDeviceId },
+      body: { device_id: selectedDeviceId }
     });
     if (sesErr || !sesData?.session_id) throw new Error(sesData?.error || sesErr?.message || "Failed to start session");
     const sessionId: string = sesData.session_id;
@@ -650,30 +650,30 @@ export default function Chat() {
           ws.close();
         }
         supabase.functions.invoke("end-session", { body: { session_id: sessionId } }).catch(() => {});
-        if (result instanceof Error) reject(result);
-        else resolve(result);
+        if (result instanceof Error) reject(result);else
+        resolve(result);
       };
 
       const resetSilence = () => {
         if (silenceTimer) clearTimeout(silenceTimer);
         // If the output already contains a CLI error line, finish immediately
         const hasError = /^Error:/m.test(outputBuffer) || /^error:/im.test(outputBuffer);
-        if (hasError) { finish(outputBuffer); return; }
+        if (hasError) {finish(outputBuffer);return;}
         silenceTimer = setTimeout(() => {
           // For OpenClaw: detect complete JSON object and finish immediately — no need to wait full 8s
           if (isOpenClaw) {
             if (!outputBuffer.includes("{")) return; // no JSON yet
             // Walk the buffer to find a balanced top-level { ... } and finish early
             const firstBrace = outputBuffer.indexOf("{");
-            let depth = 0, inStr = false, esc = false;
+            let depth = 0,inStr = false,esc = false;
             for (let i = firstBrace; i < outputBuffer.length; i++) {
               const c = outputBuffer[i];
-              if (esc) { esc = false; continue; }
-              if (c === "\\" && inStr) { esc = true; continue; }
-              if (c === '"') { inStr = !inStr; continue; }
+              if (esc) {esc = false;continue;}
+              if (c === "\\" && inStr) {esc = true;continue;}
+              if (c === '"') {inStr = !inStr;continue;}
               if (inStr) continue;
-              if (c === "{") depth++;
-              else if (c === "}") { depth--; if (depth === 0) { finish(outputBuffer); return; } }
+              if (c === "{") depth++;else
+              if (c === "}") {depth--;if (depth === 0) {finish(outputBuffer);return;}}
             }
             return; // JSON not yet complete, keep waiting
           }
@@ -691,7 +691,7 @@ export default function Chat() {
       ws.onopen = () => {
         ws.send(JSON.stringify({
           type: "auth",
-          data: { token: jwt, session_id: sessionId, device_id: selectedDeviceId },
+          data: { token: jwt, session_id: sessionId, device_id: selectedDeviceId }
         }));
       };
 
@@ -705,7 +705,7 @@ export default function Chat() {
               resetSilence();
             }, 100);
           } else if (msg.type === "stdout") {
-            const { data_b64 } = (msg.data ?? {}) as { data_b64: string };
+            const { data_b64 } = (msg.data ?? {}) as {data_b64: string;};
             if (data_b64) {
               try {
                 const chunk = decodeURIComponent(escape(atob(data_b64)));
@@ -719,13 +719,13 @@ export default function Chat() {
           } else if (msg.type === "session_end") {
             finish(outputBuffer);
           } else if (msg.type === "error") {
-            const { message } = (msg.data ?? {}) as { message?: string };
+            const { message } = (msg.data ?? {}) as {message?: string;};
             finish(new Error(message ?? "Relay error"));
           }
-        } catch { /* ignore */ }
+        } catch {/* ignore */}
       };
 
-      ws.onerror = (e) => { console.error("[Relay] WebSocket error", e); finish(new Error("WebSocket error")); };
+      ws.onerror = (e) => {console.error("[Relay] WebSocket error", e);finish(new Error("WebSocket error"));};
       ws.onclose = (e) => {
         // If the WebSocket closes unexpectedly (e.g. relay rejected the session) and we haven't finished yet, resolve with whatever we have
         if (silenceTimer || hardTimeout) finish(outputBuffer || new Error(`WebSocket closed (code ${e.code})`));
@@ -735,11 +735,11 @@ export default function Chat() {
 
   // ── Build command string ───────────────────────────────────────────────
   const buildCommand = useCallback(async (text: string, convId: string, selectedModel: string): Promise<string> => {
-    const { data: conv } = await supabase
-      .from("chat_conversations")
-      .select("agent, openclaw_session_id, claude_session_id")
-      .eq("id", convId)
-      .single();
+    const { data: conv } = await supabase.
+    from("chat_conversations").
+    select("agent, openclaw_session_id, claude_session_id").
+    eq("id", convId).
+    single();
     if (!conv) throw new Error("Conversation not found");
 
     const escaped = text.replace(/"/g, '\\"');
@@ -795,9 +795,9 @@ export default function Chat() {
     setInput("");
     setAttachedFiles([]);
     abortStreamRef.current = false;
-    if (textareaRef.current) { textareaRef.current.style.height = "40px"; textareaRef.current.style.overflowY = "hidden"; }
+    if (textareaRef.current) {textareaRef.current.style.height = "40px";textareaRef.current.style.overflowY = "hidden";}
 
-    const displayText = text || `[${attachedFiles.map(f => f.name).join(", ")}]`;
+    const displayText = text || `[${attachedFiles.map((f) => f.name).join(", ")}]`;
     const userMsg: Message = { role: "user", content: displayText };
     setMessages((prev) => [...prev, userMsg]);
     setThinking(true);
@@ -805,7 +805,7 @@ export default function Chat() {
     let convId = activeConvId;
     if (!convId) {
       convId = await createConversation(fullText, agent);
-      if (!convId) { setThinking(false); return; }
+      if (!convId) {setThinking(false);return;}
       // Save the user message BEFORE switching activeConvId so the
       // message-load effect finds it already in the DB when it fires.
       await saveMessage(convId, "user", fullText);
@@ -823,15 +823,15 @@ export default function Chat() {
     const runJob = async () => {
       // Strip ANSI / terminal escape codes comprehensively
       const stripAnsi = (s: string) =>
-        s
-          .replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, "")
-          .replace(/\x1b\[[\x30-\x3f]*[\x20-\x2f]*[\x40-\x7e]/g, "")
-          .replace(/\x1b[PX^_].*?\x1b\\/g, "")
-          .replace(/\x1b[^[\]PX^_]/g, "")
-          .replace(/\x1b/g, "")
-          .replace(/\[[\d;?<>!]*[a-zA-Z]/g, "")
-          .replace(/\][\d;][^\r\n]*/g, "")
-          .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, "");
+      s.
+      replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, "").
+      replace(/\x1b\[[\x30-\x3f]*[\x20-\x2f]*[\x40-\x7e]/g, "").
+      replace(/\x1b[PX^_].*?\x1b\\/g, "").
+      replace(/\x1b[^[\]PX^_]/g, "").
+      replace(/\x1b/g, "").
+      replace(/\[[\d;?<>!]*[a-zA-Z]/g, "").
+      replace(/\][\d;][^\r\n]*/g, "").
+      replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, "");
 
       try {
         const command = await buildCommand(fullText, jobConvId, model);
@@ -840,11 +840,11 @@ export default function Chat() {
 
         const cleaned = stripAnsi(stdout);
 
-        const { data: convData } = await supabase
-          .from("chat_conversations")
-          .select("agent, openclaw_session_id, claude_session_id")
-          .eq("id", jobConvId)
-          .single();
+        const { data: convData } = await supabase.
+        from("chat_conversations").
+        select("agent, openclaw_session_id, claude_session_id").
+        eq("id", jobConvId).
+        single();
 
         let responseText = "";
         let codexThinking = "";
@@ -858,10 +858,10 @@ export default function Chat() {
             try {
               const parsed = JSON.parse(candidates[i]);
               const payloadText = parsed?.payloads?.[0]?.text;
-              if (payloadText) { responseText = String(payloadText); break; }
+              if (payloadText) {responseText = String(payloadText);break;}
               const fallback = parsed.content ?? parsed.message ?? parsed.response ?? parsed.text ?? parsed.result;
-              if (fallback && typeof fallback === "string") { responseText = fallback; break; }
-            } catch { /* try next */ }
+              if (fallback && typeof fallback === "string") {responseText = fallback;break;}
+            } catch {/* try next */}
           }
           if (!responseText) {
             // Check for known CLI error patterns and surface them directly
@@ -911,7 +911,7 @@ export default function Chat() {
                   continue;
                 }
                 continue;
-              } catch { /* not JSON, fall through */ }
+              } catch {/* not JSON, fall through */}
             }
             // Plain-text lines — strip shell noise
             if (/^[%$#>→]\s*$/.test(t)) continue;
@@ -928,21 +928,21 @@ export default function Chat() {
             if (errorMatch) responseText = `⚠️ Codex error: ${errorMatch[1].trim()}`;
           }
         } else {
-          responseText = cleaned
-            .split("\n")
-            .filter((line) => {
-              const t = line.trim();
-              if (!t) return false;
-              if (/^[%$#>→]\s*$/.test(t)) return false;
-              if (/^[%$#>→]\s/.test(t)) return false;
-              if (/^Restored session:/i.test(t)) return false;
-              if (/^claude\s+(-p|-c|--print|--resume)/i.test(t)) return false;
-              if (/^\[[\d;?<>!]*[a-zA-Z]/.test(t)) return false;
-              if (/^[=\-\+\*~\s]+$/.test(t)) return false;
-              return true;
-            })
-            .join("\n")
-            .trim();
+          responseText = cleaned.
+          split("\n").
+          filter((line) => {
+            const t = line.trim();
+            if (!t) return false;
+            if (/^[%$#>→]\s*$/.test(t)) return false;
+            if (/^[%$#>→]\s/.test(t)) return false;
+            if (/^Restored session:/i.test(t)) return false;
+            if (/^claude\s+(-p|-c|--print|--resume)/i.test(t)) return false;
+            if (/^\[[\d;?<>!]*[a-zA-Z]/.test(t)) return false;
+            if (/^[=\-\+\*~\s]+$/.test(t)) return false;
+            return true;
+          }).
+          join("\n").
+          trim();
 
           if (!convData?.claude_session_id) {
             const claudeId = extractClaudeSessionId(stdout);
@@ -1020,7 +1020,7 @@ export default function Chat() {
           (async () => {
             try {
               const { data: titleData } = await supabase.functions.invoke("generate-title", {
-                body: { userMessage: jobText, assistantMessage: responseText },
+                body: { userMessage: jobText, assistantMessage: responseText }
               });
               if (titleData?.title) {
                 const aiTitle = titleData.title.replace(/^["']|["']$/g, "").trim();
@@ -1028,9 +1028,9 @@ export default function Chat() {
                 setConversations((prev) => prev.map((c) => c.id === jobConvId ? { ...c, title: aiTitle } : c));
               }
             } catch {
+
               // silently keep the fallback title
-            }
-          })();
+            }})();
         }
 
         setConversations((prev) => {
@@ -1050,7 +1050,7 @@ export default function Chat() {
         if (isActive) {
           setThinking(false);
           setStreamingMsgIndex(null);
-          if (streamIntervalRef.current) { clearInterval(streamIntervalRef.current); streamIntervalRef.current = null; }
+          if (streamIntervalRef.current) {clearInterval(streamIntervalRef.current);streamIntervalRef.current = null;}
           setRelayStatus("idle");
           setTimeout(() => textareaRef.current?.focus(), 50);
         }
@@ -1077,12 +1077,12 @@ export default function Chat() {
   // ── Regenerate ─────────────────────────────────────────────────────────
   const handleRegenerate = useCallback(async () => {
     // Find the last user message
-    const lastUserMsg = [...messages].reverse().find(m => m.role === "user");
+    const lastUserMsg = [...messages].reverse().find((m) => m.role === "user");
     if (!lastUserMsg || !selectedDeviceId) return;
 
     // Remove the last assistant message from UI
-    setMessages(prev => {
-      const idx = [...prev].map(m => m.role).lastIndexOf("assistant");
+    setMessages((prev) => {
+      const idx = [...prev].map((m) => m.role).lastIndexOf("assistant");
       return idx >= 0 ? prev.slice(0, idx) : prev;
     });
 
@@ -1093,7 +1093,7 @@ export default function Chat() {
       abortStreamRef.current = false;
       const text = lastUserMsg.content;
       const userMsg: Message = { role: "user", content: text };
-      setMessages(prev => [...prev, userMsg]);
+      setMessages((prev) => [...prev, userMsg]);
       setThinking(true);
       const convId = activeConvId;
       if (!convId) return;
@@ -1103,14 +1103,14 @@ export default function Chat() {
       addJob(jobConvId);
       (async () => {
         const stripAnsi = (s: string) =>
-          s.replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, "")
-           .replace(/\x1b\[[\x30-\x3f]*[\x20-\x2f]*[\x40-\x7e]/g, "")
-           .replace(/\x1b[PX^_].*?\x1b\\/g, "")
-           .replace(/\x1b[^[\]PX^_]/g, "")
-           .replace(/\x1b/g, "")
-           .replace(/\[[\d;?<>!]*[a-zA-Z]/g, "")
-           .replace(/\][\d;][^\r\n]*/g, "")
-           .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, "");
+        s.replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, "").
+        replace(/\x1b\[[\x30-\x3f]*[\x20-\x2f]*[\x40-\x7e]/g, "").
+        replace(/\x1b[PX^_].*?\x1b\\/g, "").
+        replace(/\x1b[^[\]PX^_]/g, "").
+        replace(/\x1b/g, "").
+        replace(/\[[\d;?<>!]*[a-zA-Z]/g, "").
+        replace(/\][\d;][^\r\n]*/g, "").
+        replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, "");
         try {
           const command = await buildCommand(text, jobConvId, model);
           const stdout = await sendViaRelay(command, agent === "openclaw");
@@ -1125,13 +1125,13 @@ export default function Chat() {
               try {
                 const parsed = JSON.parse(candidates[i]);
                 const payloadText = parsed?.payloads?.[0]?.text;
-                if (payloadText) { responseText = String(payloadText); break; }
+                if (payloadText) {responseText = String(payloadText);break;}
                 const fallback = parsed.content ?? parsed.message ?? parsed.response ?? parsed.text ?? parsed.result;
-                if (fallback && typeof fallback === "string") { responseText = fallback; break; }
-              } catch { /* next */ }
+                if (fallback && typeof fallback === "string") {responseText = fallback;break;}
+              } catch {/* next */}
             }
           } else if (convData?.agent === "codex") {
-            responseText = cleaned.split("\n").filter(line => {
+            responseText = cleaned.split("\n").filter((line) => {
               const t = line.trim();
               if (!t) return false;
               if (/^[%$#>→]\s*$/.test(t)) return false;
@@ -1142,7 +1142,7 @@ export default function Chat() {
               return true;
             }).join("\n").trim();
           } else {
-            responseText = cleaned.split("\n").filter(line => {
+            responseText = cleaned.split("\n").filter((line) => {
               const t = line.trim();
               if (!t) return false;
               if (/^[%$#>→]\s*$/.test(t)) return false;
@@ -1157,12 +1157,12 @@ export default function Chat() {
           responseText = responseText.trim() || "(empty response)";
           await saveMessage(jobConvId, "assistant", responseText);
           if (activeConvIdRef.current === jobConvId) {
-            setMessages(prev => [...prev, { role: "assistant", content: responseText }]);
+            setMessages((prev) => [...prev, { role: "assistant", content: responseText }]);
           }
         } catch (err) {
           const errMsg = err instanceof Error ? err.message : "Unknown error";
           if (activeConvIdRef.current === jobConvId) {
-            setMessages(prev => [...prev, { role: "assistant", content: `⚠️ Error: ${errMsg}` }]);
+            setMessages((prev) => [...prev, { role: "assistant", content: `⚠️ Error: ${errMsg}` }]);
           }
         } finally {
           if (activeConvIdRef.current === jobConvId) {
@@ -1213,8 +1213,8 @@ export default function Chat() {
       const content = await new Promise<string>((res) => {
         const reader = new FileReader();
         reader.onload = () => res(reader.result as string);
-        if (isText) reader.readAsText(file);
-        else reader.readAsDataURL(file);
+        if (isText) reader.readAsText(file);else
+        reader.readAsDataURL(file);
       });
       processed.push({ name: file.name, type: file.type, size: file.size, content, isText });
     }
@@ -1238,9 +1238,9 @@ export default function Chat() {
       const available = SLASH_COMMANDS.filter(
         (c) => c.agents.includes("both") || c.agents.includes(agent)
       );
-      const helpText = `**Available slash commands**\n\n${available
-        .map((c) => `\`/${c.name}\` — ${c.description}`)
-        .join("\n")}`;
+      const helpText = `**Available slash commands**\n\n${available.
+      map((c) => `\`/${c.name}\` — ${c.description}`).
+      join("\n")}`;
       setMessages((prev) => [...prev, { role: "assistant", content: helpText }]);
       return;
     }
@@ -1282,24 +1282,24 @@ export default function Chat() {
         {/* Main chat area — sidebar is now in AppSidebar */}
         <div
           className={`flex flex-col flex-1 min-w-0 h-full relative transition-all duration-150 ${isDragOver ? "ring-2 ring-primary/40 ring-inset" : ""}`}
-          onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
-          onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setIsDragOver(false); }}
-          onDrop={(e) => { e.preventDefault(); setIsDragOver(false); if (e.dataTransfer.files.length) processFiles(e.dataTransfer.files); }}
-        >
-          {isDragOver && (
-            <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
+          onDragOver={(e) => {e.preventDefault();setIsDragOver(true);}}
+          onDragLeave={(e) => {if (!e.currentTarget.contains(e.relatedTarget as Node)) setIsDragOver(false);}}
+          onDrop={(e) => {e.preventDefault();setIsDragOver(false);if (e.dataTransfer.files.length) processFiles(e.dataTransfer.files);}}>
+
+          {isDragOver &&
+          <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
               <div className="rounded-2xl border-2 border-dashed border-primary/50 bg-primary/5 px-10 py-8 text-center backdrop-blur-sm">
                 <p className="text-sm font-medium text-primary">Drop files to attach</p>
                 <p className="text-xs text-muted-foreground mt-1">Text files will be sent as context</p>
               </div>
             </div>
-          )}
+          }
 
           {/* Top header bar */}
           <div
             className="sticky top-0 z-20 shrink-0 border-b border-border/10 flex items-center px-5 relative backdrop-blur-md bg-background/80"
-            style={{ paddingTop: 'env(safe-area-inset-top, 0px)', minHeight: 'calc(env(safe-area-inset-top, 0px) + 64px)' }}
-          >
+            style={{ paddingTop: 'env(safe-area-inset-top, 0px)', minHeight: 'calc(env(safe-area-inset-top, 0px) + 64px)' }}>
+
             {/* Left — sidebar trigger */}
             <SidebarTrigger className="scale-125" />
             {/* Center — agent dropdown */}
@@ -1313,13 +1313,13 @@ export default function Chat() {
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="center" className="w-56">
-                  {(["openclaw", "claude", "codex"] as const).map((a) => (
-                    <DropdownMenuItem key={a} onClick={() => handleAgentChange(a)} className="flex items-center gap-3 cursor-pointer py-2.5 text-base">
+                  {(["openclaw", "claude", "codex"] as const).map((a) =>
+                  <DropdownMenuItem key={a} onClick={() => handleAgentChange(a)} className="flex items-center gap-3 cursor-pointer py-2.5 text-base">
                       <img src={a === "openclaw" ? openclawImg : a === "codex" ? codexImg : claudecodeImg} alt={a} className="w-6 h-6 rounded-sm object-cover" />
                       <span>{a === "openclaw" ? "OpenClaw" : a === "codex" ? "Codex" : "Claude Code"}</span>
                       {agent === a && <span className="ml-auto w-2 h-2 rounded-full bg-foreground/60" />}
                     </DropdownMenuItem>
-                  ))}
+                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
@@ -1329,110 +1329,110 @@ export default function Chat() {
                 <PopoverTrigger asChild>
                   <button className="flex items-center gap-2 px-3.5 py-2 rounded-full text-sm font-medium transition-all duration-150 border border-border/40 bg-secondary hover:bg-accent text-foreground/80 hover:text-foreground">
                     {(() => {
-                      const dev = devices.find(d => d.id === selectedDeviceId);
-                      return dev ? (
-                        <>
+                      const dev = devices.find((d) => d.id === selectedDeviceId);
+                      return dev ?
+                      <>
                           <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${dev.status === "online" ? "bg-status-online animate-pulse" : "bg-muted-foreground/40"}`} />
                           <span className="hidden sm:inline max-w-[140px] truncate">{dev.name}</span>
-                        </>
-                      ) : (
-                        <span className="opacity-50 hidden sm:inline">No device</span>
-                      );
+                        </> :
+
+                      <span className="opacity-50 hidden sm:inline">No device</span>;
+
                     })()}
                     <ChevronDown className="hidden" />
                   </button>
                 </PopoverTrigger>
                 <PopoverContent align="end" className="w-48 p-1">
-                  {devices.length === 0 ? (
-                    <p className="text-xs text-muted-foreground px-2 py-1.5">No devices found</p>
-                  ) : (
-                    devices.map((d) => (
-                      <button
-                        key={d.id}
-                        onClick={() => setSelectedDeviceId(d.id)}
-                        className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs transition-colors ${selectedDeviceId === d.id ? "bg-accent text-accent-foreground font-medium" : "hover:bg-muted text-foreground/80"}`}
-                      >
+                  {devices.length === 0 ?
+                  <p className="text-xs text-muted-foreground px-2 py-1.5">No devices found</p> :
+
+                  devices.map((d) =>
+                  <button
+                    key={d.id}
+                    onClick={() => setSelectedDeviceId(d.id)}
+                    className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs transition-colors ${selectedDeviceId === d.id ? "bg-accent text-accent-foreground font-medium" : "hover:bg-muted text-foreground/80"}`}>
+
                         <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${d.status === "online" ? "bg-status-online" : "bg-muted-foreground/40"}`} />
                         <span className="truncate">{d.name}</span>
                       </button>
-                    ))
-                  )}
+                  )
+                  }
                 </PopoverContent>
               </Popover>
               <button
                 onClick={() => window.location.reload()}
                 className="hidden sm:flex w-9 h-9 rounded-full items-center justify-center text-foreground/50 hover:text-foreground bg-secondary hover:bg-accent border border-border/40 transition-all duration-150"
-                title="Refresh page"
-              >
+                title="Refresh page">
+
                 <RefreshCw className="h-5 w-5" />
               </button>
               <button
                 onClick={() => setActiveConvId(null)}
                 className="w-10 h-10 rounded-full flex items-center justify-center bg-secondary hover:bg-accent text-foreground transition-all duration-150 border border-border/40"
-                title="New conversation"
-              >
+                title="New conversation">
+
                 <SquarePen className="h-5 w-5" />
               </button>
             </div>
           </div>
 
           {/* Relay reconnection banner */}
-          {(relayStatus === "retrying" || relayStatus === "failed") && (
-            <div
-              className="shrink-0 flex items-center justify-center gap-2 py-1.5 px-4 text-xs font-medium transition-all duration-300"
-              style={{
-                background: relayStatus === "failed"
-                  ? "hsl(var(--destructive) / 0.12)"
-                  : "hsl(var(--primary) / 0.10)",
-                borderBottom: relayStatus === "failed"
-                  ? "1px solid hsl(var(--destructive) / 0.25)"
-                  : "1px solid hsl(var(--primary) / 0.18)",
-                color: relayStatus === "failed"
-                  ? "hsl(var(--destructive))"
-                  : "hsl(var(--primary))",
-              }}
-            >
-              {relayStatus === "retrying" ? (
-                <>
+          {(relayStatus === "retrying" || relayStatus === "failed") &&
+          <div
+            className="shrink-0 flex items-center justify-center gap-2 py-1.5 px-4 text-xs font-medium transition-all duration-300"
+            style={{
+              background: relayStatus === "failed" ?
+              "hsl(var(--destructive) / 0.12)" :
+              "hsl(var(--primary) / 0.10)",
+              borderBottom: relayStatus === "failed" ?
+              "1px solid hsl(var(--destructive) / 0.25)" :
+              "1px solid hsl(var(--primary) / 0.18)",
+              color: relayStatus === "failed" ?
+              "hsl(var(--destructive))" :
+              "hsl(var(--primary))"
+            }}>
+
+              {relayStatus === "retrying" ?
+            <>
                   <Loader2 className="h-3 w-3 animate-spin shrink-0" />
                   <span>
                     Relay disconnected — reconnecting
                     {relayRetryCountRef.current > 0 ? ` (attempt ${relayRetryCountRef.current} of 3)` : ""}
                     …
                   </span>
-                </>
-              ) : (
-                <>
+                </> :
+
+            <>
                   <WifiOff className="h-3 w-3 shrink-0" />
                   <span>Could not reach relay — check your connection</span>
                 </>
-              )}
+            }
             </div>
-          )}
+          }
 
           {/* Messages — centered column */}
           {/* Scroll-to-bottom floating button */}
           <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto py-8 sm:py-10">
             <div key={activeConvId ?? "new"} className="max-w-[900px] mx-auto px-4 sm:px-8 animate-fade-in">
-              {messages.length === 0 && !thinking && (
-                <div className="flex flex-col items-center justify-center min-h-[70vh] sm:min-h-[80vh] text-center">
+              {messages.length === 0 && !thinking &&
+              <div className="flex flex-col items-center justify-center min-h-[70vh] sm:min-h-[80vh] text-center">
 
                   {/* ── No device paired: inline quick-start ─────────────── */}
-                  {devices.length === 0 ? (
-                    <div className="flex flex-col items-center gap-6 w-full max-w-xl px-2">
+                  {devices.length === 0 ?
+                <div className="flex flex-col items-center gap-6 w-full max-w-xl px-2">
                       <QuickStart
-                        userId={user?.id ?? ""}
-                        projectId={projectId || undefined}
-                        onDeviceOnline={(dev) => {
-                          setDevices((prev) => [...prev, dev]);
-                          setSelectedDeviceId(dev.id);
-                        }}
-                      />
-                    </div>
+                    userId={user?.id ?? ""}
+                    projectId={projectId || undefined}
+                    onDeviceOnline={(dev) => {
+                      setDevices((prev) => [...prev, dev]);
+                      setSelectedDeviceId(dev.id);
+                    }} />
 
-                  ) : (
-                    /* ── Has device, no messages: normal empty state ────── */
-                    <>
+                    </div> : (
+
+
+                /* ── Has device, no messages: normal empty state ────── */
+                <>
                       <div className="relative mb-6 animate-fade-in" style={{ animationDelay: "0ms", animationFillMode: "both" }}>
                         <div className="absolute inset-0 rounded-3xl blur-xl scale-110 bg-foreground/10" />
                         <div className="relative w-24 h-24 rounded-3xl flex items-center justify-center bg-muted/40 border border-border/40 shadow-sm outline outline-1 outline-border/30">
@@ -1443,90 +1443,90 @@ export default function Chat() {
                         {agent === "openclaw" ? "OpenClaw" : agent === "codex" ? "Codex" : "Claude Code"}
                       </h3>
                       <p className="body-base text-muted-foreground max-w-sm mb-8 animate-fade-in" style={{ animationDelay: "220ms", animationFillMode: "both" }}>
-                        {agent === "openclaw"
-                          ? "Ask your local OpenClaw agent anything. Commands run on your selected device."
-                          : agent === "codex"
-                          ? "Send prompts directly to OpenAI Codex CLI running on your device."
-                          : "Send prompts directly to Claude Code running on your device."}
+                        {agent === "openclaw" ?
+                    "Ask your local OpenClaw agent anything. Commands run on your selected device." :
+                    agent === "codex" ?
+                    "Send prompts directly to OpenAI Codex CLI running on your device." :
+                    "Send prompts directly to Claude Code running on your device."}
                       </p>
 
                       {/* Starter prompt cards */}
                       <div className="grid grid-cols-2 gap-2.5 w-full max-w-lg mx-auto animate-fade-in" style={{ animationDelay: "340ms", animationFillMode: "both" }}>
                         {(agent === "openclaw" ? [
-                          { icon: "📂", title: "List files", prompt: "List all files in the current directory" },
-                          { icon: "🔍", title: "Search code", prompt: "Search for TODO comments in the codebase" },
-                          { icon: "💻", title: "System info", prompt: "Show system info: OS, CPU, memory usage" },
-                          { icon: "🌿", title: "Git status", prompt: "Show the current git status and recent commits" },
-                        ] : agent === "codex" ? [
-                          { icon: "🐛", title: "Fix a bug", prompt: "Find and fix the bug in my code" },
-                          { icon: "✍️", title: "Write tests", prompt: "Write unit tests for the current file" },
-                          { icon: "♻️", title: "Refactor", prompt: "Refactor this code to be cleaner and more readable" },
-                          { icon: "📖", title: "Explain code", prompt: "Explain what this code does step by step" },
-                        ] : [
-                          { icon: "🐛", title: "Debug code", prompt: "Help me debug an issue in my code" },
-                          { icon: "✍️", title: "Write tests", prompt: "Write unit tests for the current file" },
-                          { icon: "♻️", title: "Refactor", prompt: "Refactor this code to be cleaner and more readable" },
-                          { icon: "📖", title: "Explain code", prompt: "Explain what this code does" },
-                        ]).map(({ icon, title, prompt }, i) => (
-                          <button
-                            key={title}
-                            onClick={() => setInput(prompt)}
-                            disabled={!selectedDeviceId}
-                            className="animate-fade-in group flex flex-col gap-1.5 px-4 py-3.5 rounded-xl border-2 border-border/40 bg-card hover:border-foreground/20 hover:bg-card transition-all duration-150 text-left disabled:opacity-40 disabled:cursor-not-allowed"
-                            style={{ animationDelay: `${420 + i * 80}ms`, animationFillMode: "both" }}
-                          >
+                    { icon: "📂", title: "List files", prompt: "List all files in the current directory" },
+                    { icon: "🔍", title: "Search code", prompt: "Search for TODO comments in the codebase" },
+                    { icon: "💻", title: "System info", prompt: "Show system info: OS, CPU, memory usage" },
+                    { icon: "🌿", title: "Git status", prompt: "Show the current git status and recent commits" }] :
+                    agent === "codex" ? [
+                    { icon: "🐛", title: "Fix a bug", prompt: "Find and fix the bug in my code" },
+                    { icon: "✍️", title: "Write tests", prompt: "Write unit tests for the current file" },
+                    { icon: "♻️", title: "Refactor", prompt: "Refactor this code to be cleaner and more readable" },
+                    { icon: "📖", title: "Explain code", prompt: "Explain what this code does step by step" }] :
+                    [
+                    { icon: "🐛", title: "Debug code", prompt: "Help me debug an issue in my code" },
+                    { icon: "✍️", title: "Write tests", prompt: "Write unit tests for the current file" },
+                    { icon: "♻️", title: "Refactor", prompt: "Refactor this code to be cleaner and more readable" },
+                    { icon: "📖", title: "Explain code", prompt: "Explain what this code does" }]).
+                    map(({ icon, title, prompt }, i) =>
+                    <button
+                      key={title}
+                      onClick={() => setInput(prompt)}
+                      disabled={!selectedDeviceId}
+                      className="animate-fade-in group flex flex-col gap-1.5 px-4 py-3.5 rounded-xl border-2 border-border/40 bg-card hover:border-foreground/20 hover:bg-card transition-all duration-150 text-left disabled:opacity-40 disabled:cursor-not-allowed"
+                      style={{ animationDelay: `${420 + i * 80}ms`, animationFillMode: "both" }}>
+
                             <span className="text-sm font-semibold text-foreground leading-tight">{icon} {title}</span>
                             <span className="text-xs text-muted-foreground/70 leading-snug line-clamp-2">{prompt}</span>
                           </button>
-                        ))}
+                    )}
                       </div>
-                    </>
-                  )}
+                    </>)
+                }
                 </div>
-              )}
+              }
               <div className="space-y-1">
-                {messages.map((msg, i) => (
-                  <div key={msg.id ?? i} className="animate-fade-in">
+                {messages.map((msg, i) =>
+                <div key={msg.id ?? i} className="animate-fade-in">
                     <ChatMessage
-                      role={msg.role}
-                      content={msg.content}
-                      streaming={streamingMsgIndex === i}
-                      rawStdout={msg.role === "assistant" ? rawStdoutMapRef.current.get(i) : undefined}
-                      thinkingContent={msg.role === "assistant" ? thinkingMapRef.current.get(i) : undefined}
-                      thinkingDurationMs={msg.role === "assistant" ? thinkingDurationMapRef.current.get(i) : undefined}
-                      createdAt={msg.created_at}
-                      agent={agent}
-                      onRegenerate={
-                        msg.role === "assistant" &&
-                        i === messages.length - 1 &&
-                        !thinking &&
-                        streamingMsgIndex === null
-                          ? handleRegenerate
-                          : undefined
-                      }
-                    />
-                  </div>
-                ))}
-                {thinking && (
-                  <div className="animate-fade-in">
-                    <ChatMessage role="assistant" content="" thinking agent={agent} />
+                    role={msg.role}
+                    content={msg.content}
+                    streaming={streamingMsgIndex === i}
+                    rawStdout={msg.role === "assistant" ? rawStdoutMapRef.current.get(i) : undefined}
+                    thinkingContent={msg.role === "assistant" ? thinkingMapRef.current.get(i) : undefined}
+                    thinkingDurationMs={msg.role === "assistant" ? thinkingDurationMapRef.current.get(i) : undefined}
+                    createdAt={msg.created_at}
+                    agent={agent}
+                    onRegenerate={
+                    msg.role === "assistant" &&
+                    i === messages.length - 1 &&
+                    !thinking &&
+                    streamingMsgIndex === null ?
+                    handleRegenerate :
+                    undefined
+                    } />
+
                   </div>
                 )}
+                {thinking &&
+                <div className="animate-fade-in">
+                    <ChatMessage role="assistant" content="" thinking agent={agent} />
+                  </div>
+                }
               </div>
             </div>
           </div>
 
           {/* Jump-to-bottom FAB */}
-          {isScrolledUp && (
-            <div className="shrink-0 flex justify-end pr-4 py-1">
+          {isScrolledUp &&
+          <div className="shrink-0 flex justify-end pr-4 py-1">
               <button
-                onClick={scrollToBottom}
-                className="flex items-center justify-center w-8 h-8 rounded-full bg-background/80 backdrop-blur-md border border-border/60 text-muted-foreground hover:text-foreground shadow-md transition-colors duration-150"
-              >
+              onClick={scrollToBottom}
+              className="flex items-center justify-center w-8 h-8 rounded-full bg-background/80 backdrop-blur-md border border-border/60 text-muted-foreground hover:text-foreground shadow-md transition-colors duration-150">
+
                 <ChevronDown className="h-4 w-4" />
               </button>
             </div>
-          )}
+          }
 
           {/* Floating composer */}
           <div className="sticky bottom-0 z-20 shrink-0 px-3 sm:px-6 pt-2 backdrop-blur-md bg-background/80 border-t border-border/10" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 1rem)' }}>
@@ -1542,7 +1542,7 @@ export default function Chat() {
                 onKeyDown={handleKeyDown}
                 onSend={handleSend}
                 disabled={!selectedDeviceId}
-                sendDisabled={(!input.trim() && attachedFiles.length === 0)}
+                sendDisabled={!input.trim() && attachedFiles.length === 0}
                 placeholder={selectedDeviceId ? `Message ${agent === "openclaw" ? "OpenClaw" : agent === "codex" ? "Codex" : "Claude Code"}…` : "Select a device first…"}
                 attachedFiles={attachedFiles}
                 onRemoveFile={(i) => setAttachedFiles((prev) => prev.filter((_, idx) => idx !== i))}
@@ -1557,8 +1557,8 @@ export default function Chat() {
                     supabase.from("chat_conversations").update({ model: m }).eq("id", activeConvId);
                     setConversations((prev) => prev.map((c) => c.id === activeConvId ? { ...c, model: m } : c));
                   }
-                }}
-              />
+                }} />
+
               <p className="hidden sm:block text-center text-[10px] text-muted-foreground/40 mt-2 select-none whitespace-nowrap">
                 Enter to send · Shift+Enter for newline · <span className="font-mono">/</span> for commands
               </p>
@@ -1567,7 +1567,7 @@ export default function Chat() {
         </div>
 
         {/* Agent switch confirmation */}
-        <AlertDialog open={!!agentSwitchPending} onOpenChange={(open) => { if (!open) setAgentSwitchPending(null); }}>
+        <AlertDialog open={!!agentSwitchPending} onOpenChange={(open) => {if (!open) setAgentSwitchPending(null);}}>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>
@@ -1602,25 +1602,25 @@ export default function Chat() {
               Pair a device
             </DialogTitle>
           </DialogHeader>
-          {projectId && (
-            <SetupWizard
-              projectId={projectId}
-              onComplete={() => {
-                setShowWizard(false);
-                // Reload devices after pairing
-                supabase.from("devices").select("id, name, status, project_id").then(({ data }) => {
-                  if (data) {
-                    setDevices(data as Tables<"devices">[]);
-                    const online = data.find((d) => d.status === "online");
-                    if (online ?? data[0]) setSelectedDeviceId((online ?? data[0]).id);
-                  }
-                });
-              }}
-              onSkip={() => setShowWizard(false)}
-            />
-          )}
+          {projectId &&
+          <SetupWizard
+            projectId={projectId}
+            onComplete={() => {
+              setShowWizard(false);
+              // Reload devices after pairing
+              supabase.from("devices").select("id, name, status, project_id").then(({ data }) => {
+                if (data) {
+                  setDevices(data as Tables<"devices">[]);
+                  const online = data.find((d) => d.status === "online");
+                  if (online ?? data[0]) setSelectedDeviceId((online ?? data[0]).id);
+                }
+              });
+            }}
+            onSkip={() => setShowWizard(false)} />
+
+          }
         </DialogContent>
       </Dialog>
-    </AppLayout>
-  );
+    </AppLayout>);
+
 }
