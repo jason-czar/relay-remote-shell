@@ -179,19 +179,21 @@ export function AppSidebar() {
                       <div
                         key={conv.id}
                         className={cn(
-                          "group relative flex items-center gap-2 rounded-lg px-2.5 py-2 cursor-pointer transition-all duration-100",
+          "group relative flex items-center gap-2 rounded-lg px-2.5 py-2 cursor-pointer transition-all duration-150",
                           activeConvId === conv.id
                             ? "bg-accent/80 text-foreground"
-                            : "text-foreground/75 hover:bg-accent/40 hover:text-foreground"
+                            : "text-foreground/75 hover:bg-accent/50 hover:text-foreground hover:shadow-sm"
                         )}
                         onClick={() => { if (editingId !== conv.id) { setActiveConvId(conv.id); navigate("/"); if (isMobile) setOpenMobile(false); } }}
                         onTouchEnd={(e) => { e.stopPropagation(); if (editingId !== conv.id) { setActiveConvId(conv.id); navigate("/"); if (isMobile) setOpenMobile(false); } }}
                         onMouseEnter={() => setHoveredId(conv.id)}
                         onMouseLeave={() => setHoveredId(null)}
                       >
-                        {/* Active bar */}
-                        {activeConvId === conv.id && (
+                        {/* Active / hover bar */}
+                        {activeConvId === conv.id ? (
                           <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-4 rounded-r-full bg-foreground/40" />
+                        ) : hoveredId === conv.id && (
+                          <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-3 rounded-r-full bg-foreground/20 transition-all duration-150" />
                         )}
 
                         {editingId === conv.id ? (
