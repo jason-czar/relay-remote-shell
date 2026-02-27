@@ -1515,7 +1515,7 @@ export default function Chat() {
 
           {/* Jump-to-bottom FAB — sits between messages and composer, never overlapping */}
           {isScrolledUp && (
-            <div className="shrink-0 flex justify-center py-2">
+            <div className="shrink-0 flex justify-center py-2 animate-slide-up-fade">
               <button
                 onClick={scrollToBottom}
                 className={cn(
