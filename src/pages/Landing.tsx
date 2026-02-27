@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Terminal, Zap, Shield, Cpu } from "lucide-react";
@@ -234,6 +234,45 @@ const FEATURES = [
   },
 ];
 
+function CapabilityPills() {
+  const ref = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) { setVisible(true); obs.disconnect(); }
+    }, { threshold: 0.2 });
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+  const pills = [
+    "🏠 Runs on your hardware",
+    "🔒 No port forwarding needed",
+    "🖥️ Full terminal access",
+    "🤖 OpenClaw · Claude Code · Codex",
+    "📱 Any device, anywhere",
+  ];
+  return (
+    <div ref={ref} className="flex flex-wrap justify-center gap-2 px-5 py-8 border-t border-border/10">
+      {pills.map((pill, i) => (
+        <span
+          key={pill}
+          className="px-3 py-1.5 rounded-full text-xs text-muted-foreground/70 border border-border/30 transition-all duration-500"
+          style={{
+            background: "hsl(var(--muted)/0.3)",
+            opacity: visible ? 1 : 0,
+            transform: visible ? "translateY(0)" : "translateY(10px)",
+            transitionDelay: `${i * 80}ms`,
+          }}
+        >
+          {pill}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 export default function Landing() {
   const navigate = useNavigate();
   const [activeIdx, setActiveIdx] = useState(0);
@@ -406,23 +445,7 @@ export default function Landing() {
       </section>
 
       {/* ── Capability pills ── */}
-      <div className="flex flex-wrap justify-center gap-2 px-5 py-8 border-t border-border/10">
-        {[
-          "🏠 Runs on your hardware",
-          "🔒 No port forwarding needed",
-          "🖥️ Full terminal access",
-          "🤖 OpenClaw · Claude Code · Codex",
-          "📱 Any device, anywhere",
-        ].map((pill) => (
-          <span
-            key={pill}
-            className="px-3 py-1.5 rounded-full text-xs text-muted-foreground/70 border border-border/30"
-            style={{ background: "hsl(var(--muted)/0.3)" }}
-          >
-            {pill}
-          </span>
-        ))}
-      </div>
+      <CapabilityPills />
 
       {/* ── How it works ── */}
       <section className="border-t border-border/20 px-5 py-16">
