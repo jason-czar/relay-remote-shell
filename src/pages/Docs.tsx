@@ -1425,10 +1425,80 @@ Authorization: Bearer <supabase-jwt>`}</CodeBlock>
             <li><strong>Projects</strong>: Only visible to project members; only owners can modify</li>
             <li><strong>Devices</strong>: Only visible to project members; only owners can add/update/delete</li>
             <li><strong>Sessions</strong>: Users can view their own sessions or sessions for devices in their projects</li>
+            <li><strong>Session Recordings</strong>: Owner and project members can read; only owner can insert/delete; <code className="text-xs bg-muted px-1 py-0.5 rounded font-mono">stdin</code> is never stored</li>
             <li><strong>Profiles</strong>: Users can only view and update their own profile</li>
             <li><strong>Skill Configs</strong>: Users can only CRUD their own configurations</li>
             <li><strong>Invitations</strong>: Visible to project members; only owners can create/modify</li>
+            <li><strong>Rate Limit Pairing</strong>: Deny-all for users; accessible only via service role</li>
           </ul>
+
+          <p className="text-sm font-medium text-foreground mb-2 mt-6">Database Schema Reference</p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm border border-border rounded-lg overflow-hidden my-4">
+              <thead className="bg-muted/50">
+                <tr>
+                  <th className="text-left p-3 font-semibold border-b border-border">Table</th>
+                  <th className="text-left p-3 font-semibold border-b border-border">Key Columns</th>
+                  <th className="text-left p-3 font-semibold border-b border-border">RLS</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-b border-border">
+                  <td className="p-3 font-mono text-xs align-top">projects</td>
+                  <td className="p-3 text-muted-foreground text-xs align-top"><code className="bg-muted px-1 rounded">id</code>, <code className="bg-muted px-1 rounded">name</code>, <code className="bg-muted px-1 rounded">owner_id</code></td>
+                  <td className="p-3 text-muted-foreground text-xs align-top">Members can SELECT; owner can INSERT/UPDATE/DELETE</td>
+                </tr>
+                <tr className="border-b border-border">
+                  <td className="p-3 font-mono text-xs align-top">project_members</td>
+                  <td className="p-3 text-muted-foreground text-xs align-top"><code className="bg-muted px-1 rounded">project_id</code>, <code className="bg-muted px-1 rounded">user_id</code>, <code className="bg-muted px-1 rounded">role</code></td>
+                  <td className="p-3 text-muted-foreground text-xs align-top">Members can SELECT; owner can INSERT/DELETE (non-owner roles only)</td>
+                </tr>
+                <tr className="border-b border-border">
+                  <td className="p-3 font-mono text-xs align-top">devices</td>
+                  <td className="p-3 text-muted-foreground text-xs align-top"><code className="bg-muted px-1 rounded">id</code>, <code className="bg-muted px-1 rounded">name</code>, <code className="bg-muted px-1 rounded">user_id</code>, <code className="bg-muted px-1 rounded">project_id</code>, <code className="bg-muted px-1 rounded">status</code>, <code className="bg-muted px-1 rounded">paired</code></td>
+                  <td className="p-3 text-muted-foreground text-xs align-top">Project members can SELECT; owner can INSERT/UPDATE/DELETE</td>
+                </tr>
+                <tr className="border-b border-border">
+                  <td className="p-3 font-mono text-xs align-top">sessions</td>
+                  <td className="p-3 text-muted-foreground text-xs align-top"><code className="bg-muted px-1 rounded">id</code>, <code className="bg-muted px-1 rounded">device_id</code>, <code className="bg-muted px-1 rounded">user_id</code>, <code className="bg-muted px-1 rounded">status</code>, <code className="bg-muted px-1 rounded">started_at</code>, <code className="bg-muted px-1 rounded">ended_at</code></td>
+                  <td className="p-3 text-muted-foreground text-xs align-top">Owner/project members can SELECT; owner can INSERT/UPDATE; no DELETE</td>
+                </tr>
+                <tr className="border-b border-border bg-primary/5">
+                  <td className="p-3 font-mono text-xs align-top font-semibold text-foreground">session_recordings</td>
+                  <td className="p-3 text-muted-foreground text-xs align-top">
+                    <code className="bg-muted px-1 rounded">id</code>, <code className="bg-muted px-1 rounded">session_id</code>, <code className="bg-muted px-1 rounded">frames</code> <span className="text-muted-foreground/60">(jsonb)</span>, <code className="bg-muted px-1 rounded">duration_ms</code>, <code className="bg-muted px-1 rounded">frame_count</code>, <code className="bg-muted px-1 rounded">size_bytes</code>
+                    <p className="mt-1 text-muted-foreground/70">Each frame: <code className="bg-muted px-1 rounded font-mono">{`{ "t": ms_offset, "d": "base64_stdout" }`}</code></p>
+                  </td>
+                  <td className="p-3 text-muted-foreground text-xs align-top">Owner &amp; project members can SELECT; owner can INSERT/DELETE; no UPDATE; stdin never stored</td>
+                </tr>
+                <tr className="border-b border-border">
+                  <td className="p-3 font-mono text-xs align-top">profiles</td>
+                  <td className="p-3 text-muted-foreground text-xs align-top"><code className="bg-muted px-1 rounded">user_id</code>, <code className="bg-muted px-1 rounded">display_name</code>, <code className="bg-muted px-1 rounded">avatar_url</code></td>
+                  <td className="p-3 text-muted-foreground text-xs align-top">Owner can SELECT/UPDATE only; created automatically on sign-up</td>
+                </tr>
+                <tr className="border-b border-border">
+                  <td className="p-3 font-mono text-xs align-top">skill_configs</td>
+                  <td className="p-3 text-muted-foreground text-xs align-top"><code className="bg-muted px-1 rounded">user_id</code>, <code className="bg-muted px-1 rounded">skill_slug</code>, <code className="bg-muted px-1 rounded">node_id</code>, <code className="bg-muted px-1 rounded">config</code> <span className="text-muted-foreground/60">(jsonb)</span></td>
+                  <td className="p-3 text-muted-foreground text-xs align-top">Full CRUD for owner only</td>
+                </tr>
+                <tr className="border-b border-border">
+                  <td className="p-3 font-mono text-xs align-top">chat_conversations</td>
+                  <td className="p-3 text-muted-foreground text-xs align-top"><code className="bg-muted px-1 rounded">id</code>, <code className="bg-muted px-1 rounded">user_id</code>, <code className="bg-muted px-1 rounded">title</code>, <code className="bg-muted px-1 rounded">agent</code>, <code className="bg-muted px-1 rounded">model</code></td>
+                  <td className="p-3 text-muted-foreground text-xs align-top">Full CRUD for owner only</td>
+                </tr>
+                <tr className="border-b border-border">
+                  <td className="p-3 font-mono text-xs align-top">chat_messages</td>
+                  <td className="p-3 text-muted-foreground text-xs align-top"><code className="bg-muted px-1 rounded">id</code>, <code className="bg-muted px-1 rounded">conversation_id</code>, <code className="bg-muted px-1 rounded">role</code>, <code className="bg-muted px-1 rounded">content</code></td>
+                  <td className="p-3 text-muted-foreground text-xs align-top">Full CRUD for conversation owner only (via JOIN)</td>
+                </tr>
+                <tr>
+                  <td className="p-3 font-mono text-xs align-top">rate_limit_pairing</td>
+                  <td className="p-3 text-muted-foreground text-xs align-top"><code className="bg-muted px-1 rounded">ip_address</code>, <code className="bg-muted px-1 rounded">attempted_code</code>, <code className="bg-muted px-1 rounded">created_at</code></td>
+                  <td className="p-3 text-muted-foreground text-xs align-top">Deny-all for users; service role only</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
 
           <Heading id="network-posture" level={3}>Network Posture</Heading>
           <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1 mb-4 ml-2">
