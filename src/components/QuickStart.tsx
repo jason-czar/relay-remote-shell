@@ -31,10 +31,10 @@ export function QuickStart({ userId, projectId, onDeviceOnline }: QuickStartProp
     const pairingCode = Math.random().toString(36).substring(2, 8).toUpperCase();
     const insertPayload = projectId
       ? { project_id: projectId, name: "My Device", pairing_code: pairingCode }
-      : { user_id: userId, name: "My Device", pairing_code: pairingCode };
+      : { user_id: userId, name: "My Device", pairing_code: pairingCode } as Parameters<typeof supabase.from<"devices">>[0] extends never ? never : object;
     supabase
       .from("devices")
-      .insert(insertPayload)
+      .insert(insertPayload as { user_id: string; name: string; pairing_code: string })
       .select()
       .single()
       .then(({ data, error }) => {
