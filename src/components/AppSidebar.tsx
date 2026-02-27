@@ -2,6 +2,7 @@ import {
   LayoutDashboard, FolderOpen, Settings, LogOut, Sun, Moon, Plug, BookOpen,
   Columns2, MessageSquare, ChevronDown, Plus, Search, Trash2, Pencil, Check, X, Monitor, RefreshCw,
 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
@@ -202,22 +203,19 @@ export function AppSidebar() {
                 </div>
               </div>
 
-              {/* Agent filter pills */}
-              <div className="px-2 pb-2 flex gap-1 flex-wrap">
-                {(["all", "openclaw", "claude", "codex"] as const).map((f) => (
-                  <button
-                    key={f}
-                    onClick={() => setAgentFilter(f)}
-                    className={cn(
-                      "px-2 py-0.5 rounded-full text-xs font-medium border transition-colors",
-                      agentFilter === f
-                        ? "bg-foreground/10 border-foreground/30 text-foreground"
-                        : "border-border/40 text-muted-foreground/50 hover:text-foreground hover:border-border/70"
-                    )}
-                  >
-                    {f === "all" ? "All" : f === "openclaw" ? "OpenClaw" : f === "claude" ? "Claude Code" : "Codex"}
-                  </button>
-                ))}
+              {/* Agent filter dropdown */}
+              <div className="px-2 pb-2">
+                <Select value={agentFilter} onValueChange={(v) => setAgentFilter(v as typeof agentFilter)}>
+                  <SelectTrigger className="h-7 text-xs w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All agents</SelectItem>
+                    <SelectItem value="openclaw">OpenClaw</SelectItem>
+                    <SelectItem value="claude">Claude Code</SelectItem>
+                    <SelectItem value="codex">Codex</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               {/* Grouped list */}
