@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import openclawImg from "@/assets/openclaw.png";
 import claudecodeImg from "@/assets/claudecode.png";
+import codexImg from "@/assets/codex.png";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useScribe } from "@elevenlabs/react";
 import { cn } from "@/lib/utils";
@@ -72,13 +73,24 @@ export const CLAUDE_MODELS: AgentModel[] = [
   { id: "claude-haiku-3-5", label: "Haiku 3.5", description: "Previous haiku" },
 ];
 
+// Codex CLI uses `codex --model <id>`
+export const CODEX_MODELS: AgentModel[] = [
+  { id: "auto", label: "Auto", description: "Use Codex's default model" },
+  { id: "o4-mini", label: "o4-mini", description: "Fast & efficient" },
+  { id: "o3", label: "o3", description: "Most capable" },
+  { id: "o3-mini", label: "o3-mini", description: "Balanced" },
+  { id: "gpt-4.1", label: "GPT-4.1", description: "Latest GPT-4 series" },
+  { id: "gpt-4.1-mini", label: "GPT-4.1 mini", description: "Efficient GPT-4" },
+  { id: "gpt-4o", label: "GPT-4o", description: "Previous multimodal" },
+];
+
 // ── Slash commands ───────────────────────────────────────────────────────────
 interface SlashCommand {
   name: string;
   description: string;
-  agents: ("openclaw" | "claude" | "both")[];
+  agents: ("openclaw" | "claude" | "codex" | "both")[];
   /** If set, this raw terminal command is sent instead of building via buildCommand */
-  rawCommand?: (agent: "openclaw" | "claude") => string;
+  rawCommand?: (agent: "openclaw" | "claude" | "codex") => string;
   /** If set, executes a client-side action instead */
   clientAction?: "clear" | "help" | "new";
 }
@@ -101,7 +113,7 @@ const SLASH_COMMANDS: SlashCommand[] = [
     description: "Compact conversation context to save tokens",
     agents: ["both"],
     rawCommand: (agent) =>
-      agent === "openclaw" ? `openclaw compact\n` : `claude --compact\n`,
+      agent === "openclaw" ? `openclaw compact\n` : agent === "codex" ? `codex --compact\n` : `claude --compact\n`,
   },
   {
     name: "status",
@@ -120,6 +132,12 @@ const SLASH_COMMANDS: SlashCommand[] = [
     description: "Resume the last Claude Code session",
     agents: ["claude"],
     rawCommand: () => `claude -c -p "continue"\n`,
+  },
+  {
+    name: "codex-resume",
+    description: "Resume the last Codex session",
+    agents: ["codex"],
+    rawCommand: () => `codex --resume\n`,
   },
   {
     name: "help",
@@ -143,10 +161,10 @@ interface ComposerBoxProps {
   attachedFiles: AttachedFile[];
   onRemoveFile: (idx: number) => void;
   onFileSelect: (files: FileList) => void;
-  agent: "openclaw" | "claude";
+  agent: "openclaw" | "claude" | "codex";
   model: string;
   onSlashCommand: (cmd: SlashCommand) => void;
-  onAgentChange: (agent: "openclaw" | "claude") => void;
+  onAgentChange: (agent: "openclaw" | "claude" | "codex") => void;
   onModelChange: (model: string) => void;
 }
 
@@ -359,13 +377,13 @@ export default function Chat() {
 
   // ── State ──────────────────────────────────────────────────────────────
   const [messages, setMessages] = useState<Message[]>([]);
-  const [agent, setAgent] = useState<"openclaw" | "claude">("openclaw");
+  const [agent, setAgent] = useState<"openclaw" | "claude" | "codex">("openclaw");
   const [model, setModel] = useState<string>("auto");
   const [devices, setDevices] = useState<Tables<"devices">[]>([]);
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>("");
   const [input, setInput] = useState("");
   const [thinking, setThinking] = useState(false);
-  const [agentSwitchPending, setAgentSwitchPending] = useState<"openclaw" | "claude" | null>(null);
+  const [agentSwitchPending, setAgentSwitchPending] = useState<"openclaw" | "claude" | "codex" | null>(null);
   const [streamingMsgIndex, setStreamingMsgIndex] = useState<number | null>(null);
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -423,7 +441,7 @@ export default function Chat() {
     // restore agent + model from conversation
     const conv = conversations.find((c) => c.id === activeConvId);
     if (conv) {
-      const a = conv.agent as "openclaw" | "claude";
+      const a = conv.agent as "openclaw" | "claude" | "codex";
       setAgent(a);
       // use persisted model if available, else default to "auto"
       setModel(conv.model || "auto");
@@ -477,7 +495,7 @@ export default function Chat() {
   }, []);
 
   // ── New conversation ──────────────────────────────────────────────────
-  const createConversation = useCallback(async (firstMessage: string, agentType: "openclaw" | "claude"): Promise<string | null> => {
+  const createConversation = useCallback(async (firstMessage: string, agentType: "openclaw" | "claude" | "codex"): Promise<string | null> => {
     if (!user) return null;
     const title = firstMessage.slice(0, 40) + (firstMessage.length > 40 ? "…" : "");
     const openclaw_session_id = agentType === "openclaw" ? crypto.randomUUID() : null;
@@ -669,6 +687,10 @@ export default function Chat() {
       const sid = conv.openclaw_session_id ?? crypto.randomUUID();
       const modelPart = modelFlag ? ` ${modelFlag}` : "";
       return `openclaw agent --agent main --session-id ${sid}${modelPart} --message "${escaped}" --json --local\n`;
+    } else if (conv.agent === "codex") {
+      // Codex CLI: `codex -q "<prompt>"` (non-interactive / print mode)
+      const modelPart = modelFlag ? ` --model ${selectedModel}` : "";
+      return `codex${modelPart} -q "${escaped}"\n`;
     } else {
       // claude
       const modelPart = modelFlag ? ` ${modelFlag}` : "";
@@ -782,6 +804,26 @@ export default function Chat() {
             } else {
               console.warn("[Chat] OpenClaw: no JSON payload found, raw cleaned:", cleaned);
             }
+          }
+        } else if (convData?.agent === "codex") {
+          // Codex CLI outputs plain text in -q mode; strip shell noise
+          responseText = cleaned
+            .split("\n")
+            .filter((line) => {
+              const t = line.trim();
+              if (!t) return false;
+              if (/^[%$#>→]\s*$/.test(t)) return false;
+              if (/^[%$#>→]\s/.test(t)) return false;
+              if (/^codex\s+/i.test(t)) return false;
+              if (/^\[[\d;?<>!]*[a-zA-Z]/.test(t)) return false;
+              if (/^[=\-\+\*~\s]+$/.test(t)) return false;
+              return true;
+            })
+            .join("\n")
+            .trim();
+          if (!responseText) {
+            const errorMatch = cleaned.match(/^Error:\s*(.+)/m) ?? cleaned.match(/error:\s*(.+)/im);
+            if (errorMatch) responseText = `⚠️ Codex error: ${errorMatch[1].trim()}`;
           }
         } else {
           responseText = cleaned
@@ -979,6 +1021,17 @@ export default function Chat() {
                 if (fallback && typeof fallback === "string") { responseText = fallback; break; }
               } catch { /* next */ }
             }
+          } else if (convData?.agent === "codex") {
+            responseText = cleaned.split("\n").filter(line => {
+              const t = line.trim();
+              if (!t) return false;
+              if (/^[%$#>→]\s*$/.test(t)) return false;
+              if (/^[%$#>→]\s/.test(t)) return false;
+              if (/^codex\s+/i.test(t)) return false;
+              if (/^\[[\d;?<>!]*[a-zA-Z]/.test(t)) return false;
+              if (/^[=\-\+\*~\s]+$/.test(t)) return false;
+              return true;
+            }).join("\n").trim();
           } else {
             responseText = cleaned.split("\n").filter(line => {
               const t = line.trim();
@@ -1030,12 +1083,12 @@ export default function Chat() {
   // ── Agent toggle ───────────────────────────────────────────────────────
   const handleAgentChange = (value: string) => {
     if (!value) return;
-    const newAgent = value as "openclaw" | "claude";
+    const newAgent = value as "openclaw" | "claude" | "codex";
     if (activeConvId && messages.length > 0) {
       setAgentSwitchPending(newAgent);
     } else {
       setAgent(newAgent);
-      setModel(newAgent === "openclaw" ? OPENCLAW_MODELS[1].id : CLAUDE_MODELS[1].id);
+      setModel(newAgent === "openclaw" ? OPENCLAW_MODELS[1].id : newAgent === "codex" ? CODEX_MODELS[1].id : CLAUDE_MODELS[1].id);
       if (activeConvId) {
         supabase.from("chat_conversations").update({ agent: newAgent }).eq("id", activeConvId);
         setConversations((prev) => prev.map((c) => c.id === activeConvId ? { ...c, agent: newAgent } : c));
@@ -1141,17 +1194,17 @@ export default function Chat() {
             <div className="absolute left-1/2 -translate-x-1/2">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-150 border border-border/30 bg-muted/20 hover:bg-muted/50 hover:border-border/60 text-foreground select-none">
-                    <img src={agent === "openclaw" ? openclawImg : claudecodeImg} alt={agent} className="w-4 h-4 rounded-sm object-cover" />
-                    <span>{agent === "openclaw" ? "OpenClaw" : "Claude Code"}</span>
+                   <button className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-150 border border-border/30 bg-muted/20 hover:bg-muted/50 hover:border-border/60 text-foreground select-none">
+                    <img src={agent === "openclaw" ? openclawImg : agent === "codex" ? codexImg : claudecodeImg} alt={agent} className="w-4 h-4 rounded-sm object-cover" />
+                    <span>{agent === "openclaw" ? "OpenClaw" : agent === "codex" ? "Codex" : "Claude Code"}</span>
                     <ChevronDown className="h-3 w-3 opacity-50" />
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="center" className="w-44">
-                  {(["openclaw", "claude"] as const).map((a) => (
+                <DropdownMenuContent align="center" className="w-48">
+                  {(["openclaw", "claude", "codex"] as const).map((a) => (
                     <DropdownMenuItem key={a} onClick={() => handleAgentChange(a)} className="flex items-center gap-2 cursor-pointer">
-                      <img src={a === "openclaw" ? openclawImg : claudecodeImg} alt={a} className="w-4 h-4 rounded-sm object-cover" />
-                      <span>{a === "openclaw" ? "Remote OpenClaw" : "Remote Claude Code"}</span>
+                      <img src={a === "openclaw" ? openclawImg : a === "codex" ? codexImg : claudecodeImg} alt={a} className="w-4 h-4 rounded-sm object-cover" />
+                      <span>{a === "openclaw" ? "Remote OpenClaw" : a === "codex" ? "Remote Codex" : "Remote Claude Code"}</span>
                       {agent === a && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-foreground/60" />}
                     </DropdownMenuItem>
                   ))}
@@ -1328,8 +1381,8 @@ export default function Chat() {
                     <>
                       <div className="relative mb-6 animate-fade-in" style={{ animationDelay: "0ms", animationFillMode: "both" }}>
                         {(() => {
-                          const tileColor = agent === "openclaw" ? "#DA5048" : "#D37551";
-                          const [r, g, b] = agent === "openclaw" ? [218,80,72] : [211,117,81];
+                          const tileColor = agent === "openclaw" ? "#DA5048" : agent === "codex" ? "#10B981" : "#D37551";
+                          const [r, g, b] = agent === "openclaw" ? [218,80,72] : agent === "codex" ? [16,185,129] : [211,117,81];
                           return <>
                             <div className="absolute inset-0 rounded-3xl blur-xl scale-110" style={{ background: tileColor, opacity: 0.3 }} />
                             <div className="relative w-24 h-24 rounded-3xl flex items-center justify-center" style={{
@@ -1337,17 +1390,19 @@ export default function Chat() {
                               boxShadow: `0 8px 32px rgba(${r},${g},${b},0.35), inset 0 1px 0 rgba(255,255,255,0.12)`,
                               outline: `1px solid rgba(${r},${g},${b},0.3)`,
                             }}>
-                              <img src={agent === "openclaw" ? openclawImg : claudecodeImg} alt={agent} className="w-full h-full object-cover rounded-3xl" />
+                              <img src={agent === "openclaw" ? openclawImg : agent === "codex" ? codexImg : claudecodeImg} alt={agent} className="w-full h-full object-cover rounded-3xl" />
                             </div>
                           </>;
                         })()}
                       </div>
                       <h3 className="font-semibold text-foreground mb-2 text-lg animate-fade-in" style={{ animationDelay: "120ms", animationFillMode: "both" }}>
-                        {agent === "openclaw" ? "Remote OpenClaw" : "Remote Claude Code"}
+                        {agent === "openclaw" ? "Remote OpenClaw" : agent === "codex" ? "Remote Codex" : "Remote Claude Code"}
                       </h3>
                       <p className="text-sm text-muted-foreground max-w-sm leading-relaxed mb-8 animate-fade-in" style={{ animationDelay: "220ms", animationFillMode: "both" }}>
                         {agent === "openclaw"
                           ? "Ask your local OpenClaw agent anything. Commands run on your selected device."
+                          : agent === "codex"
+                          ? "Send prompts directly to OpenAI Codex CLI running on your device."
                           : "Send prompts directly to Claude Code running on your device."}
                       </p>
 
@@ -1358,6 +1413,11 @@ export default function Chat() {
                           { icon: "🔍", title: "Search code", prompt: "Search for TODO comments in the codebase" },
                           { icon: "💻", title: "System info", prompt: "Show system info: OS, CPU, memory usage" },
                           { icon: "🌿", title: "Git status", prompt: "Show the current git status and recent commits" },
+                        ] : agent === "codex" ? [
+                          { icon: "🐛", title: "Fix a bug", prompt: "Find and fix the bug in my code" },
+                          { icon: "✍️", title: "Write tests", prompt: "Write unit tests for the current file" },
+                          { icon: "♻️", title: "Refactor", prompt: "Refactor this code to be cleaner and more readable" },
+                          { icon: "📖", title: "Explain code", prompt: "Explain what this code does step by step" },
                         ] : [
                           { icon: "🐛", title: "Debug code", prompt: "Help me debug an issue in my code" },
                           { icon: "✍️", title: "Write tests", prompt: "Write unit tests for the current file" },
@@ -1436,7 +1496,7 @@ export default function Chat() {
                 onSend={handleSend}
                 disabled={!selectedDeviceId}
                 sendDisabled={(!input.trim() && attachedFiles.length === 0)}
-                placeholder={selectedDeviceId ? `Message ${agent === "openclaw" ? "OpenClaw" : "Claude Code"}…` : "Select a device first…"}
+                placeholder={selectedDeviceId ? `Message ${agent === "openclaw" ? "OpenClaw" : agent === "codex" ? "Codex" : "Claude Code"}…` : "Select a device first…"}
                 attachedFiles={attachedFiles}
                 onRemoveFile={(i) => setAttachedFiles((prev) => prev.filter((_, idx) => idx !== i))}
                 onFileSelect={processFiles}
@@ -1464,7 +1524,7 @@ export default function Chat() {
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>
-                Start a new conversation with {agentSwitchPending === "openclaw" ? "OpenClaw" : "Claude Code"}?
+                Start a new conversation with {agentSwitchPending === "openclaw" ? "OpenClaw" : agentSwitchPending === "codex" ? "Codex" : "Claude Code"}?
               </AlertDialogTitle>
               <AlertDialogDescription>
                 Switching agents will start a fresh conversation. Your current conversation will be preserved and accessible from the sidebar.
@@ -1474,7 +1534,7 @@ export default function Chat() {
               <AlertDialogCancel>Cancel</AlertDialogCancel>
               <AlertDialogAction onClick={() => {
                 setAgent(agentSwitchPending!);
-                setModel(agentSwitchPending === "openclaw" ? OPENCLAW_MODELS[1].id : CLAUDE_MODELS[1].id);
+                setModel(agentSwitchPending === "openclaw" ? OPENCLAW_MODELS[1].id : agentSwitchPending === "codex" ? CODEX_MODELS[1].id : CLAUDE_MODELS[1].id);
                 setAgentSwitchPending(null);
                 setActiveConvId(null);
                 handleNew();

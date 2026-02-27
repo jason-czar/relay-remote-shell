@@ -7,6 +7,7 @@ import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import openclawImg from "@/assets/openclaw.png";
 import claudecodeImg from "@/assets/claudecode.png";
+import codexImg from "@/assets/codex.png";
 
 // Patch oneDark to use pure black background
 const codeTheme = {
@@ -29,7 +30,7 @@ interface ChatMessageProps {
   streaming?: boolean;
   rawStdout?: string;
   createdAt?: string;
-  agent?: "openclaw" | "claude";
+  agent?: "openclaw" | "claude" | "codex";
   onRegenerate?: () => void;
 }
 
@@ -94,7 +95,7 @@ function CodeBlock({ language, value }: { language: string; value: string }) {
 
 export function ChatMessage({ role, content, thinking, streaming, rawStdout, createdAt, agent, onRegenerate }: ChatMessageProps) {
   const isUser = role === "user";
-  const agentImg = agent === "claude" ? claudecodeImg : openclawImg;
+  const agentImg = agent === "claude" ? claudecodeImg : agent === "codex" ? codexImg : openclawImg;
   const [hovered, setHovered] = useState(false);
   const [copied, setCopied] = useState(false);
   const [debugOpen, setDebugOpen] = useState(false);
