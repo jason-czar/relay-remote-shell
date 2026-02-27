@@ -1491,7 +1491,7 @@ export default function Chat() {
                       role={msg.role}
                       content={msg.content}
                       streaming={streamingMsgIndex === i}
-                      rawStdout={msg.role === "assistant" ? (msg as any).rawStdout : undefined}
+                      rawStdout={msg.role === "assistant" ? rawStdoutMapRef.current.get(i) : undefined}
                       thinkingContent={msg.role === "assistant" ? thinkingMapRef.current.get(i) : undefined}
                       thinkingDurationMs={msg.role === "assistant" ? thinkingDurationMapRef.current.get(i) : undefined}
                       createdAt={msg.created_at}
