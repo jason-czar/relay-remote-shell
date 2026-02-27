@@ -49,7 +49,7 @@ export function AppSidebar() {
   const location = useLocation();
   const isChat = location.pathname === "/";
 
-  const [setupOpen, setSetupOpen] = useState(true);
+  const [setupOpen, setSetupOpen] = useState(false);
   const [convOpen, setConvOpen] = useState(true);
   const [search, setSearch] = useState("");
   const [hoveredId, setHoveredId] = useState<string | null>(null);
