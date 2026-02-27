@@ -68,7 +68,7 @@ export function AppSidebar() {
         title: imported > 0 || updated > 0
           ? `Synced ${imported} new + ${updated} updated`
           : "Already up to date",
-        description: imported > 0 || updated > 0 ? "Claude & Codex history synced" : undefined,
+        description: imported > 0 || updated > 0 ? "Claude, Codex & OpenClaw history synced" : undefined,
       });
     } catch (err) {
       toast({ title: "Sync failed", description: err instanceof Error ? err.message : "Unknown error", variant: "destructive" });

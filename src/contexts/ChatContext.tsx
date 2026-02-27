@@ -181,15 +181,15 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     setActiveJobs((prev) => { const next = new Set(prev); next.delete(convId); return next; });
   }, []);
 
-  // ── Sync Claude + Codex local history from a device via relay PTY ────────
+  // ── Sync Claude + Codex + OpenClaw history from a device via relay PTY ──
   const syncClaudeHistory = useCallback(async (deviceId: string): Promise<{ imported: number; updated: number }> => {
     if (!user || !deviceId) throw new Error("No user or device");
     setIsSyncingClaudeHistory(true);
     let imported = 0;
     let updated = 0;
     try {
-      // Python one-liner: reads ~/.claude/sessions AND ~/.codex/sessions, returns { claude: [...], codex: [...] }
-      // Codex sessions may be JSONL (messages.jsonl) or JSON (conversation.json / *.json)
+      // Reads ~/.claude/sessions, ~/.codex/sessions, ~/.openclaw/sessions
+      // OpenClaw also checks ~/.config/openclaw/sessions as alternate path
       const py = `python3 -c "
 import os,json
 def read_sessions(base,max_s=30):
@@ -226,7 +226,9 @@ def read_sessions(base,max_s=30):
           break
     out.append({'id':sid,'meta':meta,'messages':msgs})
   return out
-print(json.dumps({'claude':read_sessions(os.path.expanduser('~/.claude/sessions')),'codex':read_sessions(os.path.expanduser('~/.codex/sessions'))}))
+h=os.path.expanduser
+oc_base=h('~/.openclaw/sessions') if os.path.exists(h('~/.openclaw/sessions')) else h('~/.config/openclaw/sessions')
+print(json.dumps({'claude':read_sessions(h('~/.claude/sessions')),'codex':read_sessions(h('~/.codex/sessions')),'openclaw':read_sessions(oc_base)}))
 " 2>/dev/null
 `;
       const raw = await runRelayCommand(deviceId, py + "\n");
@@ -244,7 +246,7 @@ print(json.dumps({'claude':read_sessions(os.path.expanduser('~/.claude/sessions'
 
       type RawMsg = { role?: string; content?: string | Array<{ type: string; text?: string }> };
       type RawSession = { id: string; meta: { title?: string; created_at?: string }; messages: RawMsg[] };
-      type SyncPayload = { claude: RawSession[]; codex: RawSession[] };
+      type SyncPayload = { claude: RawSession[]; codex: RawSession[]; openclaw: RawSession[] };
       const payload: SyncPayload = JSON.parse(clean.slice(jsonStart, jsonEnd + 1));
 
       const extractText = (content: RawMsg["content"]): string => {
@@ -253,79 +255,96 @@ print(json.dumps({'claude':read_sessions(os.path.expanduser('~/.claude/sessions'
         return content.filter((b) => b.type === "text").map((b) => b.text ?? "").join("").trim();
       };
 
-      // Helper: upsert a batch of sessions for a given agent
-      // claude uses claude_session_id; codex reuses claude_session_id field (no separate column)
-      const upsertSessions = async (
+      // Upsert sessions for claude/codex — uses claude_session_id column
+      const upsertExternalSessions = async (
         sessions: RawSession[],
         agentName: "claude" | "codex",
       ) => {
         if (!sessions.length) return;
-
         const { data: existing } = await supabase
           .from("chat_conversations")
           .select("id, claude_session_id, updated_at")
           .eq("user_id", user.id)
           .eq("agent", agentName)
           .not("claude_session_id", "is", null);
-
         const existingMap = new Map((existing ?? []).map((c) => [c.claude_session_id!, c]));
 
         for (const session of sessions) {
           if (!session.messages.length) continue;
-
           const userMsgs = session.messages.filter((m) => m.role === "user");
           const firstText = extractText(userMsgs[0]?.content);
           const title = session.meta?.title ||
             (firstText ? firstText.slice(0, 40) + (firstText.length > 40 ? "…" : "") : session.id.slice(0, 8));
           const createdAt = session.meta?.created_at ?? new Date().toISOString();
-
-          let convId: string;
           const existingConv = existingMap.get(session.id);
-
+          let convId: string;
           if (existingConv) {
-            await supabase
-              .from("chat_conversations")
-              .update({ title, updated_at: new Date().toISOString() })
-              .eq("id", existingConv.id);
+            await supabase.from("chat_conversations").update({ title, updated_at: new Date().toISOString() }).eq("id", existingConv.id);
             convId = existingConv.id;
             updated++;
           } else {
-            const { data: newConv, error } = await supabase
-              .from("chat_conversations")
-              .insert({
-                user_id: user.id,
-                agent: agentName,
-                model: "auto",
-                title,
-                claude_session_id: session.id, // reused as generic external_session_id
-                device_id: deviceId,
-                created_at: createdAt,
-                updated_at: createdAt,
-              })
-              .select("id")
-              .single();
+            const { data: newConv, error } = await supabase.from("chat_conversations").insert({
+              user_id: user.id, agent: agentName, model: "auto", title,
+              claude_session_id: session.id, device_id: deviceId,
+              created_at: createdAt, updated_at: createdAt,
+            }).select("id").single();
             if (error || !newConv) continue;
             convId = newConv.id;
             imported++;
-
-            const messagesToInsert = session.messages
+            const msgs = session.messages
               .filter((m) => m.role === "user" || m.role === "assistant")
-              .map((m) => ({
-                conversation_id: convId,
-                role: m.role as string,
-                content: extractText(m.content) || "(empty)",
-              }))
+              .map((m) => ({ conversation_id: convId, role: m.role as string, content: extractText(m.content) || "(empty)" }))
               .filter((m) => m.content !== "(empty)");
-
-            for (let i = 0; i < messagesToInsert.length; i += 50) {
-              await supabase.from("chat_messages").insert(messagesToInsert.slice(i, i + 50));
-            }
+            for (let i = 0; i < msgs.length; i += 50) await supabase.from("chat_messages").insert(msgs.slice(i, i + 50));
           }
         }
       };
 
-      await upsertSessions(payload.claude ?? [], "claude");
-      await upsertSessions(payload.codex ?? [], "codex");
+      // Upsert OpenClaw sessions — uses openclaw_session_id column (native field)
+      const upsertOpenClawSessions = async (sessions: RawSession[]) => {
+        if (!sessions.length) return;
+        const { data: existing } = await supabase
+          .from("chat_conversations")
+          .select("id, openclaw_session_id, updated_at")
+          .eq("user_id", user.id)
+          .eq("agent", "openclaw")
+          .not("openclaw_session_id", "is", null);
+        const existingMap = new Map((existing ?? []).map((c) => [c.openclaw_session_id!, c]));
+
+        for (const session of sessions) {
+          if (!session.messages.length) continue;
+          const userMsgs = session.messages.filter((m) => m.role === "user");
+          const firstText = extractText(userMsgs[0]?.content);
+          const title = session.meta?.title ||
+            (firstText ? firstText.slice(0, 40) + (firstText.length > 40 ? "…" : "") : session.id.slice(0, 8));
+          const createdAt = session.meta?.created_at ?? new Date().toISOString();
+          const existingConv = existingMap.get(session.id);
+          let convId: string;
+          if (existingConv) {
+            await supabase.from("chat_conversations").update({ title, updated_at: new Date().toISOString() }).eq("id", existingConv.id);
+            convId = existingConv.id;
+            updated++;
+          } else {
+            const { data: newConv, error } = await supabase.from("chat_conversations").insert({
+              user_id: user.id, agent: "openclaw", model: "auto", title,
+              openclaw_session_id: session.id, device_id: deviceId,
+              created_at: createdAt, updated_at: createdAt,
+            }).select("id").single();
+            if (error || !newConv) continue;
+            convId = newConv.id;
+            imported++;
+            const msgs = session.messages
+              .filter((m) => m.role === "user" || m.role === "assistant")
+              .map((m) => ({ conversation_id: convId, role: m.role as string, content: extractText(m.content) || "(empty)" }))
+              .filter((m) => m.content !== "(empty)");
+            for (let i = 0; i < msgs.length; i += 50) await supabase.from("chat_messages").insert(msgs.slice(i, i + 50));
+          }
+        }
+      };
+
+      await upsertExternalSessions(payload.claude ?? [], "claude");
+      await upsertExternalSessions(payload.codex ?? [], "codex");
+      await upsertOpenClawSessions(payload.openclaw ?? []);
 
       // Refresh sidebar
       const { data } = await supabase
