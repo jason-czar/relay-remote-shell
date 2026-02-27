@@ -280,7 +280,7 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
       {/* Main composer card */}
       <div
         className={cn(
-          "flex flex-col rounded-[24px] px-4 pt-2.5 pb-2.5 transition-all duration-150",
+          "flex flex-col rounded-[32px] px-4 pt-2.5 pb-2.5 transition-all duration-150",
           "bg-[hsl(0,0%,11%)] border-2",
           focused ? "border-foreground/20" : "border-border/40",
           disabled && "opacity-60 pointer-events-none"
