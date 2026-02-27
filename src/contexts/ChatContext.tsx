@@ -181,15 +181,53 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     setActiveJobs((prev) => { const next = new Set(prev); next.delete(convId); return next; });
   }, []);
 
-  // ── Sync Claude Code local history from a device via relay PTY ───────────
+  // ── Sync Claude + Codex local history from a device via relay PTY ────────
   const syncClaudeHistory = useCallback(async (deviceId: string): Promise<{ imported: number; updated: number }> => {
     if (!user || !deviceId) throw new Error("No user or device");
     setIsSyncingClaudeHistory(true);
     let imported = 0;
     let updated = 0;
     try {
-      // Single python3 one-liner — reads ~/.claude/sessions and outputs JSON
-      const py = `python3 -c "import os,json\nbase=os.path.expanduser('~/.claude/sessions')\nif not os.path.exists(base):\n  print('[]')\nelse:\n  dirs=sorted([d for d in os.listdir(base) if os.path.isdir(os.path.join(base,d))],key=lambda x:os.path.getmtime(os.path.join(base,x)),reverse=True)[:40]\n  out=[]\n  for sid in dirs:\n    d=os.path.join(base,sid)\n    meta={}\n    mf=os.path.join(d,'meta.json')\n    if os.path.isfile(mf):\n      try:meta=json.load(open(mf))\n      except:pass\n    msgs=[]\n    jf=os.path.join(d,'messages.jsonl')\n    if os.path.isfile(jf):\n      try:\n        for l in open(jf):\n          l=l.strip()\n          if l:\n            try:msgs.append(json.loads(l))\n            except:pass\n      except:pass\n    out.append({'id':sid,'meta':meta,'messages':msgs})\n  print(json.dumps(out))\n" 2>/dev/null
+      // Python one-liner: reads ~/.claude/sessions AND ~/.codex/sessions, returns { claude: [...], codex: [...] }
+      // Codex sessions may be JSONL (messages.jsonl) or JSON (conversation.json / *.json)
+      const py = `python3 -c "
+import os,json
+def read_sessions(base,max_s=30):
+  if not os.path.exists(base):return []
+  dirs=sorted([d for d in os.listdir(base) if os.path.isdir(os.path.join(base,d))],key=lambda x:os.path.getmtime(os.path.join(base,x)),reverse=True)[:max_s]
+  out=[]
+  for sid in dirs:
+    d=os.path.join(base,sid)
+    meta={}
+    mf=os.path.join(d,'meta.json')
+    if os.path.isfile(mf):
+      try:meta=json.load(open(mf))
+      except:pass
+    msgs=[]
+    for fn in ['messages.jsonl','conversation.jsonl','history.jsonl']:
+      jf=os.path.join(d,fn)
+      if os.path.isfile(jf):
+        try:
+          for l in open(jf):
+            l=l.strip()
+            if l:
+              try:msgs.append(json.loads(l))
+              except:pass
+        except:pass
+        break
+    if not msgs:
+      for fn in ['conversation.json','messages.json']:
+        jf=os.path.join(d,fn)
+        if os.path.isfile(jf):
+          try:
+            data=json.load(open(jf))
+            msgs=data if isinstance(data,list) else data.get('messages',[])
+          except:pass
+          break
+    out.append({'id':sid,'meta':meta,'messages':msgs})
+  return out
+print(json.dumps({'claude':read_sessions(os.path.expanduser('~/.claude/sessions')),'codex':read_sessions(os.path.expanduser('~/.codex/sessions'))}))
+" 2>/dev/null
 `;
       const raw = await runRelayCommand(deviceId, py + "\n");
 
@@ -200,25 +238,14 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         .replace(/\x1b[^[\]]/g, "")
         .replace(/\x1b/g, "");
 
-      const jsonStart = clean.indexOf("[");
-      const jsonEnd = clean.lastIndexOf("]");
+      const jsonStart = clean.indexOf("{");
+      const jsonEnd = clean.lastIndexOf("}");
       if (jsonStart === -1 || jsonEnd === -1) throw new Error("No session data found on device");
 
       type RawMsg = { role?: string; content?: string | Array<{ type: string; text?: string }> };
       type RawSession = { id: string; meta: { title?: string; created_at?: string }; messages: RawMsg[] };
-      const sessions: RawSession[] = JSON.parse(clean.slice(jsonStart, jsonEnd + 1));
-
-      if (!sessions.length) return { imported: 0, updated: 0 };
-
-      // Existing claude conversations keyed by claude_session_id
-      const { data: existing } = await supabase
-        .from("chat_conversations")
-        .select("id, claude_session_id, updated_at")
-        .eq("user_id", user.id)
-        .eq("agent", "claude")
-        .not("claude_session_id", "is", null);
-
-      const existingMap = new Map((existing ?? []).map((c) => [c.claude_session_id!, c]));
+      type SyncPayload = { claude: RawSession[]; codex: RawSession[] };
+      const payload: SyncPayload = JSON.parse(clean.slice(jsonStart, jsonEnd + 1));
 
       const extractText = (content: RawMsg["content"]): string => {
         if (!content) return "";
@@ -226,59 +253,79 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         return content.filter((b) => b.type === "text").map((b) => b.text ?? "").join("").trim();
       };
 
-      for (const session of sessions) {
-        if (!session.messages.length) continue;
+      // Helper: upsert a batch of sessions for a given agent
+      // claude uses claude_session_id; codex reuses claude_session_id field (no separate column)
+      const upsertSessions = async (
+        sessions: RawSession[],
+        agentName: "claude" | "codex",
+      ) => {
+        if (!sessions.length) return;
 
-        const userMsgs = session.messages.filter((m) => m.role === "user");
-        const firstText = extractText(userMsgs[0]?.content);
-        const title = session.meta?.title ||
-          (firstText ? firstText.slice(0, 40) + (firstText.length > 40 ? "…" : "") : session.id.slice(0, 8));
-        const createdAt = session.meta?.created_at ?? new Date().toISOString();
+        const { data: existing } = await supabase
+          .from("chat_conversations")
+          .select("id, claude_session_id, updated_at")
+          .eq("user_id", user.id)
+          .eq("agent", agentName)
+          .not("claude_session_id", "is", null);
 
-        let convId: string;
-        const existingConv = existingMap.get(session.id);
+        const existingMap = new Map((existing ?? []).map((c) => [c.claude_session_id!, c]));
 
-        if (existingConv) {
-          await supabase
-            .from("chat_conversations")
-            .update({ title, updated_at: new Date().toISOString() })
-            .eq("id", existingConv.id);
-          convId = existingConv.id;
-          updated++;
-        } else {
-          const { data: newConv, error } = await supabase
-            .from("chat_conversations")
-            .insert({
-              user_id: user.id,
-              agent: "claude",
-              model: "auto",
-              title,
-              claude_session_id: session.id,
-              device_id: deviceId,
-              created_at: createdAt,
-              updated_at: createdAt,
-            })
-            .select("id")
-            .single();
-          if (error || !newConv) continue;
-          convId = newConv.id;
-          imported++;
+        for (const session of sessions) {
+          if (!session.messages.length) continue;
 
-          // Insert messages for new conversations only
-          const messagesToInsert = session.messages
-            .filter((m) => m.role === "user" || m.role === "assistant")
-            .map((m) => ({
-              conversation_id: convId,
-              role: m.role as string,
-              content: extractText(m.content) || "(empty)",
-            }))
-            .filter((m) => m.content !== "(empty)");
+          const userMsgs = session.messages.filter((m) => m.role === "user");
+          const firstText = extractText(userMsgs[0]?.content);
+          const title = session.meta?.title ||
+            (firstText ? firstText.slice(0, 40) + (firstText.length > 40 ? "…" : "") : session.id.slice(0, 8));
+          const createdAt = session.meta?.created_at ?? new Date().toISOString();
 
-          for (let i = 0; i < messagesToInsert.length; i += 50) {
-            await supabase.from("chat_messages").insert(messagesToInsert.slice(i, i + 50));
+          let convId: string;
+          const existingConv = existingMap.get(session.id);
+
+          if (existingConv) {
+            await supabase
+              .from("chat_conversations")
+              .update({ title, updated_at: new Date().toISOString() })
+              .eq("id", existingConv.id);
+            convId = existingConv.id;
+            updated++;
+          } else {
+            const { data: newConv, error } = await supabase
+              .from("chat_conversations")
+              .insert({
+                user_id: user.id,
+                agent: agentName,
+                model: "auto",
+                title,
+                claude_session_id: session.id, // reused as generic external_session_id
+                device_id: deviceId,
+                created_at: createdAt,
+                updated_at: createdAt,
+              })
+              .select("id")
+              .single();
+            if (error || !newConv) continue;
+            convId = newConv.id;
+            imported++;
+
+            const messagesToInsert = session.messages
+              .filter((m) => m.role === "user" || m.role === "assistant")
+              .map((m) => ({
+                conversation_id: convId,
+                role: m.role as string,
+                content: extractText(m.content) || "(empty)",
+              }))
+              .filter((m) => m.content !== "(empty)");
+
+            for (let i = 0; i < messagesToInsert.length; i += 50) {
+              await supabase.from("chat_messages").insert(messagesToInsert.slice(i, i + 50));
+            }
           }
         }
-      }
+      };
+
+      await upsertSessions(payload.claude ?? [], "claude");
+      await upsertSessions(payload.codex ?? [], "codex");
 
       // Refresh sidebar
       const { data } = await supabase
