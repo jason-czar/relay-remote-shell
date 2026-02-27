@@ -126,7 +126,7 @@ export default function Dashboard() {
       ) : (
       <div className="space-y-6">
         <div>
-          <h1 className="heading-2">Dashboard</h1>
+          <h1 className="heading-1">Dashboard</h1>
           <p className="body-sm text-muted-foreground">Overview of your relay infrastructure</p>
         </div>
 
@@ -175,7 +175,7 @@ export default function Dashboard() {
             <div className="flex items-center gap-2">
               <HeartPulse className={`h-5 w-5 ${health?.status === "ok" ? "text-status-online" : "text-status-offline"}`} />
               <div>
-                <CardTitle className="text-base">Relay Server</CardTitle>
+                <CardTitle className="heading-4">Relay Server</CardTitle>
                 <CardDescription>
                   {health?.status === "ok"
                     ? `v${health.version ?? "?"} · up ${formatUptime(health.uptime_seconds ?? 0)}`
@@ -251,8 +251,8 @@ export default function Dashboard() {
           <Card className="border-dashed">
             <CardContent className="flex flex-col items-center justify-center py-12">
               <Terminal className="h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold">No projects yet</h3>
-              <p className="text-sm text-muted-foreground mb-4">Create your first project to start connecting devices</p>
+              <h3 className="heading-3">No projects yet</h3>
+              <p className="body-sm text-muted-foreground mb-4">Create your first project to start connecting devices</p>
               <Button onClick={() => navigate("/projects")} className="gap-2">
                 <Plus className="h-4 w-4" /> New Project
               </Button>
@@ -263,8 +263,8 @@ export default function Dashboard() {
           <div className="grid gap-4 lg:grid-cols-2">
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Online Devices</CardTitle>
-                <CardDescription>Devices ready for terminal sessions</CardDescription>
+                <CardTitle className="heading-4">Online Devices</CardTitle>
+                <CardDescription className="body-sm">Devices ready for terminal sessions</CardDescription>
               </CardHeader>
               <CardContent>
                 {onlineDevices.length === 0 ? (
@@ -292,8 +292,8 @@ export default function Dashboard() {
 
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Recent Sessions</CardTitle>
-                <CardDescription>Latest terminal session activity</CardDescription>
+                <CardTitle className="heading-4">Recent Sessions</CardTitle>
+                <CardDescription className="body-sm">Latest terminal session activity</CardDescription>
               </CardHeader>
               <CardContent>
                 {sessions.length === 0 ? (
@@ -344,8 +344,8 @@ export default function Dashboard() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
-                <CardTitle className="text-base">Your Node Configurations</CardTitle>
-                <CardDescription>Saved relay configs for your OpenClaw nodes ({skillConfigs.length})</CardDescription>
+                <CardTitle className="heading-4">Your Node Configurations</CardTitle>
+                <CardDescription className="body-sm">Saved relay configs for your OpenClaw nodes ({skillConfigs.length})</CardDescription>
               </div>
               <Button variant="outline" size="sm" className="gap-1.5" onClick={() => navigate("/skill/privaclaw")}>
                 <Plus className="h-3.5 w-3.5" /> Add Node
@@ -390,8 +390,8 @@ export default function Dashboard() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
-                <CardTitle className="text-base">Connected Relay Nodes</CardTitle>
-                <CardDescription>Live nodes connected to the relay server</CardDescription>
+                <CardTitle className="heading-4">Connected Relay Nodes</CardTitle>
+                <CardDescription className="body-sm">Live nodes connected to the relay server</CardDescription>
               </div>
               <Button variant="ghost" size="icon" onClick={fetchNodes} disabled={nodesLoading}>
                 <RefreshCw className={`h-4 w-4 ${nodesLoading ? "animate-spin" : ""}`} />
