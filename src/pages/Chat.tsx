@@ -2,6 +2,8 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import openclawImg from "@/assets/openclaw.png";
 import claudecodeImg from "@/assets/claudecode.png";
 import codexImg from "@/assets/codex.png";
+import terminalIconImg from "@/assets/terminal-icon.png";
+import { EmbeddedTerminal } from "@/components/EmbeddedTerminal";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useScribe } from "@elevenlabs/react";
 import { cn } from "@/lib/utils";
@@ -168,10 +170,10 @@ interface ComposerBoxProps {
   attachedFiles: AttachedFile[];
   onRemoveFile: (idx: number) => void;
   onFileSelect: (files: FileList) => void;
-  agent: "openclaw" | "claude" | "codex";
+  agent: "openclaw" | "claude" | "codex" | "terminal";
   model: string;
   onSlashCommand: (cmd: SlashCommand) => void;
-  onAgentChange: (agent: "openclaw" | "claude" | "codex") => void;
+  onAgentChange: (agent: "openclaw" | "claude" | "codex" | "terminal") => void;
   onModelChange: (model: string) => void;
 }
 
@@ -437,13 +439,13 @@ export default function Chat() {
 
   // ── State ──────────────────────────────────────────────────────────────
   const [messages, setMessages] = useState<Message[]>([]);
-  const [agent, setAgent] = useState<"openclaw" | "claude" | "codex">("openclaw");
+  const [agent, setAgent] = useState<"openclaw" | "claude" | "codex" | "terminal">("openclaw");
   const [model, setModel] = useState<string>("auto");
   const [devices, setDevices] = useState<Tables<"devices">[]>([]);
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>("");
   const [input, setInput] = useState("");
   const [thinking, setThinking] = useState(false);
-  const [agentSwitchPending, setAgentSwitchPending] = useState<"openclaw" | "claude" | "codex" | null>(null);
+  const [agentSwitchPending, setAgentSwitchPending] = useState<"openclaw" | "claude" | "codex" | "terminal" | null>(null);
   const [streamingMsgIndex, setStreamingMsgIndex] = useState<number | null>(null);
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -506,7 +508,7 @@ export default function Chat() {
     if (!activeConvId || !conversations.length) return;
     const conv = conversations.find((c) => c.id === activeConvId);
     if (conv) {
-      setAgent(conv.agent as "openclaw" | "claude" | "codex");
+      setAgent(conv.agent as "openclaw" | "claude" | "codex" | "terminal");
       setModel(conv.model || "auto");
     }
   }, [activeConvId, conversations]);
@@ -833,7 +835,7 @@ export default function Chat() {
 
     let convId = activeConvId;
     if (!convId) {
-      convId = await createConversation(fullText, agent);
+      convId = await createConversation(fullText, agent === "terminal" ? "openclaw" : agent);
       if (!convId) {setThinking(false);return;}
       // Save the user message BEFORE switching activeConvId so the
       // message-load effect finds it already in the DB when it fires.
@@ -1296,7 +1298,11 @@ export default function Chat() {
   // ── Agent toggle ───────────────────────────────────────────────────────
   const handleAgentChange = (value: string) => {
     if (!value) return;
-    const newAgent = value as "openclaw" | "claude" | "codex";
+    const newAgent = value as "openclaw" | "claude" | "codex" | "terminal";
+    if (newAgent === "terminal") {
+      setAgent("terminal");
+      return;
+    }
     if (activeConvId && messages.length > 0) {
       setAgentSwitchPending(newAgent);
     } else {
@@ -1340,7 +1346,7 @@ export default function Chat() {
     }
     if (cmd.clientAction === "help") {
       const available = SLASH_COMMANDS.filter(
-        (c) => c.agents.includes("both") || c.agents.includes(agent)
+        (c) => c.agents.includes("both") || (agent !== "terminal" && c.agents.includes(agent))
       );
       const helpText = `**Available slash commands**\n\n${available.
       map((c) => `\`/${c.name}\` — ${c.description}`).
@@ -1358,7 +1364,7 @@ export default function Chat() {
       setMessages((prev) => [...prev, userMsg]);
       setThinking(true);
       try {
-        const rawCmd = cmd.rawCommand(agent);
+        const rawCmd = cmd.rawCommand(agent === "terminal" ? "openclaw" : agent);
         const stdout = await sendViaRelay(rawCmd, agent === "openclaw");
         const stripped = stdout.replace(/\x1b\[[\d;]*[a-zA-Z]/g, "").trim() || "(done)";
         setMessages((prev) => [...prev, { role: "assistant", content: `\`\`\`\n${stripped}\n\`\`\`` }]);
@@ -1411,16 +1417,16 @@ export default function Chat() {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                    <button className="flex items-center gap-3 px-5 py-2.5 rounded-full text-base font-medium transition-all duration-150 border border-border/40 bg-secondary hover:bg-accent text-foreground select-none">
-                    <img src={agent === "openclaw" ? openclawImg : agent === "codex" ? codexImg : claudecodeImg} alt={agent} className="w-6 h-6 rounded-sm object-cover" />
-                    <span>{agent === "openclaw" ? "OpenClaw" : agent === "codex" ? "Codex" : "Claude Code"}</span>
+                   <img src={agent === "openclaw" ? openclawImg : agent === "codex" ? codexImg : agent === "terminal" ? terminalIconImg : claudecodeImg} alt={agent} className="w-6 h-6 rounded-sm object-cover" />
+                    <span>{agent === "openclaw" ? "OpenClaw" : agent === "codex" ? "Codex" : agent === "terminal" ? "Terminal" : "Claude Code"}</span>
                     <ChevronDown className="h-4 w-4 opacity-50" />
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="center" className="w-56">
-                  {(["openclaw", "claude", "codex"] as const).map((a) =>
+                  {(["openclaw", "claude", "codex", "terminal"] as const).map((a) =>
                   <DropdownMenuItem key={a} onClick={() => handleAgentChange(a)} className="flex items-center gap-3 cursor-pointer py-2.5 text-base">
-                      <img src={a === "openclaw" ? openclawImg : a === "codex" ? codexImg : claudecodeImg} alt={a} className="w-6 h-6 rounded-sm object-cover" />
-                      <span>{a === "openclaw" ? "OpenClaw" : a === "codex" ? "Codex" : "Claude Code"}</span>
+                      <img src={a === "openclaw" ? openclawImg : a === "codex" ? codexImg : a === "terminal" ? terminalIconImg : claudecodeImg} alt={a} className="w-6 h-6 rounded-sm object-cover" />
+                      <span>{a === "openclaw" ? "OpenClaw" : a === "codex" ? "Codex" : a === "terminal" ? "Terminal" : "Claude Code"}</span>
                       {agent === a && <span className="ml-auto w-2 h-2 rounded-full bg-foreground/60" />}
                     </DropdownMenuItem>
                   )}
@@ -1514,8 +1520,18 @@ export default function Chat() {
             </div>
           }
 
-          {/* Messages — centered column */}
-          {/* Scroll-to-bottom floating button */}
+          {/* Messages / Terminal area */}
+          {agent === "terminal" ? (
+            <div className="flex-1 min-h-0 overflow-hidden">
+              {selectedDeviceId ? (
+                <EmbeddedTerminal deviceId={selectedDeviceId} />
+              ) : (
+                <div className="flex items-center justify-center h-full text-muted-foreground/50 text-sm">
+                  Select a device to open a terminal
+                </div>
+              )}
+            </div>
+          ) : (
           <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto py-8 sm:py-10">
             <div key={activeConvId ?? "new"} className="max-w-[900px] mx-auto px-4 sm:px-8 animate-fade-in">
               {messages.length === 0 && !thinking &&
@@ -1599,7 +1615,7 @@ export default function Chat() {
                     thinkingContent={msg.role === "assistant" ? thinkingMapRef.current.get(i) : undefined}
                     thinkingDurationMs={msg.role === "assistant" ? thinkingDurationMapRef.current.get(i) : undefined}
                     createdAt={msg.created_at}
-                    agent={agent}
+                    agent={(agent as string) === "terminal" ? "openclaw" : agent as "openclaw" | "claude" | "codex"}
                     onRegenerate={
                     msg.role === "assistant" &&
                     i === messages.length - 1 &&
@@ -1613,12 +1629,13 @@ export default function Chat() {
                 )}
                 {thinking &&
                 <div className="animate-fade-in">
-                    <ChatMessage role="assistant" content="" thinking agent={agent} />
+                    <ChatMessage role="assistant" content="" thinking agent={(agent as string) === "terminal" ? "openclaw" : agent as "openclaw" | "claude" | "codex"} />
                   </div>
                 }
               </div>
             </div>
           </div>
+          )} {/* end terminal/chat conditional */}
 
           {/* Jump-to-bottom FAB */}
           {isScrolledUp &&
@@ -1632,7 +1649,8 @@ export default function Chat() {
             </div>
           }
 
-          {/* Floating composer */}
+          {/* Floating composer — hidden in terminal mode */}
+          {agent !== "terminal" && (
           <div className="sticky bottom-0 z-20 shrink-0 px-3 sm:px-6 pt-2 backdrop-blur-md bg-background/80 border-t border-border/10" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 1rem)' }}>
             <div className="max-w-[900px] mx-auto">
               {/* Stop streaming button — now handled by composer send button */}
@@ -1668,6 +1686,8 @@ export default function Chat() {
               </p>
             </div>
           </div>
+          )} {/* end agent !== terminal */}
+
         </div>
 
         {/* Agent switch confirmation */}
