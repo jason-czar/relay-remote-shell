@@ -354,6 +354,26 @@ function FeaturesSection() {
   );
 }
 
+function CtaSection({ onNavigate }: { onNavigate: (path: string) => void }) {
+  const { ref, visible } = useInView();
+  return (
+    <section className="px-5 py-16 border-t border-border/20">
+      <div
+        ref={ref}
+        className="max-w-md mx-auto flex flex-col items-center text-center transition-all duration-700"
+        style={{ opacity: visible ? 1 : 0, transform: visible ? "translateY(0)" : "translateY(20px)" }}
+      >
+        <img src={logo} alt="PrivaClaw" className="h-10 w-10 rounded-xl mb-4" />
+        <h2 className="text-2xl font-bold tracking-tight mb-2">Ready to connect?</h2>
+        <p className="text-sm text-muted-foreground mb-6">Set up your connector, pair a device, and start chatting with your machine in minutes.</p>
+        <Button size="lg" onClick={() => onNavigate("/auth")} className="gap-2 font-semibold px-8">
+          Get started free <ArrowRight className="h-4 w-4" />
+        </Button>
+      </div>
+    </section>
+  );
+}
+
 export default function Landing() {
   const navigate = useNavigate();
   const [activeIdx, setActiveIdx] = useState(0);
@@ -537,16 +557,7 @@ export default function Landing() {
       <FeaturesSection />
 
       {/* ── CTA ── */}
-      <section className="px-5 py-16 border-t border-border/20">
-        <div className="max-w-md mx-auto flex flex-col items-center text-center">
-          <img src={logo} alt="PrivaClaw" className="h-10 w-10 rounded-xl mb-4" />
-          <h2 className="text-2xl font-bold tracking-tight mb-2">Ready to connect?</h2>
-          <p className="text-sm text-muted-foreground mb-6">Set up your connector, pair a device, and start chatting with your machine in minutes.</p>
-          <Button size="lg" onClick={() => navigate("/auth")} className="gap-2 font-semibold px-8">
-            Get started free <ArrowRight className="h-4 w-4" />
-          </Button>
-        </div>
-      </section>
+      <CtaSection onNavigate={navigate} />
 
       {/* ── Footer ── */}
       <footer className="border-t border-border/20 py-6">
