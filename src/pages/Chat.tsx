@@ -379,6 +379,7 @@ export default function Chat() {
   const rawStdoutMapRef = useRef<Map<number, string>>(new Map());
   // Store codex reasoning summaries keyed by message array index
   const thinkingMapRef = useRef<Map<number, string>>(new Map());
+  const thinkingDurationMapRef = useRef<Map<number, number>>(new Map());
   useEffect(() => { activeConvIdRef.current = activeConvId; }, [activeConvId]);
 
   // ── State ──────────────────────────────────────────────────────────────
@@ -789,6 +790,7 @@ export default function Chat() {
 
         let responseText = "";
         let codexThinking = "";
+        let codexThinkingDurationMs: number | undefined;
 
         if (convData?.agent === "openclaw") {
           const jsonBlocks = cleaned.match(/\{[\s\S]*?\}/g) ?? [];
@@ -839,6 +841,9 @@ export default function Chat() {
                     if (s.type === "summary_text" && typeof s.text === "string") {
                       reasoningParts.push(s.text);
                     }
+                  }
+                  if (typeof obj.duration_ms === "number") {
+                    codexThinkingDurationMs = obj.duration_ms;
                   }
                   continue;
                 }
@@ -903,6 +908,9 @@ export default function Chat() {
             // Store codex reasoning if present
             if (convData?.agent === "codex" && (codexThinking ?? "")) {
               thinkingMapRef.current.set(revealedIdx, codexThinking ?? "");
+              if (codexThinkingDurationMs !== undefined) {
+                thinkingDurationMapRef.current.set(revealedIdx, codexThinkingDurationMs);
+              }
             }
             return [...prev, { role: "assistant", content: "" }];
           });
@@ -1494,6 +1502,7 @@ export default function Chat() {
                       streaming={streamingMsgIndex === i}
                       rawStdout={msg.role === "assistant" ? (msg as any).rawStdout : undefined}
                       thinkingContent={msg.role === "assistant" ? thinkingMapRef.current.get(i) : undefined}
+                      thinkingDurationMs={msg.role === "assistant" ? thinkingDurationMapRef.current.get(i) : undefined}
                       createdAt={msg.created_at}
                       agent={agent}
                       onRegenerate={

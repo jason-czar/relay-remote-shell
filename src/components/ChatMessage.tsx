@@ -30,6 +30,7 @@ interface ChatMessageProps {
   streaming?: boolean;
   rawStdout?: string;
   thinkingContent?: string;
+  thinkingDurationMs?: number;
   createdAt?: string;
   agent?: "openclaw" | "claude" | "codex";
   onRegenerate?: () => void;
@@ -94,7 +95,7 @@ function CodeBlock({ language, value }: { language: string; value: string }) {
   );
 }
 
-export function ChatMessage({ role, content, thinking, streaming, rawStdout, thinkingContent, createdAt, agent, onRegenerate }: ChatMessageProps) {
+export function ChatMessage({ role, content, thinking, streaming, rawStdout, thinkingContent, thinkingDurationMs, createdAt, agent, onRegenerate }: ChatMessageProps) {
   const isUser = role === "user";
   const agentImg = agent === "claude" ? claudecodeImg : agent === "codex" ? codexImg : openclawImg;
   const [hovered, setHovered] = useState(false);
@@ -212,7 +213,7 @@ export function ChatMessage({ role, content, thinking, streaming, rawStdout, thi
                 className="flex items-center gap-1.5 text-xs text-muted-foreground/70 hover:text-muted-foreground transition-colors mb-1"
               >
                 {thinkingOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-                <span className="italic">Thinking…</span>
+                <span className="italic">Thinking…{thinkingDurationMs !== undefined ? ` (${(thinkingDurationMs / 1000).toFixed(1)}s)` : ""}</span>
               </button>
               {thinkingOpen && (
                 <div
