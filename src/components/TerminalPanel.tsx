@@ -129,13 +129,32 @@ export function TerminalPanel({ deviceId, deviceName, onClose }: TerminalPanelPr
     const term = new Terminal({
       cursorBlink: true, cursorStyle: "bar",
       fontFamily: "'JetBrains Mono', monospace", fontSize: 13, lineHeight: 1.4,
-      theme: {
-        background: "#080c14", foreground: "#c4d9c4", cursor: "#4ade80", selectionBackground: "#4ade8033",
-        black: "#1a1e2e", red: "#ef4444", green: "#4ade80", yellow: "#f59e0b", blue: "#3b82f6",
-        magenta: "#a855f7", cyan: "#22d3ee", white: "#e2e8f0",
-        brightBlack: "#475569", brightRed: "#f87171", brightGreen: "#86efac", brightYellow: "#fbbf24",
-        brightBlue: "#60a5fa", brightMagenta: "#c084fc", brightCyan: "#67e8f9", brightWhite: "#f8fafc",
-      },
+      theme: (() => {
+        const v = (name: string) => getComputedStyle(document.documentElement).getPropertyValue(`--${name}`).trim();
+        const hsl = (name: string) => `hsl(${v(name)})`;
+        return {
+          background:          hsl("terminal-bg"),
+          foreground:          hsl("terminal-fg"),
+          cursor:              hsl("terminal-cursor"),
+          selectionBackground: `hsl(${v("terminal-green")} / 0.2)`,
+          black:               hsl("terminal-black"),
+          red:                 hsl("terminal-red"),
+          green:               hsl("terminal-green"),
+          yellow:              hsl("terminal-yellow"),
+          blue:                hsl("terminal-blue"),
+          magenta:             hsl("terminal-magenta"),
+          cyan:                hsl("terminal-cyan"),
+          white:               hsl("terminal-white"),
+          brightBlack:         hsl("terminal-bright-black"),
+          brightRed:           hsl("terminal-bright-red"),
+          brightGreen:         hsl("terminal-bright-green"),
+          brightYellow:        hsl("terminal-bright-yellow"),
+          brightBlue:          hsl("terminal-bright-blue"),
+          brightMagenta:       hsl("terminal-bright-magenta"),
+          brightCyan:          hsl("terminal-bright-cyan"),
+          brightWhite:         hsl("terminal-bright-white"),
+        };
+      })(),
     });
 
     const fit = new FitAddon();

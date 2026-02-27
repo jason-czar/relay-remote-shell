@@ -83,6 +83,35 @@
     --terminal-bg: 220 25% 6%;
     --terminal-fg: 0 0% 75%;
     --terminal-cursor: 0 0% 85%;
+
+    /* Terminal ANSI palette — used by TerminalPanel xterm theme */
+    --terminal-black:          220 20% 12%;
+    --terminal-red:            0 80% 60%;
+    --terminal-green:          142 60% 55%;
+    --terminal-yellow:         38 90% 55%;
+    --terminal-blue:           217 80% 60%;
+    --terminal-magenta:        280 60% 65%;
+    --terminal-cyan:           188 80% 55%;
+    --terminal-white:          220 15% 88%;
+    --terminal-bright-black:   220 10% 45%;
+    --terminal-bright-red:     0 80% 70%;
+    --terminal-bright-green:   142 55% 70%;
+    --terminal-bright-yellow:  38 90% 68%;
+    --terminal-bright-blue:    217 75% 70%;
+    --terminal-bright-magenta: 280 60% 75%;
+    --terminal-bright-cyan:    188 75% 70%;
+    --terminal-bright-white:   220 10% 97%;
+
+    /* Terminal demo prompt / output colors */
+    --terminal-prompt: 142 60% 55%;   /* green ❯ */
+    --terminal-cmd-text: 220 15% 88%; /* near-white command text */
+    --terminal-dim-text: 0 0% 60%;    /* dim output text */
+
+    /* Overlay / scrim */
+    --overlay-bg: 0 0% 0%;
+    --overlay-opacity-light: 0.35;
+    --overlay-opacity-dark: 0.6;
+    --overlay-surface: 0 0% 100%;     /* white tint for glass panels */
   }
 
   .dark {
@@ -129,6 +158,32 @@
     --terminal-bg: 0 0% 2%;
     --terminal-fg: 0 0% 75%;
     --terminal-cursor: 0 0% 85%;
+
+    --terminal-black:          220 20% 12%;
+    --terminal-red:            0 80% 60%;
+    --terminal-green:          142 60% 55%;
+    --terminal-yellow:         38 90% 55%;
+    --terminal-blue:           217 80% 60%;
+    --terminal-magenta:        280 60% 65%;
+    --terminal-cyan:           188 80% 55%;
+    --terminal-white:          220 15% 88%;
+    --terminal-bright-black:   220 10% 45%;
+    --terminal-bright-red:     0 80% 70%;
+    --terminal-bright-green:   142 55% 70%;
+    --terminal-bright-yellow:  38 90% 68%;
+    --terminal-bright-blue:    217 75% 70%;
+    --terminal-bright-magenta: 280 60% 75%;
+    --terminal-bright-cyan:    188 75% 70%;
+    --terminal-bright-white:   220 10% 97%;
+
+    --terminal-prompt:   142 60% 55%;
+    --terminal-cmd-text: 220 15% 88%;
+    --terminal-dim-text: 0 0% 60%;
+
+    --overlay-bg: 0 0% 0%;
+    --overlay-opacity-light: 0.35;
+    --overlay-opacity-dark: 0.6;
+    --overlay-surface: 0 0% 100%;
   }
 }
 
