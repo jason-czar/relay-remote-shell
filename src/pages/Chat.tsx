@@ -1339,7 +1339,7 @@ export default function Chat() {
                         <span className="opacity-50 hidden sm:inline">No device</span>
                       );
                     })()}
-                    <ChevronDown className="h-4 w-4 shrink-0 opacity-40" />
+                    <ChevronDown className="hidden" />
                   </button>
                 </PopoverTrigger>
                 <PopoverContent align="end" className="w-48 p-1">
