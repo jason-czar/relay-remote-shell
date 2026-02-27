@@ -36,7 +36,6 @@ export default function Devices() {
     const { data, error } = await supabase
       .from("devices")
       .select("*")
-      .eq("user_id", user.id)
       .order("created_at", { ascending: false });
     if (!error && data) setDevices(data);
     setLoading(false);
