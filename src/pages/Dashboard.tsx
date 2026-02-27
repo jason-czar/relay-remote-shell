@@ -126,8 +126,8 @@ export default function Dashboard() {
       ) : (
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-muted-foreground">Overview of your relay infrastructure</p>
+          <h1 className="heading-2">Dashboard</h1>
+          <p className="body-sm text-muted-foreground">Overview of your relay infrastructure</p>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
