@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, FolderOpen, Settings, LogOut, Sun, Moon, Plug, BookOpen,
-  Columns2, MessageSquare, ChevronDown, Plus, Search, Trash2, Pencil, Check, X,
+  Columns2, MessageSquare, ChevronDown, Plus, Search, Trash2, Pencil, Check, X, Monitor,
 } from "lucide-react";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
@@ -25,6 +25,7 @@ import {
 const setupItems = [
   { title: "Dashboard",     url: "/dashboard",       icon: LayoutDashboard },
   { title: "Projects",      url: "/projects",         icon: FolderOpen },
+  { title: "Devices",       url: "/devices",          icon: Monitor },
   { title: "Multi-Session", url: "/multi-session",    icon: Columns2 },
   { title: "Chat",          url: "/",                 icon: MessageSquare },
   { title: "PrivaClaw",     url: "/skill/privaclaw",  icon: Plug },
