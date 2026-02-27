@@ -242,10 +242,10 @@ export default function Landing() {
         {/* App icons row */}
         <div className="relative z-10 flex items-center justify-center gap-5 mb-10">
           {[
-            { src: terminalIcon, alt: "Terminal" },
             { src: openclawIcon, alt: "OpenClaw" },
             { src: claudecodeIcon, alt: "Claude Code" },
             { src: codexIcon, alt: "Codex" },
+            { src: terminalIcon, alt: "Terminal" },
           ].map(({ src, alt }) => (
             <img
               key={alt}
