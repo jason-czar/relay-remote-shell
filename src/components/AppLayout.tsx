@@ -28,7 +28,8 @@ function Inner({ children, sidebarWidth, onMouseDown, isChat }: {
   onMouseDown: (e: React.MouseEvent) => void;
   isChat: boolean;
 }) {
-  const { setOpen, open } = useSidebar();
+  const { setOpen, open, openMobile, setOpenMobile, isMobile } = useSidebar();
+  const MOBILE_SIDEBAR_WIDTH = 288; // matches SIDEBAR_WIDTH_MOBILE = "18rem"
 
   const touchStartX = useRef<number | null>(null);
 
@@ -43,12 +44,19 @@ function Inner({ children, sidebarWidth, onMouseDown, isChat }: {
     if (touchStartX.current === null) return;
     const dx = e.changedTouches[0].clientX - touchStartX.current;
     // Swipe right ≥ 50px from edge → open sidebar
-    if (dx >= 50 && !open) {
+    if (dx >= 50 && !(isMobile ? openMobile : open)) {
       if ("vibrate" in navigator) navigator.vibrate(8);
-      setOpen(true);
+      isMobile ? setOpenMobile(true) : setOpen(true);
     }
     touchStartX.current = null;
-  }, [open, setOpen]);
+  }, [open, openMobile, isMobile, setOpen, setOpenMobile]);
+
+  // Tap on content area to close sidebar on mobile
+  const handleMainClick = useCallback(() => {
+    if (isMobile && openMobile) setOpenMobile(false);
+  }, [isMobile, openMobile, setOpenMobile]);
+
+  const mobileShift = isMobile && openMobile ? MOBILE_SIDEBAR_WIDTH : 0;
 
   return (
     <div className="h-screen flex w-full overflow-hidden">
@@ -63,7 +71,9 @@ function Inner({ children, sidebarWidth, onMouseDown, isChat }: {
         </div>
       </div>
       <main
-        className="flex-1 flex flex-col overflow-hidden"
+        className="flex-1 flex flex-col overflow-hidden transition-transform duration-300 ease-in-out"
+        style={isMobile ? { transform: `translateX(${mobileShift}px)` } : undefined}
+        onClick={handleMainClick}
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
       >
