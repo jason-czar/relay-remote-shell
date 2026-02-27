@@ -234,6 +234,16 @@ const FEATURES = [
   },
 ];
 
+function useScrollY() {
+  const [scrollY, setScrollY] = useState(0);
+  useEffect(() => {
+    const onScroll = () => setScrollY(window.scrollY);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+  return scrollY;
+}
+
 function useInView(threshold = 0.15) {
   const ref = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
@@ -348,6 +358,7 @@ export default function Landing() {
   const navigate = useNavigate();
   const [activeIdx, setActiveIdx] = useState(0);
   const agent = AGENTS[activeIdx];
+  const scrollY = useScrollY();
 
   return (
     <div className="min-h-screen bg-background flex flex-col text-foreground">
@@ -389,7 +400,10 @@ export default function Landing() {
           ))}
         </div>
         {/* ambient glow */}
-        <div className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[500px] rounded-full blur-3xl transition-all duration-700 bg-foreground/5" />
+        <div
+          className="pointer-events-none absolute top-1/2 left-1/2 w-[700px] h-[500px] rounded-full blur-3xl bg-foreground/5"
+          style={{ transform: `translate(-50%, calc(-50% + ${scrollY * 0.3}px))`, willChange: "transform" }}
+        />
 
         <div className="relative z-10 flex flex-col items-center text-center max-w-3xl w-full">
 
