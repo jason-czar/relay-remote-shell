@@ -120,9 +120,9 @@ export function AppSidebar() {
       <SidebarContent className="flex flex-col min-h-0" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
         <SidebarGroup>
           <SidebarGroupLabel>
-            <div className="flex items-center gap-2">
-              <img alt="PrivaClaw" className="h-5 w-5 rounded" src="/lovable-uploads/3c00a1cc-702c-41f2-b489-b7bfd8f24dee.png" />
-              {!collapsed && <span className="font-mono text-sm font-bold">PrivaClaw</span>}
+            <div className="flex items-center gap-2.5">
+              <img alt="PrivaClaw" className="h-6 w-6 rounded" src="/lovable-uploads/3c00a1cc-702c-41f2-b489-b7bfd8f24dee.png" />
+              {!collapsed && <span className="font-mono text-base font-bold">PrivaClaw</span>}
             </div>
           </SidebarGroupLabel>
         </SidebarGroup>
@@ -135,10 +135,9 @@ export function AppSidebar() {
                 <span className="text-sm font-semibold text-foreground/70 tracking-tight">Conversations</span>
                 <button
                   onClick={() => {handleNew();navigate("/");}}
-                  className="flex items-center gap-1 text-xs text-primary/80 hover:text-primary font-medium transition-colors px-2 py-0.5 rounded-md hover:bg-primary/10"
+                  className="flex items-center gap-1.5 text-sm text-primary/80 hover:text-primary font-medium transition-colors px-2.5 py-1 rounded-md hover:bg-primary/10"
                   title="New chat">
-
-                  <Plus className="h-3 w-3" />
+                  <Plus className="h-3.5 w-3.5" />
                   New
                 </button>
               </div>
@@ -148,17 +147,16 @@ export function AppSidebar() {
             <SidebarGroupContent className="flex flex-col flex-1 min-h-0">
                 {/* Search */}
                 <div className="px-2 pb-1">
-                  <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-muted/30 border border-border/40 focus-within:border-border/70 transition-colors">
-                    <Search className="h-3 w-3 text-muted-foreground/50 shrink-0" />
+                <div className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-muted/30 border border-border/40 focus-within:border-border/70 transition-colors">
+                    <Search className="h-4 w-4 text-muted-foreground/50 shrink-0" />
                     <input
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     placeholder="Search…"
-                    className="flex-1 bg-transparent text-xs outline-none placeholder:text-muted-foreground/40 text-foreground min-w-0" />
-
+                    className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/40 text-foreground min-w-0" />
                     {search &&
                   <button onClick={() => setSearch("")} className="shrink-0 text-muted-foreground/50 hover:text-foreground transition-colors">
-                        <X className="h-3 w-3" />
+                        <X className="h-3.5 w-3.5" />
                       </button>
                   }
                   </div>
@@ -174,12 +172,12 @@ export function AppSidebar() {
                 }
                   {groups.map((group) =>
                 <div key={group.label} className="mb-2">
-                      <p className="text-xs font-semibold text-muted-foreground/30 uppercase tracking-wider px-2 pt-2 pb-1.5">{group.label}</p>
+                  <p className="text-xs font-semibold text-muted-foreground/30 uppercase tracking-wider px-2 pt-2 pb-1.5">{group.label}</p>
                       {group.items.map((conv) =>
                   <div
                     key={conv.id}
                     className={cn(
-                      "group relative flex items-center gap-2 rounded-lg px-2.5 py-2 cursor-pointer transition-all duration-100",
+                      "group relative flex items-center gap-2 rounded-lg px-3 py-2.5 cursor-pointer transition-all duration-100",
                       activeConvId === conv.id ?
                       "bg-accent/80 text-foreground" :
                       "text-muted-foreground/70 hover:bg-accent/40 hover:text-foreground"
@@ -216,7 +214,7 @@ export function AppSidebar() {
                             </div>) :
 
                     <>
-                               <span className="flex-1 truncate text-sm leading-snug">{conv.title}</span>
+                               <span className="flex-1 truncate text-[15px] leading-snug">{conv.title}</span>
                                <div className={cn(
                         "shrink-0 flex items-center gap-0.5 transition-opacity",
                         hoveredId === conv.id ? "opacity-100" : "opacity-0 pointer-events-none"
@@ -273,9 +271,8 @@ export function AppSidebar() {
                   end
                   className={`hover:bg-accent/50 ${!collapsed ? "pl-7" : ""}`}
                   activeClassName="bg-accent text-primary font-medium">
-
-                  <item.icon className="h-4 w-4" />
-                  <span>{item.title}</span>
+                  <item.icon className="h-5 w-5" />
+                  <span className="text-[15px]">{item.title}</span>
                 </NavLink>
               </SidebarMenuButton>
             </SidebarMenuItem>
@@ -287,8 +284,8 @@ export function AppSidebar() {
                 tooltip="Setup"
                 className="font-medium">
 
-              <Settings className="h-4 w-4" />
-              <span className="flex-1">Setup</span>
+              <Settings className="h-5 w-5" />
+              <span className="flex-1 text-[15px]">Setup</span>
               {!collapsed &&
                 <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground transition-transform duration-200 ${setupOpen ? "" : "rotate-180"}`} />
                 }
@@ -301,18 +298,18 @@ export function AppSidebar() {
             "mt-1 border-t border-border/50 pt-2 flex items-center gap-2.5 px-2 py-2 rounded-lg hover:bg-accent/40 transition-colors cursor-default",
             collapsed && "justify-center px-0"
           )}>
-          <Avatar className="h-7 w-7 shrink-0 ring-1 ring-primary/20">
+          <Avatar className="h-9 w-9 shrink-0 ring-1 ring-primary/20">
             <AvatarImage src={avatarUrl ?? undefined} alt={displayName ?? ""} />
-            <AvatarFallback className="bg-primary/10 text-primary text-[10px] font-semibold">
+            <AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold">
               {(displayName ?? user?.email ?? "U").slice(0, 2).toUpperCase()}
             </AvatarFallback>
           </Avatar>
           {!collapsed &&
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-medium text-foreground truncate leading-tight">
+              <p className="text-sm font-medium text-foreground truncate leading-tight">
                 {displayName ?? user?.email?.split("@")[0] ?? "User"}
               </p>
-              <p className="text-[10px] text-muted-foreground/60 truncate leading-tight">
+              <p className="text-xs text-muted-foreground/60 truncate leading-tight">
                 {user?.email ?? ""}
               </p>
             </div>
@@ -321,17 +318,15 @@ export function AppSidebar() {
             <div className="flex items-center gap-0.5 shrink-0">
               <button
                 onClick={toggleTheme}
-                className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
                 title={theme === "dark" ? "Light Mode" : "Dark Mode"}>
-
-                {theme === "dark" ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
+                {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
               </button>
               <button
                 onClick={handleSignOut}
-                className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                className="p-2 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
                 title="Sign Out">
-
-                <LogOut className="h-3.5 w-3.5" />
+                <LogOut className="h-4 w-4" />
               </button>
             </div>
             }
