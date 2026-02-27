@@ -156,8 +156,8 @@ const AGENTS = [
     tagline: "Local shell agent",
     desc: "Execute shell commands, browse files, and control your machine remotely from anywhere.",
     img: openclawImg,
-    hex: "#DA5048",
-    rgb: [218, 80, 72] as [number, number, number],
+    hex: "hsl(var(--foreground))",
+    rgb: [140, 140, 140] as [number, number, number],
     prompts: ["List files in project", "Show git status", "Run test suite", "Check system resources"],
   },
   {
@@ -166,8 +166,8 @@ const AGENTS = [
     tagline: "AI coding agent",
     desc: "Pair with Claude Code running on your device to write, debug, and refactor code at speed.",
     img: claudecodeImg,
-    hex: "#D37551",
-    rgb: [211, 117, 81] as [number, number, number],
+    hex: "hsl(var(--foreground))",
+    rgb: [140, 140, 140] as [number, number, number],
     prompts: ["Debug this error", "Write unit tests", "Refactor this file", "Explain the codebase"],
   },
   {
@@ -176,8 +176,8 @@ const AGENTS = [
     tagline: "OpenAI reasoning agent",
     desc: "Harness OpenAI's o-series reasoning models to solve complex engineering problems step by step.",
     img: codexImg,
-    hex: "#4ade80",
-    rgb: [74, 222, 128] as [number, number, number],
+    hex: "hsl(var(--foreground))",
+    rgb: [140, 140, 140] as [number, number, number],
     prompts: ["Fix this bug", "Refactor for clarity", "Generate unit tests", "Explain step by step"],
   },
 ];
