@@ -259,6 +259,63 @@ function useInView(threshold = 0.15) {
   return { ref, visible };
 }
 
+function useCountUp(target: number, duration = 1400, active = false) {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    if (!active) return;
+    let start: number | null = null;
+    const step = (ts: number) => {
+      if (!start) start = ts;
+      const progress = Math.min((ts - start) / duration, 1);
+      // ease-out cubic
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setCount(Math.floor(eased * target));
+      if (progress < 1) requestAnimationFrame(step);
+      else setCount(target);
+    };
+    requestAnimationFrame(step);
+  }, [active, target, duration]);
+  return count;
+}
+
+const STATS = [
+  { value: 3,    suffix: "",  label: "AI agents supported" },
+  { value: 100,  suffix: "%", label: "traffic stays on-device" },
+  { value: 5,    suffix: "s", label: "average pairing time" },
+  { value: 0,    suffix: "",  label: "port forwarding required" },
+];
+
+function StatCard({ value, suffix, label, active, delay }: { value: number; suffix: string; label: string; active: boolean; delay: number }) {
+  const count = useCountUp(value, 1200, active);
+  return (
+    <div
+      className="flex flex-col items-center text-center p-6 rounded-2xl border border-border/20 transition-all duration-500"
+      style={{ background: "hsl(var(--card))", opacity: active ? 1 : 0, transform: active ? "translateY(0)" : "translateY(16px)", transitionDelay: `${delay}ms` }}
+    >
+      <span className="text-4xl font-bold tracking-tight mb-1 tabular-nums">
+        {count}{suffix}
+      </span>
+      <span className="text-xs text-muted-foreground/70 leading-snug">{label}</span>
+    </div>
+  );
+}
+
+function StatsSection() {
+  const { ref, visible } = useInView(0.2);
+  return (
+    <section className="border-t border-border/20 px-5 py-16">
+      <div className="max-w-4xl mx-auto">
+        <p className="text-xs font-semibold tracking-widest text-muted-foreground/50 uppercase text-center mb-8">By the numbers</p>
+        <div ref={ref} className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {STATS.map((s, i) => (
+            <StatCard key={s.label} {...s} active={visible} delay={i * 100} />
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function CapabilityPills() {
   const { ref, visible } = useInView(0.2);
   const pills = [
@@ -551,6 +608,9 @@ export default function Landing() {
 
       {/* ── Capability pills ── */}
       <CapabilityPills />
+
+      {/* ── Stats ── */}
+      <StatsSection />
 
       {/* ── How it works ── */}
       <HowItWorksSection onNavigate={navigate} />
