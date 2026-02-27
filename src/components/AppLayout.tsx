@@ -63,7 +63,8 @@ function Inner({ children, sidebarWidth, onMouseDown, isChat }: {
       {/* Mobile scrim */}
       {isMobile && (
         <div
-          className={`fixed inset-0 z-30 bg-black transition-opacity duration-300 pointer-events-none ${openMobile ? "opacity-40" : "opacity-0"}`}
+          className={`fixed inset-0 z-30 bg-black transition-opacity duration-300 ${openMobile ? "opacity-40 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
+          onClick={() => setOpenMobile(false)}
         />
       )}
       <div className="relative flex shrink-0">
