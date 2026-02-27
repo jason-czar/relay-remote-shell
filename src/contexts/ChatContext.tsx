@@ -31,9 +31,17 @@ const ChatContext = createContext<ChatContextValue | null>(null);
 export function ChatProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [activeConvId, setActiveConvId] = useState<string | null>(null);
+  const [activeConvId, setActiveConvIdState] = useState<string | null>(() => {
+    return localStorage.getItem("activeConvId") ?? null;
+  });
   const [newCallback, setNewCallback] = useState<(() => void) | null>(null);
   const [activeJobs, setActiveJobs] = useState<Set<string>>(new Set());
+
+  const setActiveConvId = useCallback((id: string | null) => {
+    setActiveConvIdState(id);
+    if (id) localStorage.setItem("activeConvId", id);
+    else localStorage.removeItem("activeConvId");
+  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -43,9 +51,16 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       .eq("user_id", user.id)
       .order("updated_at", { ascending: false })
       .then(({ data }) => {
-        if (data) setConversations(data as Conversation[]);
+        if (data) {
+          setConversations(data as Conversation[]);
+          // Validate persisted activeConvId — clear if it no longer exists
+          const saved = localStorage.getItem("activeConvId");
+          if (saved && !data.find((c) => c.id === saved)) {
+            setActiveConvId(null);
+          }
+        }
       });
-  }, [user]);
+  }, [user, setActiveConvId]);
 
   const handleDelete = useCallback(async (id: string) => {
     await supabase.from("chat_conversations").delete().eq("id", id);
