@@ -969,6 +969,62 @@ export default function Chat() {
           }
         }
 
+        // ── Auto-retry on empty response ────────────────────────────────────
+        if (!responseText.trim()) {
+          console.warn("[Chat] Empty response detected, retrying once…");
+          try {
+            const retryStdout = await sendViaRelay(command, convData?.agent === "openclaw");
+            const retryCleaned = stripAnsi(retryStdout);
+
+            if (convData?.agent === "openclaw") {
+              const jsonBlocks = retryCleaned.match(/\{[\s\S]*?\}/g) ?? [];
+              const greedyMatch = retryCleaned.match(/\{[\s\S]*\}/);
+              const candidates = greedyMatch ? [...jsonBlocks, greedyMatch[0]] : jsonBlocks;
+              for (let i = candidates.length - 1; i >= 0; i--) {
+                try {
+                  const parsed = JSON.parse(candidates[i]);
+                  const payloadText = parsed?.payloads?.[0]?.text;
+                  if (payloadText) { responseText = String(payloadText); break; }
+                  const fallback = parsed.content ?? parsed.message ?? parsed.response ?? parsed.text ?? parsed.result;
+                  if (fallback && typeof fallback === "string") { responseText = fallback; break; }
+                } catch {/* try next */}
+              }
+            } else if (convData?.agent === "codex") {
+              const retryParts: string[] = [];
+              for (const line of retryCleaned.split("\n")) {
+                const t = line.trim();
+                if (!t || !t.startsWith("{")) continue;
+                try {
+                  const obj = JSON.parse(t);
+                  if (obj.type === "message" && obj.role === "assistant" && Array.isArray(obj.content)) {
+                    for (const part of obj.content) {
+                      if (part.type === "output_text" && typeof part.text === "string") retryParts.push(part.text);
+                    }
+                  }
+                } catch {/* skip */}
+              }
+              responseText = retryParts.join("\n").trim();
+            } else {
+              responseText = retryCleaned.split("\n").filter((line) => {
+                const t = line.trim();
+                if (!t) return false;
+                if (/^[%$#>→]\s*$/.test(t)) return false;
+                if (/^[%$#>→]\s/.test(t)) return false;
+                if (/^Restored session:/i.test(t)) return false;
+                if (/^claude\s+(-p|-c|--print|--resume)/i.test(t)) return false;
+                if (/^\[[\d;?<>!]*[a-zA-Z]/.test(t)) return false;
+                if (/^[=\-\+\*~\s]+$/.test(t)) return false;
+                if (/\w+@\w+/.test(t) && /[~\/]/.test(t)) return false;
+                if (/^\]\d+;/.test(t)) return false;
+                if (/^\?2004[hl]$/.test(t)) return false;
+                return true;
+              }).join("\n").trim();
+            }
+          } catch (retryErr) {
+            console.error("[Chat] Retry failed:", retryErr);
+          }
+        }
+
         responseText = responseText.trim() || "(empty response)";
 
         // Only do streaming reveal if this conv is still the active one
