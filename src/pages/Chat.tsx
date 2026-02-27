@@ -1242,63 +1242,63 @@ export default function Chat() {
 
           {/* Top header bar */}
           <div
-            className="shrink-0 border-b border-border/10 flex items-center px-4 relative backdrop-blur-md bg-background/30"
-            style={{ paddingTop: 'env(safe-area-inset-top, 0px)', minHeight: 'calc(env(safe-area-inset-top, 0px) + 56px)' }}
+            className="shrink-0 border-b border-border/10 flex items-center px-5 relative backdrop-blur-md bg-background/30"
+            style={{ paddingTop: 'env(safe-area-inset-top, 0px)', minHeight: 'calc(env(safe-area-inset-top, 0px) + 64px)' }}
           >
             {/* Left — sidebar trigger */}
-            <SidebarTrigger />
+            <SidebarTrigger className="scale-125" />
             {/* Center — agent dropdown */}
             <div className="absolute left-1/2 -translate-x-1/2">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                   <button className="flex items-center gap-2.5 px-4 py-2 rounded-full text-sm font-medium transition-all duration-150 border border-border/30 bg-muted/20 hover:bg-muted/50 hover:border-border/60 text-foreground select-none">
-                    <img src={agent === "openclaw" ? openclawImg : agent === "codex" ? codexImg : claudecodeImg} alt={agent} className="w-5 h-5 rounded-sm object-cover" />
+                   <button className="flex items-center gap-3 px-5 py-2.5 rounded-full text-base font-medium transition-all duration-150 border border-border/30 bg-muted/20 hover:bg-muted/50 hover:border-border/60 text-foreground select-none">
+                    <img src={agent === "openclaw" ? openclawImg : agent === "codex" ? codexImg : claudecodeImg} alt={agent} className="w-6 h-6 rounded-sm object-cover" />
                     <span>{agent === "openclaw" ? "OpenClaw" : agent === "codex" ? "Codex" : "Claude Code"}</span>
-                    <ChevronDown className="h-3.5 w-3.5 opacity-50" />
+                    <ChevronDown className="h-4 w-4 opacity-50" />
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="center" className="w-52">
+                <DropdownMenuContent align="center" className="w-56">
                   {(["openclaw", "claude", "codex"] as const).map((a) => (
-                    <DropdownMenuItem key={a} onClick={() => handleAgentChange(a)} className="flex items-center gap-2.5 cursor-pointer py-2">
-                      <img src={a === "openclaw" ? openclawImg : a === "codex" ? codexImg : claudecodeImg} alt={a} className="w-5 h-5 rounded-sm object-cover" />
+                    <DropdownMenuItem key={a} onClick={() => handleAgentChange(a)} className="flex items-center gap-3 cursor-pointer py-2.5 text-base">
+                      <img src={a === "openclaw" ? openclawImg : a === "codex" ? codexImg : claudecodeImg} alt={a} className="w-6 h-6 rounded-sm object-cover" />
                       <span>{a === "openclaw" ? "Remote OpenClaw" : a === "codex" ? "Remote Codex" : "Remote Claude Code"}</span>
-                      {agent === a && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-foreground/60" />}
+                      {agent === a && <span className="ml-auto w-2 h-2 rounded-full bg-foreground/60" />}
                     </DropdownMenuItem>
                   ))}
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
             {/* Right — new chat + refresh + device pill */}
-            <div className="ml-auto flex items-center gap-2.5">
+            <div className="ml-auto flex items-center gap-3">
               <button
                 onClick={() => setActiveConvId(null)}
-                className="w-9 h-9 rounded-full flex items-center justify-center bg-muted/40 hover:bg-muted/70 text-foreground transition-all duration-150 border border-border/30"
+                className="w-10 h-10 rounded-full flex items-center justify-center bg-muted/40 hover:bg-muted/70 text-foreground transition-all duration-150 border border-border/30"
                 title="New conversation"
               >
-                <SquarePen className="h-4 w-4" />
+                <SquarePen className="h-5 w-5" />
               </button>
               <button
                 onClick={() => window.location.reload()}
-                className="hidden sm:flex w-8 h-8 rounded-full items-center justify-center text-muted-foreground/60 hover:text-foreground hover:bg-muted/50 transition-all duration-150"
+                className="hidden sm:flex w-9 h-9 rounded-full items-center justify-center text-muted-foreground/60 hover:text-foreground hover:bg-muted/50 transition-all duration-150"
                 title="Refresh page"
               >
-                <RefreshCw className="h-4 w-4" />
+                <RefreshCw className="h-5 w-5" />
               </button>
               <Popover>
                 <PopoverTrigger asChild>
-                  <button className="flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-150 border border-border/30 bg-muted/20 hover:bg-muted/50 hover:border-border/60 text-muted-foreground hover:text-foreground">
+                  <button className="flex items-center gap-2 px-3.5 py-2 rounded-full text-sm font-medium transition-all duration-150 border border-border/30 bg-muted/20 hover:bg-muted/50 hover:border-border/60 text-muted-foreground hover:text-foreground">
                     {(() => {
                       const dev = devices.find(d => d.id === selectedDeviceId);
                       return dev ? (
                         <>
-                          <span className={`w-2 h-2 rounded-full shrink-0 ${dev.status === "online" ? "bg-status-online animate-pulse" : "bg-muted-foreground/40"}`} />
-                          <span className="hidden sm:inline max-w-[120px] truncate">{dev.name}</span>
+                          <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${dev.status === "online" ? "bg-status-online animate-pulse" : "bg-muted-foreground/40"}`} />
+                          <span className="hidden sm:inline max-w-[140px] truncate">{dev.name}</span>
                         </>
                       ) : (
                         <span className="opacity-50 hidden sm:inline">No device</span>
                       );
                     })()}
-                    <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-40" />
+                    <ChevronDown className="h-4 w-4 shrink-0 opacity-40" />
                   </button>
                 </PopoverTrigger>
                 <PopoverContent align="end" className="w-48 p-1">
@@ -1379,8 +1379,8 @@ export default function Chat() {
             </button>
           )}
 
-          <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto py-6 sm:py-8">
-            <div className="max-w-[860px] mx-auto px-3 sm:px-6">
+          <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto py-8 sm:py-10">
+            <div className="max-w-[900px] mx-auto px-4 sm:px-8">
               {messages.length === 0 && !thinking && (
                 <div className="flex flex-col items-center justify-center min-h-[70vh] sm:min-h-[80vh] text-center">
 
@@ -1533,7 +1533,7 @@ export default function Chat() {
 
           {/* Floating composer */}
           <div className="shrink-0 px-3 sm:px-6 pt-2" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 1rem)' }}>
-            <div className="max-w-[860px] mx-auto">
+            <div className="max-w-[900px] mx-auto">
               {/* Stop streaming button */}
               {(thinking || streamingMsgIndex !== null) && (
                 <div className="flex justify-center mb-3">
