@@ -179,8 +179,8 @@ export default function Settings() {
     <AppLayout>
       <div className="max-w-2xl space-y-6">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
-          <p className="text-muted-foreground">Manage your profile and account</p>
+          <h1 className="heading-2">Settings</h1>
+          <p className="body-sm text-muted-foreground">Manage your profile and account</p>
         </div>
 
         {/* Avatar + Display Name */}

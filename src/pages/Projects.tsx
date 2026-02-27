@@ -76,8 +76,8 @@ export default function Projects() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Projects</h1>
-            <p className="text-muted-foreground">Manage your relay projects</p>
+            <h1 className="heading-2">Projects</h1>
+            <p className="body-sm text-muted-foreground">Manage your relay projects</p>
           </div>
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
