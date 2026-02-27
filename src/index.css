@@ -193,12 +193,10 @@
   }
   html {
     overflow-x: hidden;
-    overscroll-behavior: none;
   }
   body {
     @apply bg-background text-foreground font-sans antialiased;
     overflow-x: hidden;
-    overscroll-behavior: none;
   }
   .font-mono {
     font-family: 'JetBrains Mono', monospace;
