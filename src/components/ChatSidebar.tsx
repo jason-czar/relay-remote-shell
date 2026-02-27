@@ -104,8 +104,7 @@ export function ChatSidebar({ conversations, activeId, onSelect, onNew, onDelete
   if (collapsed) {
     return (
       <div
-        className="flex flex-col items-center py-4 gap-2 h-full border-r border-border/30 w-12 shrink-0"
-        style={{ background: "rgba(255,255,255,0.015)" }}
+        className="flex flex-col items-center py-4 gap-2 h-full border-r border-border/30 w-12 shrink-0 bg-sidebar"
       >
         <button
           onClick={() => setCollapsed(false)}
@@ -144,8 +143,7 @@ export function ChatSidebar({ conversations, activeId, onSelect, onNew, onDelete
   return (
     <div className="flex h-full relative shrink-0" style={{ width }}>
       <div
-        className="flex flex-col h-full w-full border-r border-border/30 overflow-hidden"
-        style={{ background: "rgba(255,255,255,0.015)" }}
+        className="flex flex-col h-full w-full border-r border-border/30 overflow-hidden bg-sidebar"
       >
         {/* Header */}
         <div className="p-3 flex items-center gap-1.5 border-b border-border/20">

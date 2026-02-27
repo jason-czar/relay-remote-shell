@@ -321,8 +321,7 @@ export function ChatMessage({ role, content, thinking, streaming, rawStdout, thi
         {/* Debug panel */}
         {debugOpen && (
           <div
-            className="mt-2 rounded-lg border border-border/50 overflow-hidden text-xs font-mono"
-            style={{ background: "rgba(0,0,0,0.35)", backdropFilter: "blur(8px)" }}
+            className="mt-2 rounded-lg border border-border/50 overflow-hidden text-xs font-mono bg-terminal-bg/80 backdrop-blur-sm"
           >
             <div className="flex items-center gap-1.5 px-3 py-1.5 border-b border-border/30 text-muted-foreground">
               <Terminal className="h-3 w-3" />

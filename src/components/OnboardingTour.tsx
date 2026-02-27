@@ -169,7 +169,7 @@ export function OnboardingTour() {
           if (e.target === overlayRef.current) finish();
         }}
         style={{
-          background: "rgba(0,0,0,0.6)",
+          background: "hsl(var(--overlay-bg) / var(--overlay-opacity-dark))",
           // Cut out the highlighted element
           ...(highlight
             ? {

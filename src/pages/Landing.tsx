@@ -108,29 +108,32 @@ function TerminalDemo() {
       style={{ background: "hsl(0 0% 5%)" }}
     >
       {/* window chrome */}
-      <div className="flex items-center gap-1.5 px-4 py-2.5 border-b border-border/20" style={{ background: "hsl(0 0% 7%)" }}>
-        <span className="w-3 h-3 rounded-full bg-red-500/70" />
-        <span className="w-3 h-3 rounded-full bg-yellow-500/70" />
-        <span className="w-3 h-3 rounded-full bg-green-500/70" />
+      <div className="flex items-center gap-1.5 px-4 py-2.5 border-b border-border/20 bg-card">
+        <span className="w-3 h-3 rounded-full bg-border/60" />
+        <span className="w-3 h-3 rounded-full bg-border/40" />
+        <span className="w-3 h-3 rounded-full bg-border/20" />
         <span className="ml-3 text-xs text-muted-foreground/40 font-mono">privaclaw — bash — 80×24</span>
       </div>
 
       {/* terminal body */}
       <div
         ref={containerRef}
-        className="px-4 py-3 h-64 overflow-hidden font-mono text-xs leading-5 select-none"
-        style={{ color: "hsl(0 0% 75%)" }}
+        className="px-4 py-3 h-64 overflow-hidden font-mono text-xs leading-5 select-none text-terminal-fg"
       >
         {visibleLines.map((line, i) => {
           if (line.kind === "gap") return <div key={i} className="h-2" />;
           if (line.kind === "cmd") return (
             <div key={i} className="flex items-start gap-1.5">
-              <span style={{ color: "#4ade80" }}>❯</span>
-              <span style={{ color: "#e2e8f0" }}>{line.text}</span>
+              <span className="text-status-online">❯</span>
+              <span className="text-terminal-fg">{line.text}</span>
             </div>
           );
           return (
-            <div key={i} style={{ color: line.color ?? "hsl(0 0% 60%)", paddingLeft: "1.25rem" }}>
+            <div
+              key={i}
+              className="pl-5"
+              style={{ color: line.color ? `hsl(var(--terminal-green))` : "hsl(var(--terminal-dim-text))", paddingLeft: "1.25rem" }}
+            >
               {line.text || "\u00A0"}
             </div>
           );
@@ -139,9 +142,9 @@ function TerminalDemo() {
         {/* typing line */}
         {typingCmd !== null && (
           <div className="flex items-start gap-1.5">
-            <span style={{ color: "#4ade80" }}>❯</span>
-            <span style={{ color: "#e2e8f0" }}>{typingCmd}</span>
-            <span className="inline-block w-1.5 h-3.5 ml-px align-middle animate-[pulse_0.9s_ease-in-out_infinite]" style={{ background: "#e2e8f0", opacity: 0.8 }} />
+            <span className="text-status-online">❯</span>
+            <span className="text-terminal-fg">{typingCmd}</span>
+            <span className="inline-block w-1.5 h-3.5 ml-px align-middle animate-[pulse_0.9s_ease-in-out_infinite] bg-terminal-fg opacity-80" />
           </div>
         )}
       </div>
@@ -209,7 +212,6 @@ export default function Landing() {
   const navigate = useNavigate();
   const [activeIdx, setActiveIdx] = useState(0);
   const agent = AGENTS[activeIdx];
-  const [r, g, b] = agent.rgb;
 
   return (
     <div className="min-h-screen bg-background flex flex-col text-foreground">
@@ -234,10 +236,7 @@ export default function Landing() {
       {/* ── Hero ── */}
       <section className="relative flex flex-col items-center justify-center pt-16 pb-14 px-5 overflow-hidden">
         {/* ambient glow behind terminal */}
-        <div
-          className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[500px] rounded-full blur-3xl transition-all duration-700"
-          style={{ background: `radial-gradient(ellipse, rgba(${r},${g},${b},0.10) 0%, transparent 65%)` }}
-        />
+        <div className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[500px] rounded-full blur-3xl transition-all duration-700 bg-foreground/5" />
 
         <div className="relative z-10 flex flex-col items-center text-center max-w-2xl w-full">
           <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-3 leading-tight">
@@ -293,34 +292,17 @@ export default function Landing() {
             style={{ background: "hsl(var(--card))" }}
           >
             {/* Card header */}
-            <div
-              className="flex items-center gap-4 px-6 py-5 border-b border-border/20"
-              style={{ background: `linear-gradient(135deg, rgba(${r},${g},${b},0.06) 0%, transparent 60%)` }}
-            >
+            <div className="flex items-center gap-4 px-6 py-5 border-b border-border/20 bg-muted/10">
               <div className="relative shrink-0">
-                <div className="absolute inset-0 rounded-2xl blur-lg" style={{ background: `rgba(${r},${g},${b},0.4)` }} />
-                <div
-                  className="relative w-12 h-12 rounded-2xl overflow-hidden"
-                  style={{
-                    background: `linear-gradient(135deg, rgba(${r},${g},${b},0.3) 0%, rgba(${r},${g},${b},0.1) 100%)`,
-                    boxShadow: `0 4px 20px rgba(${r},${g},${b},0.3), inset 0 1px 0 rgba(255,255,255,0.1)`,
-                    outline: `1px solid rgba(${r},${g},${b},0.25)`,
-                  }}
-                >
+                <div className="absolute inset-0 rounded-2xl blur-lg bg-foreground/10" />
+                <div className="relative w-12 h-12 rounded-2xl overflow-hidden bg-muted/40 border border-border/30 shadow-sm outline outline-1 outline-border/20">
                   <img src={agent.img} alt={agent.name} className="w-full h-full object-cover" />
                 </div>
               </div>
               <div>
                 <div className="flex items-center gap-2">
                   <span className="font-semibold text-foreground">{agent.name}</span>
-                  <span
-                    className="text-[10px] font-medium px-2 py-0.5 rounded-full"
-                    style={{
-                      background: `rgba(${r},${g},${b},0.15)`,
-                      color: agent.hex,
-                      border: `1px solid rgba(${r},${g},${b},0.25)`,
-                    }}
-                  >
+                  <span className="label-xs text-muted-foreground/60 px-2 py-0.5 rounded-full bg-muted/50 border border-border/30">
                     {agent.tagline}
                   </span>
                 </div>
@@ -340,13 +322,10 @@ export default function Landing() {
                     animationFillMode: "both",
                     background: "hsl(var(--muted)/0.3)",
                   }}
-                  onMouseEnter={(e) => (e.currentTarget.style.boxShadow = `0 0 16px rgba(${r},${g},${b},0.1)`)}
+                  onMouseEnter={(e) => (e.currentTarget.style.boxShadow = "0 0 16px hsl(var(--foreground) / 0.06)")}
                   onMouseLeave={(e) => (e.currentTarget.style.boxShadow = "")}
                 >
-                  <ArrowRight
-                    className="h-3 w-3 mt-0.5 shrink-0 transition-transform group-hover:translate-x-0.5"
-                    style={{ color: agent.hex, opacity: 0.7 }}
-                  />
+                  <ArrowRight className="h-3 w-3 mt-0.5 shrink-0 transition-transform group-hover:translate-x-0.5 text-muted-foreground/50" />
                   <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors leading-snug">{p}</span>
                 </button>
               ))}
@@ -358,15 +337,12 @@ export default function Landing() {
                 onClick={() => navigate("/auth")}
                 className="flex items-center gap-3 rounded-xl border border-border/30 px-4 py-3 cursor-pointer hover:border-border/60 transition-all duration-200 group"
                 style={{ background: "hsl(var(--muted)/0.3)" }}
-                onMouseEnter={(e) => (e.currentTarget.style.boxShadow = `0 0 20px rgba(${r},${g},${b},0.08)`)}
+                onMouseEnter={(e) => (e.currentTarget.style.boxShadow = "0 0 20px hsl(var(--foreground) / 0.05)")}
                 onMouseLeave={(e) => (e.currentTarget.style.boxShadow = "")}
               >
                 <span className="flex-1 text-sm text-muted-foreground/40 select-none">Sign in to start chatting…</span>
-                <div
-                  className="shrink-0 w-7 h-7 rounded-lg flex items-center justify-center transition-colors"
-                  style={{ background: `rgba(${r},${g},${b},0.15)` }}
-                >
-                  <ArrowRight className="h-3.5 w-3.5" style={{ color: agent.hex }} />
+                <div className="shrink-0 w-7 h-7 rounded-lg flex items-center justify-center bg-muted/50 border border-border/30 transition-colors">
+                  <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/60" />
                 </div>
               </div>
             </div>

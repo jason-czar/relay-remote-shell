@@ -1402,19 +1402,10 @@ export default function Chat() {
                     /* ── Has device, no messages: normal empty state ────── */
                     <>
                       <div className="relative mb-6 animate-fade-in" style={{ animationDelay: "0ms", animationFillMode: "both" }}>
-                        {(() => {
-                          const [r, g, b] = [140, 140, 140];
-                          return <>
-                            <div className="absolute inset-0 rounded-3xl blur-xl scale-110 bg-foreground/20" />
-                            <div className="relative w-24 h-24 rounded-3xl flex items-center justify-center" style={{
-                              background: `linear-gradient(135deg, rgba(${r},${g},${b},0.35) 0%, rgba(${r},${g},${b},0.15) 100%)`,
-                              boxShadow: `0 8px 32px rgba(${r},${g},${b},0.35), inset 0 1px 0 rgba(255,255,255,0.12)`,
-                              outline: `1px solid rgba(${r},${g},${b},0.3)`,
-                            }}>
-                              <img src={agent === "openclaw" ? openclawImg : agent === "codex" ? codexImg : claudecodeImg} alt={agent} className="w-full h-full object-cover rounded-3xl" />
-                            </div>
-                          </>;
-                        })()}
+                        <div className="absolute inset-0 rounded-3xl blur-xl scale-110 bg-foreground/10" />
+                        <div className="relative w-24 h-24 rounded-3xl flex items-center justify-center bg-muted/40 border border-border/40 shadow-sm outline outline-1 outline-border/30">
+                          <img src={agent === "openclaw" ? openclawImg : agent === "codex" ? codexImg : claudecodeImg} alt={agent} className="w-full h-full object-cover rounded-3xl" />
+                        </div>
                       </div>
                       <h3 className="font-semibold text-foreground mb-2 text-xl animate-fade-in" style={{ animationDelay: "120ms", animationFillMode: "both" }}>
                         {agent === "openclaw" ? "Remote OpenClaw" : agent === "codex" ? "Remote Codex" : "Remote Claude Code"}
@@ -1449,10 +1440,8 @@ export default function Chat() {
                             key={title}
                             onClick={() => setInput(prompt)}
                             disabled={!selectedDeviceId}
-                            className="animate-fade-in group flex flex-col gap-2 px-5 py-4 rounded-xl border border-border/40 bg-card/40 hover:bg-card/80 hover:border-border/80 transition-all duration-200 text-left disabled:opacity-40 disabled:cursor-not-allowed"
-                            style={{ animationDelay: `${420 + i * 80}ms`, animationFillMode: "both", boxShadow: "0 0 0 0 transparent" }}
-                            onMouseEnter={e => (e.currentTarget.style.boxShadow = "0 0 18px 2px hsl(var(--primary) / 0.08), 0 2px 12px rgba(0,0,0,0.15)")}
-                            onMouseLeave={e => (e.currentTarget.style.boxShadow = "0 0 0 0 transparent")}
+                            className="animate-fade-in group flex flex-col gap-2 px-5 py-4 rounded-xl border border-border/40 bg-card/40 hover:bg-card/80 hover:border-border/80 hover:shadow-sm transition-all duration-200 text-left disabled:opacity-40 disabled:cursor-not-allowed"
+                            style={{ animationDelay: `${420 + i * 80}ms`, animationFillMode: "both" }}
                           >
                             <span className="text-sm font-semibold text-foreground">{title}</span>
                             <span className="text-sm text-muted-foreground/80 leading-snug line-clamp-2">{prompt}</span>
