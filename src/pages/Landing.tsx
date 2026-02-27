@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Terminal, Zap, Shield, Cpu } from "lucide-react";
@@ -6,7 +6,148 @@ import logo from "@/assets/logo.png";
 import openclawImg from "@/assets/openclaw.png";
 import claudecodeImg from "@/assets/claudecode.png";
 import codexImg from "@/assets/codex.png";
-import agentsGroup from "@/assets/agents-group.png";
+
+// ── Terminal demo animation ──────────────────────────────────────────────────
+type TermLine =
+  | { kind: "cmd"; text: string }
+  | { kind: "out"; text: string; color?: string }
+  | { kind: "gap" };
+
+const SCRIPT: TermLine[] = [
+  { kind: "cmd", text: "ls -la src/" },
+  { kind: "out", text: "drwxr-xr-x  components/" },
+  { kind: "out", text: "drwxr-xr-x  pages/" },
+  { kind: "out", text: "drwxr-xr-x  hooks/" },
+  { kind: "out", text: "-rw-r--r--  App.tsx" },
+  { kind: "out", text: "-rw-r--r--  main.tsx" },
+  { kind: "gap" },
+  { kind: "cmd", text: "git status" },
+  { kind: "out", text: "On branch main", color: "#4ade80" },
+  { kind: "out", text: "Changes not staged for commit:" },
+  { kind: "out", text: "  modified:   src/pages/Chat.tsx", color: "#facc15" },
+  { kind: "out", text: "  modified:   src/components/AppSidebar.tsx", color: "#facc15" },
+  { kind: "gap" },
+  { kind: "cmd", text: "npx vitest run" },
+  { kind: "out", text: "✓ src/test/example.test.ts (3 tests)", color: "#4ade80" },
+  { kind: "out", text: "  ✓ renders without crashing" },
+  { kind: "out", text: "  ✓ handles empty state" },
+  { kind: "out", text: "  ✓ validates input" },
+  { kind: "out", text: "" },
+  { kind: "out", text: "Test Files  1 passed (1)", color: "#4ade80" },
+  { kind: "out", text: "     Tests  3 passed (3)", color: "#4ade80" },
+];
+
+// Delay (ms) between each visible step
+const CMD_TYPE_DELAY = 42;   // per character while typing
+const LINE_APPEAR_DELAY = 60; // between output lines
+const CMD_PAUSE = 320;       // pause before output starts
+const LOOP_PAUSE = 2800;     // pause before restart
+
+function TerminalDemo() {
+  // lines that are fully visible
+  const [visibleLines, setVisibleLines] = useState<TermLine[]>([]);
+  // the current command being typed (partial string)
+  const [typingCmd, setTypingCmd] = useState<string | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const delay = (ms: number) => new Promise<void>((res) => setTimeout(res, ms));
+
+    async function run() {
+      while (!cancelled) {
+        setVisibleLines([]);
+        setTypingCmd(null);
+
+        for (const line of SCRIPT) {
+          if (cancelled) return;
+
+          if (line.kind === "gap") {
+            setVisibleLines((p) => [...p, line]);
+            await delay(LINE_APPEAR_DELAY);
+            continue;
+          }
+
+          if (line.kind === "cmd") {
+            setTypingCmd("");
+            for (let i = 1; i <= line.text.length; i++) {
+              if (cancelled) return;
+              setTypingCmd(line.text.slice(0, i));
+              await delay(CMD_TYPE_DELAY);
+            }
+            await delay(CMD_PAUSE);
+            setTypingCmd(null);
+            setVisibleLines((p) => [...p, line]);
+            continue;
+          }
+
+          // output line
+          setVisibleLines((p) => [...p, line]);
+          await delay(LINE_APPEAR_DELAY);
+        }
+
+        await delay(LOOP_PAUSE);
+      }
+    }
+
+    run();
+    return () => { cancelled = true; };
+  }, []);
+
+  // auto-scroll
+  useEffect(() => {
+    if (containerRef.current) {
+      containerRef.current.scrollTop = containerRef.current.scrollHeight;
+    }
+  }, [visibleLines, typingCmd]);
+
+  return (
+    <div
+      className="w-full max-w-2xl mx-auto rounded-xl border border-border/30 overflow-hidden shadow-2xl"
+      style={{ background: "hsl(0 0% 5%)" }}
+    >
+      {/* window chrome */}
+      <div className="flex items-center gap-1.5 px-4 py-2.5 border-b border-border/20" style={{ background: "hsl(0 0% 7%)" }}>
+        <span className="w-3 h-3 rounded-full bg-red-500/70" />
+        <span className="w-3 h-3 rounded-full bg-yellow-500/70" />
+        <span className="w-3 h-3 rounded-full bg-green-500/70" />
+        <span className="ml-3 text-xs text-muted-foreground/40 font-mono">privaclaw — bash — 80×24</span>
+      </div>
+
+      {/* terminal body */}
+      <div
+        ref={containerRef}
+        className="px-4 py-3 h-64 overflow-hidden font-mono text-xs leading-5 select-none"
+        style={{ color: "hsl(0 0% 75%)" }}
+      >
+        {visibleLines.map((line, i) => {
+          if (line.kind === "gap") return <div key={i} className="h-2" />;
+          if (line.kind === "cmd") return (
+            <div key={i} className="flex items-start gap-1.5">
+              <span style={{ color: "#4ade80" }}>❯</span>
+              <span style={{ color: "#e2e8f0" }}>{line.text}</span>
+            </div>
+          );
+          return (
+            <div key={i} style={{ color: line.color ?? "hsl(0 0% 60%)", paddingLeft: "1.25rem" }}>
+              {line.text || "\u00A0"}
+            </div>
+          );
+        })}
+
+        {/* typing line */}
+        {typingCmd !== null && (
+          <div className="flex items-start gap-1.5">
+            <span style={{ color: "#4ade80" }}>❯</span>
+            <span style={{ color: "#e2e8f0" }}>{typingCmd}</span>
+            <span className="inline-block w-1.5 h-3.5 ml-px align-middle animate-[pulse_0.9s_ease-in-out_infinite]" style={{ background: "#e2e8f0", opacity: 0.8 }} />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 const AGENTS = [
   {
@@ -91,30 +232,27 @@ export default function Landing() {
       </nav>
 
       {/* ── Hero ── */}
-      <section className="relative flex flex-col items-center justify-center pt-20 pb-16 px-5 overflow-hidden">
-        {/* background glow */}
+      <section className="relative flex flex-col items-center justify-center pt-16 pb-14 px-5 overflow-hidden">
+        {/* ambient glow behind terminal */}
         <div
-          className="pointer-events-none absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[400px] rounded-full blur-3xl transition-all duration-700"
-          style={{ background: `radial-gradient(ellipse, rgba(${r},${g},${b},0.12) 0%, transparent 70%)` }}
+          className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[500px] rounded-full blur-3xl transition-all duration-700"
+          style={{ background: `radial-gradient(ellipse, rgba(${r},${g},${b},0.10) 0%, transparent 65%)` }}
         />
 
-        <div className="relative z-10 flex flex-col items-center text-center max-w-2xl">
-          {/* Agent group image */}
-          <div className="mb-8 relative">
-            <div
-              className="absolute inset-0 rounded-2xl blur-2xl scale-110 transition-all duration-700"
-              style={{ background: `rgba(${r},${g},${b},0.2)` }}
-            />
-            <img src={agentsGroup} alt="Agents" className="relative h-20 object-contain drop-shadow-xl" />
-          </div>
-
-          <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4 leading-tight">
+        <div className="relative z-10 flex flex-col items-center text-center max-w-2xl w-full">
+          <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-3 leading-tight">
             Chat with your machine.<br />
-            <span className="text-muted-foreground/70">From anywhere.</span>
+            <span className="text-muted-foreground/60">From anywhere.</span>
           </h1>
           <p className="text-base text-muted-foreground leading-relaxed mb-8 max-w-xl">
             PrivaClaw connects OpenClaw, Claude Code, and Codex to your local machine through a secure relay — giving you a private AI terminal in the browser.
           </p>
+
+          {/* Terminal animation */}
+          <div className="w-full mb-8 animate-fade-in">
+            <TerminalDemo />
+          </div>
+
           <div className="flex items-center gap-3">
             <Button size="lg" onClick={() => navigate("/auth")} className="gap-2 font-semibold px-6">
               Start for free <ArrowRight className="h-4 w-4" />
