@@ -1406,10 +1406,10 @@ export default function Chat() {
                           <img src={agent === "openclaw" ? openclawImg : agent === "codex" ? codexImg : claudecodeImg} alt={agent} className="w-full h-full object-cover rounded-3xl" />
                         </div>
                       </div>
-                      <h3 className="font-semibold text-foreground mb-2 text-xl animate-fade-in" style={{ animationDelay: "120ms", animationFillMode: "both" }}>
+                      <h3 className="heading-3 text-foreground mb-2 animate-fade-in" style={{ animationDelay: "120ms", animationFillMode: "both" }}>
                         {agent === "openclaw" ? "OpenClaw" : agent === "codex" ? "Codex" : "Claude Code"}
                       </h3>
-                      <p className="text-base text-muted-foreground max-w-sm leading-relaxed mb-8 animate-fade-in" style={{ animationDelay: "220ms", animationFillMode: "both" }}>
+                      <p className="body-base text-muted-foreground max-w-sm mb-8 animate-fade-in" style={{ animationDelay: "220ms", animationFillMode: "both" }}>
                         {agent === "openclaw"
                           ? "Ask your local OpenClaw agent anything. Commands run on your selected device."
                           : agent === "codex"
