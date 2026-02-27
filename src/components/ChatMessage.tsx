@@ -233,9 +233,9 @@ export function ChatMessage({ role, content, thinking, streaming, rawStdout, cre
               ul: ({ children }) => <ul className="list-disc pl-4 mb-2 space-y-0.5">{children}</ul>,
               ol: ({ children }) => <ol className="list-decimal pl-4 mb-2 space-y-0.5">{children}</ol>,
               li: ({ children }) => <li>{children}</li>,
-              h1: ({ children }) => <h1 className="font-semibold text-base mb-1">{children}</h1>,
-              h2: ({ children }) => <h2 className="font-semibold text-sm mb-1">{children}</h2>,
-              h3: ({ children }) => <h3 className="font-medium text-sm mb-1">{children}</h3>,
+              h1: ({ children }) => <h1 className="font-semibold text-lg md:text-xl mb-1">{children}</h1>,
+              h2: ({ children }) => <h2 className="font-semibold text-base md:text-[17px] mb-1">{children}</h2>,
+              h3: ({ children }) => <h3 className="font-medium text-sm md:text-[15px] mb-1">{children}</h3>,
               strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
               a: ({ href, children }) => (
                 <a href={href} target="_blank" rel="noopener noreferrer" className="underline text-primary">
