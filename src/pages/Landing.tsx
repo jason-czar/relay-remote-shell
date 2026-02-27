@@ -234,7 +234,7 @@ const FEATURES = [
   },
 ];
 
-function CapabilityPills() {
+function useInView(threshold = 0.15) {
   const ref = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
   useEffect(() => {
@@ -242,10 +242,15 @@ function CapabilityPills() {
     if (!el) return;
     const obs = new IntersectionObserver(([entry]) => {
       if (entry.isIntersecting) { setVisible(true); obs.disconnect(); }
-    }, { threshold: 0.2 });
+    }, { threshold });
     obs.observe(el);
     return () => obs.disconnect();
-  }, []);
+  }, [threshold]);
+  return { ref, visible };
+}
+
+function CapabilityPills() {
+  const { ref, visible } = useInView(0.2);
   const pills = [
     "🏠 Runs on your hardware",
     "🔒 No port forwarding needed",
@@ -270,6 +275,72 @@ function CapabilityPills() {
         </span>
       ))}
     </div>
+  );
+}
+
+function HowItWorksSection({ onNavigate }: { onNavigate: (path: string) => void }) {
+  const { ref, visible } = useInView();
+  const steps = [
+    { n: "1", title: "Install the connector", desc: "Download the lightweight PrivaClaw connector binary and run it on any machine you want to control." },
+    { n: "2", title: "Pair your device", desc: "The connector displays a one-time pairing code. Enter it in the app to securely link your machine." },
+    { n: "3", title: "Start chatting", desc: "Pick an agent — OpenClaw, Claude Code, or Codex — and start sending commands from anywhere." },
+  ];
+  return (
+    <section className="border-t border-border/20 px-5 py-16">
+      <div className="max-w-4xl mx-auto">
+        <p className="text-xs font-semibold tracking-widest text-muted-foreground/50 uppercase text-center mb-2">How it works</p>
+        <h2 className="text-2xl font-bold tracking-tight text-center mb-10">Up and running in minutes</h2>
+        <div ref={ref} className="relative flex flex-col sm:flex-row gap-8 sm:gap-4">
+          <div className="hidden sm:block absolute top-7 left-[calc(16.66%+1rem)] right-[calc(16.66%+1rem)] h-px" style={{ background: "linear-gradient(to right, hsl(var(--border)/0.6), hsl(var(--border)/0.6))" }} />
+          {steps.map(({ n, title, desc }, i) => (
+            <div
+              key={n}
+              className="relative flex-1 flex flex-col items-center text-center transition-all duration-500"
+              style={{ opacity: visible ? 1 : 0, transform: visible ? "translateY(0)" : "translateY(16px)", transitionDelay: `${i * 120}ms` }}
+            >
+              <div className="relative z-10 w-14 h-14 rounded-full border border-border/40 flex items-center justify-center mb-4 text-lg font-bold" style={{ background: "hsl(var(--card))" }}>
+                {n}
+              </div>
+              <p className="text-sm font-semibold mb-1">{title}</p>
+              <p className="text-xs text-muted-foreground/70 leading-relaxed max-w-[180px]">{desc}</p>
+            </div>
+          ))}
+        </div>
+        <div className="flex justify-center mt-10">
+          <Button size="sm" variant="outline" onClick={() => onNavigate("/docs")} className="gap-1.5 border-border/40 text-muted-foreground hover:text-foreground">
+            Read the setup guide <ArrowRight className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function FeaturesSection() {
+  const { ref, visible } = useInView();
+  return (
+    <section className="border-t border-border/20 px-5 py-16">
+      <div className="max-w-4xl mx-auto">
+        <p className="text-xs font-semibold tracking-widest text-muted-foreground/50 uppercase text-center mb-8">Why PrivaClaw</p>
+        <div ref={ref} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {FEATURES.map(({ icon: Icon, title, desc }, i) => (
+            <div
+              key={title}
+              className="flex gap-4 p-5 rounded-xl border border-border/20 transition-all duration-500"
+              style={{ background: "hsl(var(--card))", opacity: visible ? 1 : 0, transform: visible ? "translateY(0)" : "translateY(16px)", transitionDelay: `${i * 80}ms` }}
+            >
+              <div className="shrink-0 w-8 h-8 rounded-lg border border-border/30 flex items-center justify-center" style={{ background: "hsl(var(--muted)/0.5)" }}>
+                <Icon className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold mb-1">{title}</p>
+                <p className="text-xs text-muted-foreground/70 leading-relaxed">{desc}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -448,82 +519,8 @@ export default function Landing() {
       <CapabilityPills />
 
       {/* ── How it works ── */}
-      <section className="border-t border-border/20 px-5 py-16">
-        <div className="max-w-4xl mx-auto">
-          <p className="text-xs font-semibold tracking-widest text-muted-foreground/50 uppercase text-center mb-2">How it works</p>
-          <h2 className="text-2xl font-bold tracking-tight text-center mb-10">Up and running in minutes</h2>
-
-          <div className="relative flex flex-col sm:flex-row gap-8 sm:gap-4">
-            {/* connector line (desktop only) */}
-            <div
-              className="hidden sm:block absolute top-7 left-[calc(16.66%+1rem)] right-[calc(16.66%+1rem)] h-px"
-              style={{ background: "linear-gradient(to right, hsl(var(--border)/0.6), hsl(var(--border)/0.6))" }}
-            />
-
-            {[
-              {
-                n: "1",
-                title: "Install the connector",
-                desc: "Download the lightweight PrivaClaw connector binary and run it on any machine you want to control.",
-              },
-              {
-                n: "2",
-                title: "Pair your device",
-                desc: "The connector displays a one-time pairing code. Enter it in the app to securely link your machine.",
-              },
-              {
-                n: "3",
-                title: "Start chatting",
-                desc: "Pick an agent — OpenClaw, Claude Code, or Codex — and start sending commands from anywhere.",
-              },
-            ].map(({ n, title, desc }, i) => (
-              <div
-                key={n}
-                className="relative flex-1 flex flex-col items-center text-center animate-fade-in"
-                style={{ animationDelay: `${i * 120}ms`, animationFillMode: "both" }}
-              >
-                {/* number badge */}
-                <div
-                  className="relative z-10 w-14 h-14 rounded-full border border-border/40 flex items-center justify-center mb-4 text-lg font-bold"
-                  style={{ background: "hsl(var(--card))" }}
-                >
-                  {n}
-                </div>
-                <p className="text-sm font-semibold mb-1">{title}</p>
-                <p className="text-xs text-muted-foreground/70 leading-relaxed max-w-[180px]">{desc}</p>
-              </div>
-            ))}
-          </div>
-
-          <div className="flex justify-center mt-10">
-            <Button size="sm" variant="outline" onClick={() => navigate("/docs")} className="gap-1.5 border-border/40 text-muted-foreground hover:text-foreground">
-              Read the setup guide <ArrowRight className="h-3.5 w-3.5" />
-            </Button>
-          </div>
-        </div>
-      </section>
-      <section className="border-t border-border/20 px-5 py-16">
-        <div className="max-w-4xl mx-auto">
-          <p className="text-xs font-semibold tracking-widest text-muted-foreground/50 uppercase text-center mb-8">Why PrivaClaw</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {FEATURES.map(({ icon: Icon, title, desc }) => (
-              <div
-                key={title}
-                className="flex gap-4 p-5 rounded-xl border border-border/20"
-                style={{ background: "hsl(var(--card))" }}
-              >
-                <div className="shrink-0 w-8 h-8 rounded-lg border border-border/30 flex items-center justify-center" style={{ background: "hsl(var(--muted)/0.5)" }}>
-                  <Icon className="h-4 w-4 text-muted-foreground" />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold mb-1">{title}</p>
-                  <p className="text-xs text-muted-foreground/70 leading-relaxed">{desc}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      <HowItWorksSection onNavigate={navigate} />
+      <FeaturesSection />
 
       {/* ── CTA ── */}
       <section className="px-5 py-16 border-t border-border/20">
