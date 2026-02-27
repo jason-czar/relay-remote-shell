@@ -186,7 +186,7 @@ function CodeBlock({ children, language = "json", copyable = true }: { children:
 function Heading({ id, children, level = 2 }: { id: string; children: React.ReactNode; level?: 2 | 3 }) {
   const Tag = level === 2 ? "h2" : "h3";
   return (
-    <Tag id={id} className={`scroll-mt-20 ${level === 2 ? "text-2xl font-bold tracking-tight mt-12 mb-4" : "text-lg font-semibold mt-8 mb-3"} flex items-center gap-2`}>
+    <Tag id={id} className={`scroll-mt-20 ${level === 2 ? "heading-2 mt-12 mb-4" : "heading-4 mt-8 mb-3"} flex items-center gap-2`}>
       {children}
       <a href={`#${id}`} className="text-muted-foreground/0 hover:text-muted-foreground transition-colors">#</a>
     </Tag>

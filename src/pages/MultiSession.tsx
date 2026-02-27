@@ -87,7 +87,7 @@ export default function MultiSession() {
         <div className="flex items-center justify-between mb-3 shrink-0">
           <div className="flex items-center gap-2">
             <Columns2 className="h-5 w-5 text-primary" />
-            <h1 className="text-lg font-bold tracking-tight">Multi-Session</h1>
+            <h1 className="heading-4">Multi-Session</h1>
             {panels.length > 0 && (
               <span className="text-xs text-muted-foreground">{panels.length} panel{panels.length !== 1 ? "s" : ""}</span>
             )}
