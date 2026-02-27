@@ -219,7 +219,19 @@ Status updates via Supabase Realtime subscriptions. Connector connects → statu
 
 ### Reconnection & Resilience
 
-Automatic reconnection with exponential backoff: 1s → 2s → 4s → 8s → 16s → 30s max. Session preserved on relay side. Manual reconnect via toolbar. When returning from background (e.g. switching apps on mobile), a "Reconnecting…" banner appears until the relay confirms re-auth.
+Automatic reconnection with exponential backoff: 1s → 2s → 4s → 8s → 16s → 30s max. Session preserved on relay side. Manual reconnect via toolbar. When returning from background (e.g. switching apps on mobile), a "Reconnecting…" banner appears until the relay confirms re-auth with `auth_ok`.
+
+### Session Persistence
+
+Terminal sessions survive navigation, page reloads, and mobile app-switches through four mechanisms:
+
+**1 · Relay Grace Period (10 min):** When the browser disconnects, the relay keeps the PTY alive for 10 minutes. Any process already running (e.g. Claude Code, Codex) continues uninterrupted. Reconnecting within that window rejoins the same shell.
+
+**2 · localStorage Continuity:** The active `session_id` and `device_id` are written to `localStorage` when a session starts. On reload, the app reads these values, verifies the session is still `active` in the database, and automatically reconnects — no user action required.
+
+**3 · Scrollback Replay:** The relay holds an in-memory scrollback buffer of recent stdout. On reconnect it sends a `scrollback` message containing the buffered history, which is written into the xterm.js terminal to restore the visible state.
+
+**4 · Resize Instead of session_start:** A new session sends `session_start` to spawn a fresh PTY. A resumed session sends `resize` to sync terminal dimensions only — the underlying process is never restarted. This is the critical detail that keeps AI agents running across reloads.
 
 ### Mobile Keyboard
 
