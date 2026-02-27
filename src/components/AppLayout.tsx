@@ -1,4 +1,5 @@
 import { ReactNode, useRef, useState, useCallback, useEffect } from "react";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { SidebarProvider, SidebarTrigger, useSidebar } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { useLocation } from "react-router-dom";
@@ -137,8 +138,14 @@ export function AppLayout({ children }: { children: ReactNode }) {
     window.addEventListener("mouseup", onUp);
   }, []);
 
+  const isMobile = useIsMobile();
+
   return (
-    <SidebarProvider style={{ "--sidebar-width": `${sidebarWidth}px` } as React.CSSProperties}>
+    <SidebarProvider
+      open={isMobile ? undefined : true}
+      onOpenChange={isMobile ? undefined : () => {}}
+      style={{ "--sidebar-width": `${sidebarWidth}px` } as React.CSSProperties}
+    >
       <Inner isChat={isChat} sidebarWidth={sidebarWidth} onMouseDown={onMouseDown}>
         {children}
       </Inner>
