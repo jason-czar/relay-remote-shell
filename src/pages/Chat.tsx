@@ -1241,7 +1241,10 @@ export default function Chat() {
           )}
 
           {/* Top header bar */}
-          <div className="shrink-0 h-12 border-b border-border/30 flex items-center px-3 relative">
+          <div
+            className="shrink-0 border-b border-border/30 flex items-center px-3 relative"
+            style={{ paddingTop: 'env(safe-area-inset-top, 0px)', minHeight: 'calc(env(safe-area-inset-top, 0px) + 48px)' }}
+          >
             {/* Left — sidebar trigger */}
             <SidebarTrigger />
             {/* Center — agent dropdown */}
