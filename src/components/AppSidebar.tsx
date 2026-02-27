@@ -197,6 +197,7 @@ export function AppSidebar() {
                             : "text-muted-foreground/60 hover:bg-accent/40 hover:text-foreground"
                         )}
                         onClick={() => { if (editingId !== conv.id) { setActiveConvId(conv.id); navigate("/"); setOpen(false); setOpenMobile(false); } }}
+                        onTouchEnd={(e) => { e.stopPropagation(); if (editingId !== conv.id) { setActiveConvId(conv.id); navigate("/"); setOpen(false); setOpenMobile(false); } }}
                         onMouseEnter={() => setHoveredId(conv.id)}
                         onMouseLeave={() => setHoveredId(null)}
                       >
