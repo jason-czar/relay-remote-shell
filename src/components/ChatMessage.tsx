@@ -53,7 +53,7 @@ function CodeBlock({ language, value }: { language: string; value: string }) {
       onMouseLeave={() => setBlockHovered(false)}
     >
       {/* Header bar */}
-      <div className="flex items-center justify-between px-3 py-1.5 bg-[hsl(0_0%_8%)] border-b border-border/40">
+      <div className="flex items-center justify-between px-3 py-1.5 bg-[hsl(0_0%_12%)] border-b border-border/40">
         <span className="text-[10px] font-mono text-muted-foreground/60 uppercase tracking-widest">
           {language || "code"}
         </span>
@@ -178,11 +178,7 @@ export function ChatMessage({ role, content, thinking, streaming, rawStdout, thi
         {/* Text content bubble */}
         {textContent && (
           <div
-            className="max-w-[88%] sm:max-w-[72%] rounded-[22px] px-5 py-3.5 text-[16px] leading-relaxed break-words"
-            style={{
-              background: "hsl(var(--muted))",
-              color: "hsl(var(--foreground))",
-            }}
+            className="max-w-[88%] sm:max-w-[72%] rounded-[22px] px-5 py-3.5 text-[16px] leading-relaxed break-words bg-[hsl(0,0%,14%)] text-foreground"
           >
             {textContent}
           </div>

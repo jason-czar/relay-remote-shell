@@ -158,7 +158,7 @@ export function AppSidebar() {
             <SidebarGroupContent className="flex flex-col flex-1 min-h-0">
               {/* Search */}
               <div className="px-2 pb-1">
-                <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-muted/30 border border-border/40 focus-within:border-border/70 transition-colors">
+                <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-[hsl(0,0%,12%)] border border-border/40 focus-within:border-border/60 transition-colors">
                   <Search className="h-3.5 w-3.5 text-muted-foreground/40 shrink-0" />
                   <input
                     value={search}
