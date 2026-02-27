@@ -18,7 +18,7 @@ export function QuickStart({ userId, projectId, onDeviceOnline }: QuickStartProp
   const [deviceName, setDeviceName] = useState("");
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
+  
   const [online, setOnline] = useState(false);
   const [platform, setPlatform] = useState<Platform>("unix");
 
@@ -73,55 +73,30 @@ export function QuickStart({ userId, projectId, onDeviceOnline }: QuickStartProp
     return () => { supabase.removeChannel(channel); };
   }, [device, handleDeviceOnline]);
 
-  const unixCommand = device?.pairing_code
-    ? `set -e
-RELAY_DIR="$HOME/relay-connector"
-API_URL="${API_URL}"
-PAIR_CODE="${device.pairing_code}"
-NAME="${device.name}"
+  const unixCommands = device?.pairing_code
+    ? [
+        { label: "1. Install the connector", cmd: `curl -fsSL "${API_URL}/download-connector?install=1" | bash` },
+        { label: "2. Pair this device", cmd: `cd ~/relay-connector && ./relay-connector --pair "${device.pairing_code}" --api "${API_URL}" --name "${device.name}"` },
+        { label: "3. Start in background", cmd: `cd ~/relay-connector && nohup ./relay-connector connect >/dev/null 2>&1 &` },
+      ]
+    : [];
 
-rm -rf "$RELAY_DIR"
-curl -fsSL "$API_URL/download-connector?install=1" | bash
+  const windowsCommands = device?.pairing_code
+    ? [
+        { label: "1. Install the connector", cmd: `$InstallScript = (Invoke-WebRequest "${API_URL}/download-connector?install=ps" -UseBasicParsing).Content; Invoke-Expression $InstallScript` },
+        { label: "2. Pair this device", cmd: `cd "$env:USERPROFILE\\relay-connector"; .\\relay-connector.exe --pair "${device.pairing_code}" --api "${API_URL}" --name "${device.name}"` },
+        { label: "3. Start in background", cmd: `Start-Process -FilePath "$env:USERPROFILE\\relay-connector\\relay-connector.exe" -ArgumentList "connect" -WindowStyle Hidden` },
+      ]
+    : [];
 
-cd "$RELAY_DIR"
-# macOS only — clear Gatekeeper quarantine if needed:
-# xattr -d com.apple.quarantine ./relay-connector
-./relay-connector --pair "$PAIR_CODE" --api "$API_URL" --name "$NAME"
+  const commands = platform === "unix" ? unixCommands : windowsCommands;
 
-echo "Starting connector in background..."
-(
-  cd "$RELAY_DIR"
-  nohup ./relay-connector connect >/dev/null 2>&1 &
-)
-echo "Connector running."`
-    : "";
+  const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
 
-  const windowsCommand = device?.pairing_code
-    ? `$RelayDir = "$env:USERPROFILE\\relay-connector"
-$ApiUrl   = "${API_URL}"
-$PairCode = "${device.pairing_code}"
-$Name     = "${device.name}"
-
-if (Test-Path $RelayDir) { Remove-Item -Recurse -Force $RelayDir }
-
-$InstallScript = (Invoke-WebRequest "$ApiUrl/download-connector?install=ps" -UseBasicParsing).Content
-Invoke-Expression $InstallScript
-
-Set-Location $RelayDir
-.\\relay-connector.exe --pair $PairCode --api $ApiUrl --name $Name
-
-Write-Host "Starting connector in background..."
-Start-Process -FilePath ".\\relay-connector.exe" -ArgumentList "connect" -WindowStyle Hidden
-Write-Host "Connector running."`
-    : "";
-
-  const command = platform === "unix" ? unixCommand : windowsCommand;
-
-  const copy = () => {
-    if (!command) return;
-    navigator.clipboard.writeText(command);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const copyCmd = (cmd: string, idx: number) => {
+    navigator.clipboard.writeText(cmd);
+    setCopiedIdx(idx);
+    setTimeout(() => setCopiedIdx(null), 2000);
   };
 
   const retry = () => {
@@ -139,7 +114,7 @@ Write-Host "Connector running."`
         </div>
         <div>
           <h2 className="font-semibold text-base text-foreground">Connect your first device</h2>
-          <p className="text-sm text-muted-foreground">Run this one command in your terminal to get started</p>
+          <p className="text-sm text-muted-foreground">Run these commands in your terminal to get started</p>
         </div>
       </div>
 
@@ -166,7 +141,7 @@ Write-Host "Connector running."`
           {(["unix", "windows"] as Platform[]).map((p) => (
             <button
               key={p}
-              onClick={() => { setPlatform(p); setCopied(false); }}
+              onClick={() => { setPlatform(p); setCopiedIdx(null); }}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-150 ${
                 platform === p
                   ? "bg-background text-foreground shadow-sm"
@@ -183,7 +158,7 @@ Write-Host "Connector running."`
         </div>
       )}
 
-      {/* Name input + Generate button, or command box */}
+      {/* Name input + Generate button, or 3 command boxes */}
       {!createError && (
         !device && !creating ? (
           <form onSubmit={handleSubmit} className="flex gap-2">
@@ -203,27 +178,30 @@ Write-Host "Connector running."`
               Generate
             </button>
           </form>
+        ) : creating ? (
+          <div className="flex items-center gap-2 px-4 py-5 text-sm text-muted-foreground rounded-xl border border-border/50 bg-muted/40">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Generating install commands…
+          </div>
         ) : (
-          <div className="relative rounded-xl border border-border/50 bg-muted/40 overflow-hidden">
-            {creating ? (
-              <div className="flex items-center gap-2 px-4 py-5 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Generating install command…
+          <div className="flex flex-col gap-3">
+            {commands.map(({ label, cmd }, i) => (
+              <div key={i} className="space-y-1">
+                <p className="text-xs font-medium text-muted-foreground">{label}</p>
+                <div className="relative rounded-xl border border-border/50 bg-muted/40 overflow-hidden">
+                  <pre className="px-4 py-3 pr-12 text-xs font-mono text-foreground/90 overflow-x-auto whitespace-pre [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                    <code>{cmd}</code>
+                  </pre>
+                  <button
+                    onClick={() => copyCmd(cmd, i)}
+                    className="absolute top-2 right-2 p-2 rounded-lg hover:bg-accent/60 text-muted-foreground hover:text-foreground transition-colors"
+                    title="Copy command"
+                  >
+                    {copiedIdx === i ? <Check className="h-4 w-4 text-primary" /> : <Copy className="h-4 w-4" />}
+                  </button>
+                </div>
               </div>
-            ) : (
-              <>
-                <pre className="px-4 py-4 pr-12 text-xs font-mono text-foreground/90 overflow-x-auto whitespace-pre leading-relaxed [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                  <code>{command}</code>
-                </pre>
-                <button
-                  onClick={copy}
-                  className="absolute top-2 right-2 p-2 rounded-lg hover:bg-accent/60 text-muted-foreground hover:text-foreground transition-colors"
-                  title="Copy command"
-                >
-                  {copied ? <Check className="h-4 w-4 text-primary" /> : <Copy className="h-4 w-4" />}
-                </button>
-              </>
-            )}
+            ))}
           </div>
         )
       )}
