@@ -278,7 +278,7 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
       {/* Main composer card */}
       <div
         className={cn(
-          "flex flex-col rounded-[24px] px-4 pt-3 pb-3 transition-all duration-150",
+          "flex flex-col rounded-[24px] px-4 pt-2.5 pb-2.5 transition-all duration-150",
           "bg-[hsl(0,0%,11%)] border-2",
           focused ? "border-foreground/20" : "border-border/40",
           disabled && "opacity-60 pointer-events-none"
@@ -302,8 +302,8 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
           placeholder={placeholder}
           disabled={disabled}
           rows={1}
-          style={{ height: "44px", overflowY: "hidden", resize: "none" }}
-          className="text-[15px] min-h-[44px] w-full bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none p-0 placeholder:text-muted-foreground/30 text-foreground"
+          style={{ height: "48px", overflowY: "hidden", resize: "none" }}
+          className="text-[17px] min-h-[48px] w-full bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none p-0 placeholder:text-muted-foreground/30 text-foreground"
         />
 
         {/* Waveform — shown while dictating */}
@@ -320,17 +320,17 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
         )}
 
         {/* Bottom action row */}
-        <div className="flex items-center justify-between mt-2">
+        <div className="flex items-center justify-between mt-1.5">
           {/* Left: attach + model/agent picker */}
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-2">
             {/* Attach button */}
             <button
               type="button"
               title="Attach file"
               onClick={() => fileInputRef.current?.click()}
-              className="flex items-center justify-center h-9 w-9 rounded-full bg-accent/60 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+              className="flex items-center justify-center h-10 w-10 rounded-full bg-muted/60 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
             >
-              <Paperclip size={16} />
+              <Paperclip size={18} />
             </button>
             <input ref={fileInputRef} type="file" className="hidden" multiple onChange={(e) => { if (e.target.files) onFileSelect(e.target.files); }} />
 
@@ -339,9 +339,9 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  className="flex items-center gap-1.5 h-9 px-3 rounded-full bg-accent/60 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors text-sm font-medium"
+                  className="flex items-center gap-2 h-10 px-4 rounded-full bg-muted/60 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors text-[15px] font-medium"
                 >
-                  {agent === "openclaw" ? <img src={openclawImg} className="w-4 h-4 object-contain" alt="" /> : agent === "claude" ? <img src={claudecodeImg} className="w-4 h-4 object-contain" alt="" /> : <img src={codexImg} className="w-4 h-4 object-contain" alt="" />}
+                  {agent === "openclaw" ? <img src={openclawImg} className="w-5 h-5 object-contain" alt="" /> : agent === "claude" ? <img src={claudecodeImg} className="w-5 h-5 object-contain" alt="" /> : <img src={codexImg} className="w-5 h-5 object-contain" alt="" />}
                   <span>{model === "auto" ? "Auto" : model.split("-").slice(-2).join(" ")}</span>
                 </button>
               </DropdownMenuTrigger>
@@ -361,13 +361,13 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
               title={isDictating ? "Stop dictation" : "Voice input"}
               onClick={toggleDictation}
               className={cn(
-                "flex items-center justify-center h-9 w-9 rounded-full transition-all duration-200",
+                "flex items-center justify-center h-10 w-10 rounded-full transition-all duration-200",
                 isDictating
                   ? "bg-destructive/20 text-destructive animate-pulse"
-                  : "bg-accent/60 text-muted-foreground hover:text-foreground hover:bg-accent"
+                  : "bg-muted/60 text-muted-foreground hover:text-foreground hover:bg-muted"
               )}
             >
-              <Mic size={16} />
+              <Mic size={18} />
             </button>
           </div>
 
@@ -378,13 +378,13 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
             disabled={sendDisabled || disabled}
             title="Send"
             className={cn(
-              "flex items-center justify-center h-9 w-9 rounded-full transition-all duration-150",
+              "flex items-center justify-center h-11 w-11 rounded-full transition-all duration-150",
               sendDisabled || disabled
                 ? "bg-muted/30 text-muted-foreground/30 cursor-not-allowed"
                 : "bg-foreground text-background hover:opacity-80 shadow-md"
             )}
           >
-            <ArrowUp size={17} />
+            <ArrowUp size={19} />
           </button>
         </div>
       </div>
