@@ -816,7 +816,8 @@ export default function Chat() {
       // claude
       const modelPart = modelFlag ? ` ${modelFlag}` : "";
       if (conv.claude_session_id) {
-        return `claude -c${modelPart} -p "${escaped}"\n`;
+        // Use --resume <id> for exact session targeting (synced or previously started)
+        return `claude --resume ${conv.claude_session_id}${modelPart} -p "${escaped}"\n`;
       }
       return `claude${modelPart} -p "${escaped}"\n`;
     }
