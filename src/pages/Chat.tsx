@@ -1389,7 +1389,8 @@ export default function Chat() {
                   {devices.length === 0 ? (
                     <div className="flex flex-col items-center gap-6 w-full max-w-xl px-2">
                       <QuickStart
-                        projectId={projectId}
+                        userId={user?.id ?? ""}
+                        projectId={projectId || undefined}
                         onDeviceOnline={(dev) => {
                           setDevices((prev) => [...prev, dev]);
                           setSelectedDeviceId(dev.id);
