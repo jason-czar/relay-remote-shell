@@ -47,6 +47,7 @@ export function AppSidebar() {
     try { return localStorage.getItem("sidebar-setup-open") === "true"; } catch { return false; }
   });
   const [search, setSearch] = useState("");
+  const [agentFilter, setAgentFilter] = useState<"all" | "openclaw" | "claude" | "codex">("all");
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
@@ -103,9 +104,15 @@ export function AppSidebar() {
   const { conversations, activeConvId, setActiveConvId, handleDelete, handleNew, handleRename, activeJobs, isSyncingClaudeHistory, syncClaudeHistory } = useChatContext();
   const { toast } = useToast();
 
-  const filtered = conversations.filter((c) =>
-    c.title.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = conversations.filter((c) => {
+    const matchSearch = c.title.toLowerCase().includes(search.toLowerCase());
+    const matchAgent =
+      agentFilter === "all" ||
+      (agentFilter === "openclaw" && c.agent === "openclaw") ||
+      (agentFilter === "claude" && c.agent === "claude") ||
+      (agentFilter === "codex" && c.agent === "codex");
+    return matchSearch && matchAgent;
+  });
 
   const now = new Date();
   const todayStart     = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -193,6 +200,24 @@ export function AppSidebar() {
                     </button>
                   )}
                 </div>
+              </div>
+
+              {/* Agent filter pills */}
+              <div className="px-2 pb-2 flex gap-1 flex-wrap">
+                {(["all", "openclaw", "claude", "codex"] as const).map((f) => (
+                  <button
+                    key={f}
+                    onClick={() => setAgentFilter(f)}
+                    className={cn(
+                      "px-2 py-0.5 rounded-full text-xs font-medium border transition-colors",
+                      agentFilter === f
+                        ? "bg-foreground/10 border-foreground/30 text-foreground"
+                        : "border-border/40 text-muted-foreground/50 hover:text-foreground hover:border-border/70"
+                    )}
+                  >
+                    {f === "all" ? "All" : f === "openclaw" ? "OpenClaw" : f === "claude" ? "Claude Code" : "Codex"}
+                  </button>
+                ))}
               </div>
 
               {/* Grouped list */}
