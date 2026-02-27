@@ -1439,11 +1439,11 @@ export default function Chat() {
                             key={title}
                             onClick={() => setInput(prompt)}
                             disabled={!selectedDeviceId}
-                            className="animate-fade-in group flex flex-col gap-2 px-5 py-4 rounded-xl border border-border/40 bg-card/40 hover:bg-card/80 hover:border-border/80 hover:shadow-sm transition-all duration-200 text-left disabled:opacity-40 disabled:cursor-not-allowed"
+                            className="animate-fade-in group flex flex-col gap-1.5 px-4 py-3.5 rounded-xl border-2 border-border/40 bg-card hover:border-foreground/20 hover:bg-card transition-all duration-150 text-left disabled:opacity-40 disabled:cursor-not-allowed"
                             style={{ animationDelay: `${420 + i * 80}ms`, animationFillMode: "both" }}
                           >
-                            <span className="text-sm font-semibold text-foreground">{title}</span>
-                            <span className="text-sm text-muted-foreground/80 leading-snug line-clamp-2">{prompt}</span>
+                            <span className="text-sm font-semibold text-foreground leading-tight">{icon} {title}</span>
+                            <span className="text-xs text-muted-foreground/70 leading-snug line-clamp-2">{prompt}</span>
                           </button>
                         ))}
                       </div>
