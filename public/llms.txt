@@ -3,7 +3,7 @@
 > Machine-readable documentation for AI agents and bots.
 > Full version with all source documents: /llms-full.txt
 > Human-friendly docs available at: https://privaclaw.com/docs
-> Last updated: 2026-02-26
+> Last updated: 2026-02-27
 
 ---
 
@@ -252,6 +252,52 @@ Owners invite by email from Team tab. Existing account → added immediately. No
 ### Managing Team
 
 Owners can remove members and cancel pending invitations. Members cannot transfer ownership or promote others.
+
+---
+
+## AI Chat
+
+The Chat page (`/chat`) sends prompts to AI coding agents running on connected devices over the relay and streams responses back as formatted messages.
+
+### Supported Agents
+
+| Agent | CLI | Description |
+|---|---|---|
+| OpenClaw | `openclaw -p "…"` | Native OpenClaw with relay integration, status and restart support |
+| Claude Code | `claude -p "…"` | Anthropic's Claude Code CLI running on the device |
+| Codex | `codex "…"` | OpenAI Codex CLI running on the device |
+
+### Model Selection
+
+Each agent supports a `--model` flag. Available models:
+
+- **OpenClaw / Claude Code**: Auto, claude-opus-4-5, claude-sonnet-4-5, claude-haiku-4-5, claude-opus-4, claude-sonnet-4, claude-haiku-3-5
+- **Codex**: Auto, o4-mini, o3, o3-mini, gpt-4.1, gpt-4.1-mini, gpt-4o
+
+"Auto" omits `--model` and uses the agent's default.
+
+### Slash Commands
+
+Type `/` in the composer to trigger slash commands:
+
+| Command | Agent | Action |
+|---|---|---|
+| `/clear` | All | Clear conversation |
+| `/new` | All | New conversation |
+| `/compact` | All | Compact context to save tokens |
+| `/status` | OpenClaw | Print agent status JSON |
+| `/restart` | OpenClaw | Restart agent process |
+| `/resume` | Claude Code | Resume last session (`claude -c -p "continue"`) |
+| `/codex-resume` | Codex | Resume last session (`codex --resume`) |
+| `/help` | All | Show available commands |
+
+### File Attachments
+
+Attach files via the paperclip icon. Text files are sent inline; binaries are base64-encoded. Multiple files per message supported.
+
+### Voice Dictation
+
+Microphone button triggers ElevenLabs Scribe real-time transcription directly into the composer field.
 
 ---
 
@@ -678,6 +724,7 @@ Go to `/settings`.
 | `/dashboard` | Main dashboard | Yes |
 | `/projects` | Project list | Yes |
 | `/project/:id` | Project detail (devices, team, sessions) | Yes |
+| `/chat` | AI Chat (OpenClaw, Claude Code, Codex agents) | Yes |
 | `/terminal/:deviceId/:sessionId` | Live terminal session | Yes |
 | `/skill/privaclaw` | PrivaClaw skill configuration | Yes |
 | `/settings` | User profile and account settings | Yes |
