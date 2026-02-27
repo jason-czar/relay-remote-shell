@@ -1140,7 +1140,8 @@ export default function Chat() {
             <div className="absolute left-1/2 -translate-x-1/2 flex items-center">
             {(["openclaw", "claude"] as const).map((a) => {
                 const active = agent === a;
-                const label = a === "openclaw" ? "OpenClaw" : "Claude Code";
+                  const label = a === "openclaw" ? "OpenClaw" : "Claude Code";
+                  const labelShort = a === "openclaw" ? "OpenClaw" : "Claude";
                 const img = a === "openclaw" ? openclawImg : claudecodeImg;
                 return (
                   <button
@@ -1151,7 +1152,8 @@ export default function Chat() {
                     }`}
                   >
                     <img src={img} alt={label} className="w-4 h-4 rounded-sm object-cover" />
-                    {label}
+                    <span className="hidden xs:inline sm:inline">{label}</span>
+                    <span className="sm:hidden">{labelShort}</span>
                     {active && <span className="absolute bottom-0 left-3 right-3 h-px bg-foreground/70 rounded-full" />}
                   </button>
                 );
@@ -1168,23 +1170,23 @@ export default function Chat() {
               </button>
               <button
                 onClick={() => window.location.reload()}
-                className="w-7 h-7 rounded-full flex items-center justify-center text-muted-foreground/60 hover:text-foreground hover:bg-muted/50 transition-all duration-150"
+                className="hidden sm:flex w-7 h-7 rounded-full items-center justify-center text-muted-foreground/60 hover:text-foreground hover:bg-muted/50 transition-all duration-150"
                 title="Refresh page"
               >
                 <RefreshCw className="h-3.5 w-3.5" />
               </button>
               <Popover>
                 <PopoverTrigger asChild>
-                  <button className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all duration-150 border border-border/30 bg-muted/20 hover:bg-muted/50 hover:border-border/60 text-muted-foreground hover:text-foreground">
+                  <button className="flex items-center gap-1.5 px-2 sm:px-2.5 py-1 rounded-full text-xs font-medium transition-all duration-150 border border-border/30 bg-muted/20 hover:bg-muted/50 hover:border-border/60 text-muted-foreground hover:text-foreground">
                     {(() => {
                       const dev = devices.find(d => d.id === selectedDeviceId);
                       return dev ? (
                         <>
                           <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${dev.status === "online" ? "bg-status-online animate-pulse" : "bg-muted-foreground/40"}`} />
-                          <span className="max-w-[120px] truncate">{dev.name}</span>
+                          <span className="hidden sm:inline max-w-[120px] truncate">{dev.name}</span>
                         </>
                       ) : (
-                        <span className="opacity-50">No device</span>
+                        <span className="opacity-50 hidden sm:inline">No device</span>
                       );
                     })()}
                     <ChevronDown className="h-3 w-3 shrink-0 opacity-40" />
@@ -1250,7 +1252,7 @@ export default function Chat() {
             <button
               onClick={scrollToBottom}
               className={cn(
-                "absolute bottom-[88px] left-1/2 -translate-x-1/2 z-20",
+                "absolute bottom-[80px] sm:bottom-[88px] left-1/2 -translate-x-1/2 z-20",
                 "flex items-center gap-1.5 px-3 py-1.5 rounded-full",
                 "bg-background/80 backdrop-blur-md border border-border/60",
                 "text-xs text-muted-foreground hover:text-foreground",
@@ -1268,10 +1270,10 @@ export default function Chat() {
             </button>
           )}
 
-          <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto py-6">
-            <div className="max-w-[860px] mx-auto px-6">
+          <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto py-4 sm:py-6">
+            <div className="max-w-[860px] mx-auto px-3 sm:px-6">
               {messages.length === 0 && !thinking && (
-                <div className="flex flex-col items-center justify-center min-h-[80vh] text-center">
+                <div className="flex flex-col items-center justify-center min-h-[70vh] sm:min-h-[80vh] text-center">
 
                   {/* ── No device paired: prominent CTA ─────────────────── */}
                   {devices.length === 0 ? (
@@ -1412,7 +1414,7 @@ export default function Chat() {
           </div>
 
           {/* Floating composer */}
-          <div className="shrink-0 px-6 pb-6 pt-2">
+          <div className="shrink-0 px-3 sm:px-6 pb-4 sm:pb-6 pt-2">
             <div className="max-w-[860px] mx-auto">
               {/* Stop streaming button */}
               {(thinking || streamingMsgIndex !== null) && (
