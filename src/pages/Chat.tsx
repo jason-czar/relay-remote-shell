@@ -213,8 +213,8 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
     setInput(e.target.value);
     const el = e.target;
     const isMobile = window.innerWidth < 768;
-    const maxH = isMobile ? Math.floor(window.innerHeight * 0.75) : 200;
-    el.style.height = "40px";
+    const maxH = isMobile ? Math.floor(window.innerHeight * 0.4) : 240;
+    el.style.height = "auto";
     el.style.height = Math.min(el.scrollHeight, maxH) + "px";
     el.style.overflowY = el.scrollHeight > maxH ? "auto" : "hidden";
   };
@@ -255,7 +255,7 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
       {/* Main pill bar */}
       <div
         className={cn(
-          "flex items-center gap-1 rounded-full px-3 py-1.5 transition-all duration-200",
+          "flex items-end gap-1 rounded-[24px] px-3 py-1.5 transition-all duration-200",
           "bg-[hsl(var(--muted)/0.6)] border border-border/20",
           disabled && "opacity-60 pointer-events-none"
         )}
@@ -289,8 +289,8 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
           placeholder={placeholder}
           disabled={disabled}
           rows={1}
-          style={{ height: "40px", overflowY: "hidden" }}
-          className="resize-none text-sm min-h-[40px] flex-1 bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none px-2 py-2.5 overflow-y-auto placeholder:text-muted-foreground/40"
+          style={{ height: "40px", overflowY: "hidden", resize: "none" }}
+          className="text-sm min-h-[40px] flex-1 bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none px-2 py-2.5 placeholder:text-muted-foreground/40"
         />
 
         {/* Waveform — shown while dictating */}
