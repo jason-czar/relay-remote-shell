@@ -29,12 +29,13 @@ export function QuickStart({ userId, projectId, onDeviceOnline }: QuickStartProp
     setCreating(true);
     setCreateError(null);
     const pairingCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-    const insertPayload = projectId
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const insertPayload: any = projectId
       ? { project_id: projectId, name: "My Device", pairing_code: pairingCode }
-      : { user_id: userId, name: "My Device", pairing_code: pairingCode } as Parameters<typeof supabase.from<"devices">>[0] extends never ? never : object;
+      : { user_id: userId, name: "My Device", pairing_code: pairingCode };
     supabase
       .from("devices")
-      .insert(insertPayload as { user_id: string; name: string; pairing_code: string })
+      .insert(insertPayload)
       .select()
       .single()
       .then(({ data, error }) => {
@@ -46,7 +47,7 @@ export function QuickStart({ userId, projectId, onDeviceOnline }: QuickStartProp
         }
         setCreating(false);
       });
-  }, [projectId]);
+  }, [userId, projectId]);
 
   // Stable callback so realtime effect doesn't re-subscribe on each render
   const handleDeviceOnline = useCallback(
