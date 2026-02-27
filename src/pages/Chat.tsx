@@ -824,13 +824,24 @@ export default function Chat() {
       // Strip ANSI / terminal escape codes comprehensively
       const stripAnsi = (s: string) =>
       s.
+      // OSC sequences: ESC ] ... BEL or ESC \
       replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, "").
+      // CSI sequences: ESC [ ... final-byte
       replace(/\x1b\[[\x30-\x3f]*[\x20-\x2f]*[\x40-\x7e]/g, "").
-      replace(/\x1b[PX^_].*?\x1b\\/g, "").
+      // DCS/SOS/PM/APC/ST sequences
+      replace(/\x1b[PX^_][\s\S]*?\x1b\\/g, "").
+      // Other ESC sequences
       replace(/\x1b[^[\]PX^_]/g, "").
+      // Bare ESC
       replace(/\x1b/g, "").
+      // Residual CSI-like fragments (e.g. after ESC was stripped: [1m, [27m, [?2004h)
       replace(/\[[\d;?<>!]*[a-zA-Z]/g, "").
-      replace(/\][\d;][^\r\n]*/g, "").
+      // Residual OSC-like fragments (e.g. ]7;file://... ]2;title)
+      replace(/\]\d+;[^\r\n]*/g, "").
+      // Shell working directory / title notifications without ESC prefix
+      replace(/\]7;[^\r\n]*/g, "").
+      replace(/\]2;[^\r\n]*/g, "").
+      // Other control chars except \t \n \r
       replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, "");
 
       try {
@@ -939,6 +950,12 @@ export default function Chat() {
             if (/^claude\s+(-p|-c|--print|--resume)/i.test(t)) return false;
             if (/^\[[\d;?<>!]*[a-zA-Z]/.test(t)) return false;
             if (/^[=\-\+\*~\s]+$/.test(t)) return false;
+            // Shell hostname / path lines emitted by prompt (e.g. "user@host ~ %")
+            if (/\w+@\w+/.test(t) && /[~\/]/.test(t)) return false;
+            // Residual OSC/title fragments
+            if (/^\]\d+;/.test(t)) return false;
+            // Bracketed paste mode sequences
+            if (/^\?2004[hl]$/.test(t)) return false;
             return true;
           }).
           join("\n").
