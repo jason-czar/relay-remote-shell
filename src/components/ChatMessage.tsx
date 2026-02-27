@@ -232,6 +232,9 @@ export function ChatMessage({ role, content, thinking, streaming, rawStdout, thi
               ))}
             </span>
           )}
+          {!streaming && !content && !thinkingContent && (
+            <span className="italic text-muted-foreground/40 text-base">(empty response)</span>
+          )}
           <ReactMarkdown
             remarkPlugins={[remarkGfm]}
             components={{
