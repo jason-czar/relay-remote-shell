@@ -77,6 +77,7 @@ const sections: Section[] = [
       { id: "starting-session", title: "Starting a Session" },
       { id: "session-features", title: "Session Features" },
       { id: "reconnection", title: "Reconnection & Resilience" },
+      { id: "session-persistence", title: "Session Persistence" },
       { id: "mobile-keyboard", title: "Mobile Keyboard" },
       { id: "session-history", title: "Session History" },
     ],
@@ -828,6 +829,64 @@ GOOS=linux GOARCH=arm GOARM=7 go build -o relay-connector-pi .`}</CodeBlock>
             from background (e.g. switching apps on mobile), a <strong>"Reconnecting…"</strong> banner is shown in the
             terminal header until the relay confirms re-authentication with <code className="text-xs bg-muted px-1 py-0.5 rounded font-mono">auth_ok</code>.
           </p>
+
+          <Heading id="session-persistence" level={3}>Session Persistence</Heading>
+          <p className="text-sm text-muted-foreground leading-relaxed mb-4">
+            PrivaClaw is designed so that long-running processes (like <strong>Claude Code</strong>, <strong>Codex</strong>, or
+            any other AI agent) keep running even when you navigate away, reload the page, or switch apps on mobile.
+            Persistence is achieved through three complementary mechanisms:
+          </p>
+
+          <p className="text-sm font-medium text-foreground mb-2">1 · Relay Grace Period (10 minutes)</p>
+          <p className="text-sm text-muted-foreground leading-relaxed mb-4">
+            When your browser disconnects from the relay — intentionally or due to a network drop — the relay keeps the
+            session alive on the server side for <strong>10 minutes</strong>. The connector's PTY process continues running
+            normally. If you reconnect within that window, you rejoin the same shell as if nothing happened.
+          </p>
+
+          <p className="text-sm font-medium text-foreground mb-2">2 · localStorage Continuity</p>
+          <p className="text-sm text-muted-foreground leading-relaxed mb-4">
+            The active <code className="text-xs bg-muted px-1 py-0.5 rounded font-mono">session_id</code> and
+            <code className="text-xs bg-muted px-1 py-0.5 rounded font-mono"> device_id</code> are persisted in
+            <code className="text-xs bg-muted px-1 py-0.5 rounded font-mono"> localStorage</code> the moment a session starts.
+            On reload, the app reads these values, checks the session status in the database, and automatically reconnects
+            if the session is still active — no user action needed.
+          </p>
+
+          <p className="text-sm font-medium text-foreground mb-2">3 · Scrollback Replay</p>
+          <p className="text-sm text-muted-foreground leading-relaxed mb-4">
+            The relay maintains an in-memory scrollback buffer of recent stdout output. On reconnect, the relay immediately
+            sends a <code className="text-xs bg-muted px-1 py-0.5 rounded font-mono">scrollback</code> message containing
+            the buffered history, which the browser writes into the xterm.js terminal. This restores the visible terminal
+            state so you can see exactly what happened while you were away.
+          </p>
+          <CodeBlock language="json">{`// Relay → Browser: scrollback message on reconnect
+{
+  "type": "scrollback",
+  "data": {
+    "session_id": "uuid",
+    "data_b64": "base64-encoded-buffered-stdout"
+  }
+}`}</CodeBlock>
+
+          <p className="text-sm font-medium text-foreground mb-2">4 · Resize Instead of session_start</p>
+          <p className="text-sm text-muted-foreground leading-relaxed mb-4">
+            A brand-new session sends a <code className="text-xs bg-muted px-1 py-0.5 rounded font-mono">session_start</code> message
+            to spawn a fresh PTY on the connector. A <strong>resumed</strong> session instead sends a
+            <code className="text-xs bg-muted px-1 py-0.5 rounded font-mono"> resize</code> message to sync the current
+            terminal dimensions without restarting the underlying process. This is the key mechanism that allows Claude Code
+            and similar tools to keep running undisturbed across reloads and app-switches.
+          </p>
+          <CodeBlock language="json">{`// New session → spawns a new PTY
+{ "type": "session_start", "data": { "session_id": "uuid", "cols": 120, "rows": 40 } }
+
+// Resumed session → re-syncs dimensions only, PTY keeps running
+{ "type": "resize",        "data": { "session_id": "uuid", "cols": 120, "rows": 40 } }`}</CodeBlock>
+          <InfoBox variant="tip">
+            The client determines whether a session is "new" or "resumed" by comparing the
+            <code className="text-xs bg-muted px-1 py-0.5 rounded font-mono"> session_id</code> from localStorage against
+            the database record. If the session row exists and its status is <code className="text-xs bg-muted px-1 py-0.5 rounded font-mono">active</code>, a resume flow is triggered.
+          </InfoBox>
 
           <Heading id="mobile-keyboard" level={3}>Mobile Keyboard</Heading>
           <p className="text-sm text-muted-foreground leading-relaxed mb-4">
