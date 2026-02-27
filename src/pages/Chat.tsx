@@ -33,7 +33,11 @@ interface Message {
   id?: string;
   role: "user" | "assistant";
   content: string;
+  conversation_id?: string;
   created_at?: string;
+  type?: string;
+  data?: unknown;
+  thinkingContent?: string;
 }
 
 interface RelayMsg {
@@ -373,6 +377,8 @@ export default function Chat() {
   const activeConvIdRef = useRef<string | null>(null);
   // Store raw relay stdout keyed by message array index (session-only, not persisted)
   const rawStdoutMapRef = useRef<Map<number, string>>(new Map());
+  // Store codex reasoning summaries keyed by message array index
+  const thinkingMapRef = useRef<Map<number, string>>(new Map());
   useEffect(() => { activeConvIdRef.current = activeConvId; }, [activeConvId]);
 
   // ── State ──────────────────────────────────────────────────────────────
@@ -782,6 +788,7 @@ export default function Chat() {
           .single();
 
         let responseText = "";
+        let codexThinking = "";
 
         if (convData?.agent === "openclaw") {
           const jsonBlocks = cleaned.match(/\{[\s\S]*?\}/g) ?? [];
@@ -808,7 +815,9 @@ export default function Chat() {
         } else if (convData?.agent === "codex") {
           // Codex CLI outputs JSONL in -q mode — each line is a JSON object.
           // We want the text from type:"message" / role:"assistant" objects.
+          // Reasoning summaries (type:"reasoning") are extracted separately.
           const textParts: string[] = [];
+          const reasoningParts: string[] = [];
           for (const line of cleaned.split("\n")) {
             const t = line.trim();
             if (!t) continue;
@@ -822,10 +831,21 @@ export default function Chat() {
                       textParts.push(part.text);
                     }
                   }
+                  continue;
+                }
+                // type:"reasoning" — collect summary_text items
+                if (obj.type === "reasoning" && Array.isArray(obj.summary)) {
+                  for (const s of obj.summary) {
+                    if (s.type === "summary_text" && typeof s.text === "string") {
+                      reasoningParts.push(s.text);
+                    }
+                  }
+                  continue;
                 }
                 // Also handle simple {type:"text", text:...} shapes
                 if (obj.type === "text" && typeof obj.text === "string") {
                   textParts.push(obj.text);
+                  continue;
                 }
                 continue;
               } catch { /* not JSON, fall through */ }
@@ -838,6 +858,7 @@ export default function Chat() {
             if (/^[=\-\+\*~\s]+$/.test(t)) continue;
             textParts.push(t);
           }
+          codexThinking = reasoningParts.join("\n\n").trim();
           responseText = textParts.join("\n").trim();
           if (!responseText) {
             const errorMatch = cleaned.match(/^Error:\s*(.+)/m) ?? cleaned.match(/error:\s*(.+)/im);
@@ -879,6 +900,10 @@ export default function Chat() {
             revealedIdx = prev.length;
             // Store raw stdout keyed by this message's index for the debug panel
             rawStdoutMapRef.current.set(revealedIdx, stdout);
+            // Store codex reasoning if present
+            if (convData?.agent === "codex" && (codexThinking ?? "")) {
+              thinkingMapRef.current.set(revealedIdx, codexThinking ?? "");
+            }
             return [...prev, { role: "assistant", content: "" }];
           });
           setThinking(false);
@@ -1468,6 +1493,7 @@ export default function Chat() {
                       content={msg.content}
                       streaming={streamingMsgIndex === i}
                       rawStdout={msg.role === "assistant" ? (msg as any).rawStdout : undefined}
+                      thinkingContent={msg.role === "assistant" ? thinkingMapRef.current.get(i) : undefined}
                       createdAt={msg.created_at}
                       agent={agent}
                       onRegenerate={
