@@ -469,19 +469,20 @@ export default function Chat() {
   const setSelectedDeviceId = useCallback((id: string) => {
     setSelectedDeviceIdState(id);
     localStorage.setItem("chat-device-id", id);
-    // Restore the agent that was last used with this device
-    const saved = localStorage.getItem(`chat-agent-${id}`);
-    if (saved) {
-      setAgent(saved as "openclaw" | "claude" | "codex" | "terminal");
-    }
+    // Restore the agent & model last used with this device
+    const savedAgent = localStorage.getItem(`chat-agent-${id}`);
+    if (savedAgent) setAgent(savedAgent as "openclaw" | "claude" | "codex" | "terminal");
+    const savedModel = localStorage.getItem(`chat-model-${id}`);
+    if (savedModel) setModel(savedModel);
   }, []);
 
   // Persist agent selection keyed by device whenever either changes
   useEffect(() => {
     if (selectedDeviceId) {
       localStorage.setItem(`chat-agent-${selectedDeviceId}`, agent);
+      localStorage.setItem(`chat-model-${selectedDeviceId}`, model);
     }
-  }, [agent, selectedDeviceId]);
+  }, [agent, model, selectedDeviceId]);
 
   // ── Load devices ──────────────────────────────────────────────────────
   useEffect(() => {
