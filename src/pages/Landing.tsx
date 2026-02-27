@@ -246,12 +246,13 @@ export default function Landing() {
             { src: claudecodeIcon, alt: "Claude Code" },
             { src: codexIcon, alt: "Codex" },
             { src: terminalIcon, alt: "Terminal" },
-          ].map(({ src, alt }) => (
+          ].map(({ src, alt }, i) => (
             <img
               key={alt}
               src={src}
               alt={alt}
-              className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl shadow-lg transition-transform duration-200 hover:scale-110 cursor-default"
+              className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl shadow-lg transition-transform duration-200 hover:scale-110 cursor-default opacity-0 animate-fade-in"
+              style={{ animationDelay: `${i * 100}ms`, animationFillMode: "forwards" }}
             />
           ))}
         </div>
