@@ -198,6 +198,28 @@ export function SetupWizard({ projectId, onComplete, onSkip, existingDevice }: S
               </div>
             ))}
 
+            {/* macOS Gatekeeper note */}
+            <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 flex gap-2.5">
+              <span className="text-base shrink-0 mt-0.5">⚠️</span>
+              <div className="space-y-1 min-w-0">
+                <p className="text-xs font-semibold text-amber-600 dark:text-amber-400">macOS: blocked by Gatekeeper?</p>
+                <p className="text-xs text-muted-foreground">If macOS prevents the binary from running, clear the quarantine attribute first:</p>
+                <div className="relative mt-1">
+                  <pre className="bg-muted rounded-md p-2 pr-9 text-xs font-mono overflow-x-auto whitespace-pre">
+                    <code>xattr -d com.apple.quarantine ~/relay-connector/relay-connector</code>
+                  </pre>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="absolute top-1 right-1 h-6 w-6"
+                    onClick={() => copyToClipboard("xattr -d com.apple.quarantine ~/relay-connector/relay-connector")}
+                  >
+                    <Copy className="h-3 w-3" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+
             <div className="flex items-center gap-2 text-sm">
               <span className="text-muted-foreground">Pairing code:</span>
               <code className="bg-muted px-2 py-0.5 rounded font-mono font-bold text-primary">
