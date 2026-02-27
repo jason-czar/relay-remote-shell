@@ -374,7 +374,61 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ── Features ── */}
+      {/* ── How it works ── */}
+      <section className="border-t border-border/20 px-5 py-16">
+        <div className="max-w-2xl mx-auto">
+          <p className="text-xs font-semibold tracking-widest text-muted-foreground/50 uppercase text-center mb-2">How it works</p>
+          <h2 className="text-2xl font-bold tracking-tight text-center mb-10">Up and running in minutes</h2>
+
+          <div className="relative flex flex-col sm:flex-row gap-8 sm:gap-4">
+            {/* connector line (desktop only) */}
+            <div
+              className="hidden sm:block absolute top-7 left-[calc(16.66%+1rem)] right-[calc(16.66%+1rem)] h-px"
+              style={{ background: "linear-gradient(to right, hsl(var(--border)/0.6), hsl(var(--border)/0.6))" }}
+            />
+
+            {[
+              {
+                n: "1",
+                title: "Install the connector",
+                desc: "Download the lightweight PrivaClaw connector binary and run it on any machine you want to control.",
+              },
+              {
+                n: "2",
+                title: "Pair your device",
+                desc: "The connector displays a one-time pairing code. Enter it in the app to securely link your machine.",
+              },
+              {
+                n: "3",
+                title: "Start chatting",
+                desc: "Pick an agent — OpenClaw, Claude Code, or Codex — and start sending commands from anywhere.",
+              },
+            ].map(({ n, title, desc }, i) => (
+              <div
+                key={n}
+                className="relative flex-1 flex flex-col items-center text-center animate-fade-in"
+                style={{ animationDelay: `${i * 120}ms`, animationFillMode: "both" }}
+              >
+                {/* number badge */}
+                <div
+                  className="relative z-10 w-14 h-14 rounded-full border border-border/40 flex items-center justify-center mb-4 text-lg font-bold"
+                  style={{ background: "hsl(var(--card))" }}
+                >
+                  {n}
+                </div>
+                <p className="text-sm font-semibold mb-1">{title}</p>
+                <p className="text-xs text-muted-foreground/70 leading-relaxed max-w-[180px]">{desc}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex justify-center mt-10">
+            <Button size="sm" variant="outline" onClick={() => navigate("/docs")} className="gap-1.5 border-border/40 text-muted-foreground hover:text-foreground">
+              Read the setup guide <ArrowRight className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </div>
+      </section>
       <section className="border-t border-border/20 px-5 py-16">
         <div className="max-w-2xl mx-auto">
           <p className="text-xs font-semibold tracking-widest text-muted-foreground/50 uppercase text-center mb-8">Why PrivaClaw</p>
