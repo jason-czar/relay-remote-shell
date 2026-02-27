@@ -1134,9 +1134,9 @@ export default function Chat() {
             } catch {
 
 
+
               // silently keep the fallback title
             }})();}
-
         setConversations((prev) => {
           const conv = prev.find((c) => c.id === jobConvId);
           if (!conv) return prev;
@@ -1401,7 +1401,7 @@ export default function Chat() {
 
           {/* Top header bar */}
           <div
-            className="sticky top-0 z-20 shrink-0 border-b border-border/10 flex items-center px-5 relative backdrop-blur-md bg-background/80"
+            className="sticky top-0 z-20 shrink-0 border-b border-border/10 flex items-center px-5 relative backdrop-blur-md bg-transparent"
             style={{ paddingTop: 'env(safe-area-inset-top, 0px)', minHeight: 'calc(env(safe-area-inset-top, 0px) + 64px)' }}>
 
             {/* Left — sidebar trigger */}
