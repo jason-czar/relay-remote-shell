@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Terminal, Zap, Shield, Cpu } from "lucide-react";
@@ -47,114 +47,136 @@ const LINE_APPEAR_DELAY = 60; // between output lines
 const CMD_PAUSE = 320;       // pause before output starts
 const LOOP_PAUSE = 2800;     // pause before restart
 
-function TerminalDemo() {
-  // lines that are fully visible
-  const [visibleLines, setVisibleLines] = useState<TermLine[]>([]);
-  // the current command being typed (partial string)
-  const [typingCmd, setTypingCmd] = useState<string | null>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
+// ── Agent preview mock data ──────────────────────────────────────────────────
+type AgentId = "openclaw" | "claudecode" | "codex" | "terminal";
+
+const AGENT_PREVIEWS: Record<AgentId, { label: string; messages: { role: "user" | "assistant"; text: string }[]; color: string }> = {
+  openclaw: {
+    label: "OpenClaw",
+    color: "text-red-400",
+    messages: [
+      { role: "user", text: "Refactor the auth module to use JWTs" },
+      { role: "assistant", text: "Sure! I'll start by auditing the current session-based flow, then migrate to JWT issuance on login and stateless verification middleware.\n\n`src/auth/index.ts` → generating tokens with `jose`\n`src/middleware/auth.ts` → verifying on each request\n\nShall I also handle token refresh?" },
+      { role: "user", text: "Yes, add refresh token rotation too" },
+      { role: "assistant", text: "Done. Refresh tokens are stored in an HttpOnly cookie and rotated on each use. Old tokens are invalidated immediately to prevent replay attacks." },
+    ],
+  },
+  claudecode: {
+    label: "Claude Code",
+    color: "text-amber-400",
+    messages: [
+      { role: "user", text: "Write tests for the UserService class" },
+      { role: "assistant", text: "I'll write comprehensive unit tests covering the happy path, edge cases, and error conditions.\n\n```ts\ndescribe('UserService', () => {\n  it('creates a user with hashed password', async () => {\n    const user = await UserService.create({ email: 'a@b.com', password: 'secret' });\n    expect(user.passwordHash).not.toBe('secret');\n  });\n});\n```\n\nRunning `npx vitest`… ✓ 12 tests passed" },
+      { role: "user", text: "Add a test for duplicate email handling" },
+      { role: "assistant", text: "Added. The test expects a `ConflictError` when inserting an email that already exists — and it passes ✓" },
+    ],
+  },
+  codex: {
+    label: "Codex",
+    color: "text-blue-400",
+    messages: [
+      { role: "user", text: "Build a REST endpoint for file uploads" },
+      { role: "assistant", text: "I'll scaffold a `POST /upload` endpoint using `multer` for multipart parsing, validate MIME type and file size, and store to S3-compatible storage.\n\n*Thinking… (4.2s)*\n\n`routes/upload.ts` created\n`middleware/fileValidator.ts` created\n\nEndpoint is ready. Max 10 MB, images and PDFs only." },
+      { role: "user", text: "Add virus scanning before storing" },
+      { role: "assistant", text: "Integrated ClamAV via `clamscan`. Files are scanned in a temp dir before being moved to storage. Infected files are rejected with a 422 and logged." },
+    ],
+  },
+  terminal: {
+    label: "Terminal",
+    color: "text-green-400",
+    messages: [
+      { role: "user", text: "git status" },
+      { role: "assistant", text: "On branch main\nChanges not staged for commit:\n  modified:   src/pages/Chat.tsx\n  modified:   src/components/AppSidebar.tsx" },
+      { role: "user", text: "npx vitest run" },
+      { role: "assistant", text: "✓ src/test/example.test.ts (3 tests)\n  ✓ renders without crashing\n  ✓ handles empty state\n  ✓ validates input\n\nTest Files  1 passed (1)\nTests       3 passed (3)" },
+    ],
+  },
+};
+
+function AgentPreview() {
+  const [active, setActive] = useState<AgentId>("openclaw");
+  const [visibleCount, setVisibleCount] = useState(0);
+  const preview = AGENT_PREVIEWS[active];
 
   useEffect(() => {
-    let cancelled = false;
+    setVisibleCount(0);
+    const msgs = AGENT_PREVIEWS[active].messages;
+    let i = 0;
+    const tick = () => {
+      i++;
+      setVisibleCount(i);
+      if (i < msgs.length) setTimeout(tick, 600);
+    };
+    const t = setTimeout(tick, 300);
+    return () => clearTimeout(t);
+  }, [active]);
 
-    const delay = (ms: number) => new Promise<void>((res) => setTimeout(res, ms));
-
-    async function run() {
-      while (!cancelled) {
-        setVisibleLines([]);
-        setTypingCmd(null);
-
-        for (const line of SCRIPT) {
-          if (cancelled) return;
-
-          if (line.kind === "gap") {
-            setVisibleLines((p) => [...p, line]);
-            await delay(LINE_APPEAR_DELAY);
-            continue;
-          }
-
-          if (line.kind === "cmd") {
-            setTypingCmd("");
-            for (let i = 1; i <= line.text.length; i++) {
-              if (cancelled) return;
-              setTypingCmd(line.text.slice(0, i));
-              await delay(CMD_TYPE_DELAY);
-            }
-            await delay(CMD_PAUSE);
-            setTypingCmd(null);
-            setVisibleLines((p) => [...p, line]);
-            continue;
-          }
-
-          // output line
-          setVisibleLines((p) => [...p, line]);
-          await delay(LINE_APPEAR_DELAY);
-        }
-
-        await delay(LOOP_PAUSE);
-      }
-    }
-
-    run();
-    return () => { cancelled = true; };
-  }, []);
-
-  // auto-scroll
-  useEffect(() => {
-    if (containerRef.current) {
-      containerRef.current.scrollTop = containerRef.current.scrollHeight;
-    }
-  }, [visibleLines, typingCmd]);
+  const tabs: { id: AgentId; label: string; icon: string }[] = [
+    { id: "openclaw",   label: "OpenClaw",    icon: "🦀" },
+    { id: "claudecode", label: "Claude Code", icon: "🤖" },
+    { id: "codex",      label: "Codex",       icon: "✦" },
+    { id: "terminal",   label: "Terminal",    icon: ">" },
+  ];
 
   return (
-    <div
-      className="w-full max-w-2xl mx-auto rounded-xl border border-border/30 overflow-hidden shadow-2xl"
-      style={{ background: "hsl(0 0% 5%)" }}
-    >
-      {/* window chrome */}
-      <div className="flex items-center gap-1.5 px-4 py-2.5 border-b border-border/20 bg-card">
-        <span className="w-3 h-3 rounded-full bg-border/60" />
-        <span className="w-3 h-3 rounded-full bg-border/40" />
-        <span className="w-3 h-3 rounded-full bg-border/20" />
-        <span className="ml-3 text-xs text-muted-foreground/40 font-mono">privaclaw — bash — 80×24</span>
+    <div className="w-full max-w-2xl mx-auto rounded-2xl border border-border/40 bg-card/60 backdrop-blur-sm shadow-2xl overflow-hidden">
+      {/* Window chrome */}
+      <div className="flex items-center gap-1.5 px-4 py-3 border-b border-border/30 bg-muted/30">
+        <span className="w-3 h-3 rounded-full bg-destructive/50" />
+        <span className="w-3 h-3 rounded-full bg-muted-foreground/40" />
+        <span className="w-3 h-3 rounded-full bg-muted-foreground/20" />
+        <span className="ml-3 text-xs text-muted-foreground font-mono">privaclaw — {preview.label.toLowerCase()}</span>
       </div>
 
-      {/* terminal body */}
-      <div
-        ref={containerRef}
-        className="px-4 py-3 h-64 overflow-hidden font-mono text-xs leading-5 select-none text-terminal-fg"
-      >
-        {visibleLines.map((line, i) => {
-          if (line.kind === "gap") return <div key={i} className="h-2" />;
-          if (line.kind === "cmd") return (
-            <div key={i} className="flex items-start gap-1.5">
-              <span className="text-status-online">❯</span>
-              <span className="text-terminal-fg">{line.text}</span>
-            </div>
-          );
-          return (
-            <div
-              key={i}
-              className="pl-5"
-              style={{ color: line.color ? `hsl(var(--terminal-green))` : "hsl(var(--terminal-dim-text))", paddingLeft: "1.25rem" }}
-            >
-              {line.text || "\u00A0"}
-            </div>
-          );
-        })}
+      {/* Tabs */}
+      <div className="flex border-b border-border/30 bg-muted/20">
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActive(tab.id)}
+            className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium transition-colors border-b-2 ${
+              active === tab.id
+                ? "border-primary text-foreground bg-background/40"
+                : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/30"
+            }`}
+          >
+            <span className={`font-mono ${active === tab.id ? AGENT_PREVIEWS[tab.id].color : ""}`}>{tab.icon}</span>
+            {tab.label}
+          </button>
+        ))}
+      </div>
 
-        {/* typing line */}
-        {typingCmd !== null && (
-          <div className="flex items-start gap-1.5">
-            <span className="text-status-online">❯</span>
-            <span className="text-terminal-fg">{typingCmd}</span>
-            <span className="inline-block w-1.5 h-3.5 ml-px align-middle animate-[pulse_0.9s_ease-in-out_infinite] bg-terminal-fg opacity-80" />
+      {/* Messages */}
+      <div className="flex flex-col gap-3 p-4 min-h-[260px] font-mono text-sm">
+        {preview.messages.slice(0, visibleCount).map((msg, i) => (
+          <div key={`${active}-${i}`} className={`flex gap-2.5 animate-fade-in ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+            {msg.role === "assistant" && (
+              <span className={`shrink-0 mt-0.5 text-xs font-bold ${preview.color}`}>&gt;</span>
+            )}
+            <div
+              className={`max-w-[85%] px-3 py-2 rounded-xl text-xs leading-relaxed whitespace-pre-wrap ${
+                msg.role === "user"
+                  ? "bg-primary/15 text-foreground rounded-br-sm"
+                  : "bg-muted/50 text-muted-foreground rounded-bl-sm"
+              }`}
+            >
+              {msg.text}
+            </div>
+          </div>
+        ))}
+        {visibleCount < preview.messages.length && (
+          <div className="flex gap-1 px-1 mt-1">
+            {[0,1,2].map(i => (
+              <span key={i} className="w-1.5 h-1.5 rounded-full bg-muted-foreground/40 animate-bounce" style={{ animationDelay: `${i * 150}ms` }} />
+            ))}
           </div>
         )}
       </div>
     </div>
   );
 }
+
+
 
 const AGENTS = [
   {
@@ -299,9 +321,9 @@ export default function Landing() {
             ))}
           </div>
 
-          {/* Terminal animation */}
+          {/* Agent preview */}
           <div className="w-full mb-8 animate-fade-in">
-            <TerminalDemo />
+            <AgentPreview />
           </div>
 
           <div className="flex items-center gap-3">
