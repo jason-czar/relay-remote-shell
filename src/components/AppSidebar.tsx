@@ -178,8 +178,9 @@ export function AppSidebar() {
                     {group.items.map((conv) => (
                       <div
                         key={conv.id}
+                        style={{ animationDelay: `${Math.min(group.items.indexOf(conv) * 30, 300)}ms`, animationFillMode: "both" }}
                         className={cn(
-          "group relative flex items-center gap-2 rounded-lg px-2.5 py-2 cursor-pointer transition-all duration-150",
+                          "group relative flex items-center gap-2 rounded-lg px-2.5 py-2 cursor-pointer transition-all duration-150 animate-fade-in",
                           activeConvId === conv.id
                             ? "bg-accent/80 text-foreground"
                             : "text-foreground/75 hover:bg-accent/50 hover:text-foreground hover:shadow-sm"
