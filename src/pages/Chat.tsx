@@ -328,7 +328,7 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
               type="button"
               title="Attach file"
               onClick={() => fileInputRef.current?.click()}
-              className="flex items-center justify-center h-10 w-10 rounded-full bg-muted/60 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              className="flex items-center justify-center h-10 w-10 rounded-full bg-[hsl(0,0%,22%)] text-foreground/70 hover:text-foreground hover:bg-[hsl(0,0%,28%)] transition-colors"
             >
               <Paperclip size={18} />
             </button>
@@ -339,7 +339,7 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  className="flex items-center gap-2 h-10 px-4 rounded-full bg-muted/60 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors text-[15px] font-medium"
+                  className="flex items-center gap-2 h-10 px-4 rounded-full bg-[hsl(0,0%,22%)] text-foreground/70 hover:text-foreground hover:bg-[hsl(0,0%,28%)] transition-colors text-[15px] font-medium"
                 >
                   {agent === "openclaw" ? <img src={openclawImg} className="w-5 h-5 object-contain" alt="" /> : agent === "claude" ? <img src={claudecodeImg} className="w-5 h-5 object-contain" alt="" /> : <img src={codexImg} className="w-5 h-5 object-contain" alt="" />}
                   <span>{model === "auto" ? "Auto" : model.split("-").slice(-2).join(" ")}</span>
@@ -364,7 +364,7 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
                 "flex items-center justify-center h-10 w-10 rounded-full transition-all duration-200",
                 isDictating
                   ? "bg-destructive/20 text-destructive animate-pulse"
-                  : "bg-muted/60 text-muted-foreground hover:text-foreground hover:bg-muted"
+                  : "bg-[hsl(0,0%,22%)] text-foreground/70 hover:text-foreground hover:bg-[hsl(0,0%,28%)]"
               )}
             >
               <Mic size={18} />
