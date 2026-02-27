@@ -68,7 +68,7 @@ function Inner({ children, sidebarWidth, onMouseDown, isChat }: {
         onTouchEnd={onTouchEnd}
       >
         {!isChat && (
-          <header className="h-14 flex items-center border-b border-border px-4 shrink-0">
+          <header className="h-12 flex items-center border-b border-border px-3 shrink-0">
             <SidebarTrigger />
           </header>
         )}
@@ -77,7 +77,7 @@ function Inner({ children, sidebarWidth, onMouseDown, isChat }: {
             {children}
           </div>
         ) : (
-          <div className="flex-1 overflow-auto p-3 sm:p-6">
+          <div className="flex-1 overflow-auto p-2 sm:p-4">
             {children}
           </div>
         )}
