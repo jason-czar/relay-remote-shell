@@ -954,9 +954,9 @@ export default function Chat() {
               } catch {/* not JSON, fall through */}
             }
             // Plain-text lines — strip shell noise
-            if (/^[%$#>→]\s*$/.test(t)) continue;
-            if (/^[%$#>→]\s/.test(t)) continue;
-            if (/^codex\s+/i.test(t)) continue;
+            if (/^[%$#>→➜❯]\s*$/.test(t)) continue;
+            if (/^[%$#>→➜❯]\s/.test(t)) continue;
+            if (/^c?codex\s+/i.test(t)) continue;
             if (/^\[[\d;?<>!]*[a-zA-Z]/.test(t)) continue;
             if (/^[=\-\+\*~\s]+$/.test(t)) continue;
             textParts.push(t);
@@ -973,10 +973,12 @@ export default function Chat() {
           filter((line) => {
             const t = line.trim();
             if (!t) return false;
-            if (/^[%$#>→]\s*$/.test(t)) return false;
-            if (/^[%$#>→]\s/.test(t)) return false;
+            // Shell prompt characters (→ U+2192, ➜ U+279C, ❯ U+276F, and ASCII variants)
+            if (/^[%$#>→➜❯]\s*$/.test(t)) return false;
+            if (/^[%$#>→➜❯]\s/.test(t)) return false;
             if (/^Restored session:/i.test(t)) return false;
-            if (/^claude\s+(-p|-c|--print|--resume)/i.test(t)) return false;
+            // claude/cclaude command echo (with optional extra leading char from shell)
+            if (/^c?claude\s+(-p|-c|--print|--resume)/i.test(t)) return false;
             if (/^\[[\d;?<>!]*[a-zA-Z]/.test(t)) return false;
             if (/^[=\-\+\*~\s]+$/.test(t)) return false;
             // Shell hostname / path lines emitted by prompt (e.g. "user@host ~ %")
