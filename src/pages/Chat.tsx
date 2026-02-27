@@ -1306,7 +1306,7 @@ export default function Chat() {
             <div className="absolute left-1/2 -translate-x-1/2">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                   <button className="flex items-center gap-3 px-5 py-2.5 rounded-full text-base font-medium transition-all duration-150 border border-border/50 bg-[hsl(0,0%,14%)] hover:bg-[hsl(0,0%,18%)] text-foreground select-none">
+                   <button className="flex items-center gap-3 px-5 py-2.5 rounded-full text-base font-medium transition-all duration-150 border border-border/30 bg-transparent hover:bg-accent text-foreground select-none">
                     <img src={agent === "openclaw" ? openclawImg : agent === "codex" ? codexImg : claudecodeImg} alt={agent} className="w-6 h-6 rounded-sm object-cover" />
                     <span>{agent === "openclaw" ? "OpenClaw" : agent === "codex" ? "Codex" : "Claude Code"}</span>
                     <ChevronDown className="h-4 w-4 opacity-50" />
@@ -1327,7 +1327,7 @@ export default function Chat() {
             <div className="ml-auto flex items-center gap-3">
               <Popover>
                 <PopoverTrigger asChild>
-                  <button className="flex items-center gap-2 px-3.5 py-2 rounded-full text-sm font-medium transition-all duration-150 border border-border/50 bg-[hsl(0,0%,14%)] hover:bg-[hsl(0,0%,18%)] text-foreground/80 hover:text-foreground">
+                  <button className="flex items-center gap-2 px-3.5 py-2 rounded-full text-sm font-medium transition-all duration-150 border border-border/30 bg-transparent hover:bg-accent text-foreground/80 hover:text-foreground">
                     {(() => {
                       const dev = devices.find(d => d.id === selectedDeviceId);
                       return dev ? (
