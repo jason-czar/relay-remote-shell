@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useToast } from "@/hooks/use-toast";
 import { Mail, Lock, ArrowRight } from "lucide-react";
 import logo from "@/assets/logo.png";
+import agentsGroup from "@/assets/agents-group.png";
 import { emailSchema, passwordSchema } from "@/lib/validations";
 
 export default function Auth() {
@@ -139,8 +140,8 @@ export default function Auth() {
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md border-border">
         <CardHeader className="text-center">
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
-            <img src={logo} alt="PrivaClaw" className="h-7 w-7 rounded" />
+          <div className="mx-auto mb-4 flex items-center justify-center">
+            <img src={agentsGroup} alt="OpenClaw & Claude Code" className="h-24 w-auto" />
           </div>
           <CardTitle className="text-xl">
             {isLogin ? "Welcome back" : "Create account"}
