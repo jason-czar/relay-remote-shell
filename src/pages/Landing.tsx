@@ -243,30 +243,30 @@ export default function Landing() {
           {/* Category badge */}
           <div className="inline-flex items-center gap-2 mb-6 px-3 py-1.5 rounded-full border border-border/40 text-xs text-muted-foreground/70 font-medium" style={{ background: "hsl(var(--muted)/0.4)" }}>
             <span className="w-1.5 h-1.5 rounded-full bg-foreground/40 inline-block" />
-            AI agent relay for your local machine
+            Access your home machine from anywhere
           </div>
 
           <h1 className="heading-display mb-4 text-center">
-            Run AI agents on<br />
-            <span className="text-muted-foreground/55">your own machine.</span>
+            Your home computer.<br />
+            <span className="text-muted-foreground/55">In your browser.</span>
           </h1>
 
-          {/* What it does — two-sentence explainer */}
+          {/* Core value prop */}
           <p className="body-lg text-muted-foreground mb-3 max-w-xl text-center">
-            PrivaClaw is a secure browser terminal that lets you run <strong className="text-foreground/80">OpenClaw</strong>, <strong className="text-foreground/80">Claude Code</strong>, and <strong className="text-foreground/80">Codex</strong> on your own hardware — no cloud execution, no data leaving your box.
+            PrivaClaw lets you access the <strong className="text-foreground/80">terminal</strong>, <strong className="text-foreground/80">OpenClaw</strong>, <strong className="text-foreground/80">Claude Code</strong>, and <strong className="text-foreground/80">Codex</strong> running on your home computer — from any device, anywhere in the world.
           </p>
           <p className="text-sm text-muted-foreground/60 mb-7 max-w-lg text-center">
-            Install the lightweight connector on any machine, pair it with a one-time code, and get a full PTY terminal plus AI chat in your browser from anywhere in the world.
+            No port forwarding. No public IP. Just install the connector on your machine, pair it once, and everything runs on <em>your</em> hardware while you chat from your phone, tablet, or laptop.
           </p>
 
           {/* Key capabilities pills */}
           <div className="flex flex-wrap justify-center gap-2 mb-8">
             {[
-              "🖥️ Full PTY terminal",
-              "🔒 End-to-end encrypted relay",
+              "🏠 Runs on your hardware",
+              "🔒 No port forwarding needed",
+              "🖥️ Full terminal access",
               "🤖 OpenClaw · Claude Code · Codex",
-              "📱 Works on mobile",
-              "⚡ Background execution",
+              "📱 Any device, anywhere",
             ].map((pill) => (
               <span
                 key={pill}
