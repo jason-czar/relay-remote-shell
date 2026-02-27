@@ -275,27 +275,16 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
         </div>
       )}
 
-      {/* Main pill bar */}
+      {/* Main composer card */}
       <div
         className={cn(
-          "flex items-center gap-1 rounded-[28px] px-3 py-2 transition-all duration-150",
+          "flex flex-col rounded-[24px] px-4 pt-3 pb-3 transition-all duration-150",
           "bg-card border-2",
           focused ? "border-foreground/20" : "border-border/40",
           disabled && "opacity-60 pointer-events-none"
         )}
       >
-        {/* Attach button */}
-        <button
-          type="button"
-          title="Attach file"
-          onClick={() => fileInputRef.current?.click()}
-          className="shrink-0 self-center p-2 rounded-full text-muted-foreground/50 hover:text-foreground hover:bg-accent/60 transition-colors"
-        >
-          <Paperclip size={18} />
-        </button>
-        <input ref={fileInputRef} type="file" className="hidden" multiple onChange={(e) => { if (e.target.files) onFileSelect(e.target.files); }} />
-
-        {/* Textarea */}
+        {/* Textarea row */}
         <textarea
           ref={textareaRef}
           value={input}
@@ -314,12 +303,12 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
           disabled={disabled}
           rows={1}
           style={{ height: "44px", overflowY: "hidden", resize: "none" }}
-          className="text-[15px] min-h-[44px] flex-1 bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none px-2 py-2.5 placeholder:text-muted-foreground/30 text-foreground self-center"
+          className="text-[15px] min-h-[44px] w-full bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none p-0 placeholder:text-muted-foreground/30 text-foreground"
         />
 
         {/* Waveform — shown while dictating */}
         {isDictating && (
-          <div className="shrink-0 flex items-center gap-[3px] px-1" aria-hidden>
+          <div className="flex items-center gap-[3px] py-1" aria-hidden>
             <div className="waveform-bar" />
             <div className="waveform-bar" />
             <div className="waveform-bar" />
@@ -330,36 +319,74 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
           </div>
         )}
 
-        {/* Mic / dictation button */}
-        <button
-          type="button"
-          title={isDictating ? "Stop dictation" : "Voice input"}
-          onClick={toggleDictation}
-          className={cn(
-            "shrink-0 p-2 rounded-full transition-all duration-200",
-            isDictating
-              ? "text-destructive animate-pulse"
-              : "text-muted-foreground/50 hover:text-foreground"
-          )}
-        >
-          <Mic size={18} />
-        </button>
+        {/* Bottom action row */}
+        <div className="flex items-center justify-between mt-2">
+          {/* Left: attach + model/agent picker */}
+          <div className="flex items-center gap-1.5">
+            {/* Attach button */}
+            <button
+              type="button"
+              title="Attach file"
+              onClick={() => fileInputRef.current?.click()}
+              className="flex items-center justify-center h-9 w-9 rounded-full bg-accent/60 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+            >
+              <Paperclip size={16} />
+            </button>
+            <input ref={fileInputRef} type="file" className="hidden" multiple onChange={(e) => { if (e.target.files) onFileSelect(e.target.files); }} />
 
-        {/* Send button */}
-        <button
-          type="button"
-          onClick={onSend}
-          disabled={sendDisabled || disabled}
-          title="Send"
-          className={cn(
-            "shrink-0 p-2 rounded-full transition-all duration-150",
-            sendDisabled || disabled
-              ? "bg-muted/30 text-muted-foreground/30 cursor-not-allowed"
-              : "bg-foreground text-background hover:opacity-80 shadow-md"
-          )}
-        >
-          <ArrowUp size={17} />
-        </button>
+            {/* Agent + model selector pill */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="flex items-center gap-1.5 h-9 px-3 rounded-full bg-accent/60 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors text-sm font-medium"
+                >
+                  {agent === "openclaw" ? <img src={openclawImg} className="w-4 h-4 object-contain" alt="" /> : agent === "claude" ? <img src={claudecodeImg} className="w-4 h-4 object-contain" alt="" /> : <img src={codexImg} className="w-4 h-4 object-contain" alt="" />}
+                  <span>{model === "auto" ? "Auto" : model.split("-").slice(-2).join(" ")}</span>
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="min-w-[200px]">
+                {(agent === "openclaw" ? OPENCLAW_MODELS : agent === "claude" ? CLAUDE_MODELS : CODEX_MODELS).map((m) => (
+                  <DropdownMenuItem key={m.id} onSelect={() => onModelChange(m.id)} className={cn(model === m.id && "bg-accent")}>
+                    <span className="font-medium">{m.label}</span>
+                    <span className="ml-auto text-xs text-muted-foreground">{m.description}</span>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Mic button */}
+            <button
+              type="button"
+              title={isDictating ? "Stop dictation" : "Voice input"}
+              onClick={toggleDictation}
+              className={cn(
+                "flex items-center justify-center h-9 w-9 rounded-full transition-all duration-200",
+                isDictating
+                  ? "bg-destructive/20 text-destructive animate-pulse"
+                  : "bg-accent/60 text-muted-foreground hover:text-foreground hover:bg-accent"
+              )}
+            >
+              <Mic size={16} />
+            </button>
+          </div>
+
+          {/* Right: send button */}
+          <button
+            type="button"
+            onClick={onSend}
+            disabled={sendDisabled || disabled}
+            title="Send"
+            className={cn(
+              "flex items-center justify-center h-9 w-9 rounded-full transition-all duration-150",
+              sendDisabled || disabled
+                ? "bg-muted/30 text-muted-foreground/30 cursor-not-allowed"
+                : "bg-foreground text-background hover:opacity-80 shadow-md"
+            )}
+          >
+            <ArrowUp size={17} />
+          </button>
+        </div>
       </div>
 
       {dictateError && (
