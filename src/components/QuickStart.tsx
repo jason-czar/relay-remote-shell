@@ -5,6 +5,8 @@ import type { Tables } from "@/integrations/supabase/types";
 
 const API_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
 
+type Platform = "unix" | "windows";
+
 interface QuickStartProps {
   projectId: string;
   onDeviceOnline: (device: Tables<"devices">) => void;
@@ -15,6 +17,7 @@ export function QuickStart({ projectId, onDeviceOnline }: QuickStartProps) {
   const [creating, setCreating] = useState(false);
   const [copied, setCopied] = useState(false);
   const [online, setOnline] = useState(false);
+  const [platform, setPlatform] = useState<Platform>("unix");
 
   // Auto-create a device on mount
   useEffect(() => {
@@ -54,9 +57,47 @@ export function QuickStart({ projectId, onDeviceOnline }: QuickStartProps) {
     return () => { supabase.removeChannel(channel); };
   }, [device, onDeviceOnline]);
 
-  const command = device?.pairing_code
-    ? `set -e\nRELAY_DIR="$HOME/relay-connector"\nAPI_URL="${API_URL}"\nPAIR_CODE="${device.pairing_code}"\nNAME="${device.name}"\n\nrm -rf "$RELAY_DIR"\ncurl -fsSL "$API_URL/download-connector?install=1" | bash\n\ncd "$RELAY_DIR"\n./relay-connector --pair "$PAIR_CODE" --api "$API_URL" --name "$NAME"\n\necho "Starting connector in background..."\n(\n  cd "$RELAY_DIR"\n  nohup ./relay-connector connect >/dev/null 2>&1 &\n)\necho "Connector running."`
+  const unixCommand = device?.pairing_code
+    ? `set -e
+RELAY_DIR="$HOME/relay-connector"
+API_URL="${API_URL}"
+PAIR_CODE="${device.pairing_code}"
+NAME="${device.name}"
+
+rm -rf "$RELAY_DIR"
+curl -fsSL "$API_URL/download-connector?install=1" | bash
+
+cd "$RELAY_DIR"
+./relay-connector --pair "$PAIR_CODE" --api "$API_URL" --name "$NAME"
+
+echo "Starting connector in background..."
+(
+  cd "$RELAY_DIR"
+  nohup ./relay-connector connect >/dev/null 2>&1 &
+)
+echo "Connector running."`
     : "";
+
+  const windowsCommand = device?.pairing_code
+    ? `$RelayDir = "$env:USERPROFILE\\relay-connector"
+$ApiUrl  = "${API_URL}"
+$PairCode = "${device.pairing_code}"
+$Name    = "${device.name}"
+
+if (Test-Path $RelayDir) { Remove-Item -Recurse -Force $RelayDir }
+
+$InstallScript = (Invoke-WebRequest "$ApiUrl/download-connector?install=ps" -UseBasicParsing).Content
+Invoke-Expression $InstallScript
+
+Set-Location $RelayDir
+.\\relay-connector.exe --pair $PairCode --api $ApiUrl --name $Name
+
+Write-Host "Starting connector in background..."
+Start-Process -FilePath ".\\relay-connector.exe" -ArgumentList "connect" -WindowStyle Hidden
+Write-Host "Connector running."`
+    : "";
+
+  const command = platform === "unix" ? unixCommand : windowsCommand;
 
   const copy = () => {
     navigator.clipboard.writeText(command);
@@ -75,6 +116,31 @@ export function QuickStart({ projectId, onDeviceOnline }: QuickStartProps) {
           <h2 className="font-semibold text-base text-foreground">Connect your first device</h2>
           <p className="text-sm text-muted-foreground">Run this one command in your terminal to get started</p>
         </div>
+      </div>
+
+      {/* Platform toggle */}
+      <div className="flex items-center gap-1 p-1 rounded-lg bg-muted/40 border border-border/40 self-start">
+        {(["unix", "windows"] as Platform[]).map((p) => (
+          <button
+            key={p}
+            onClick={() => { setPlatform(p); setCopied(false); }}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-150 ${
+              platform === p
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {p === "unix" ? (
+              <>
+                <span className="text-[11px]">🍎</span> macOS / Linux
+              </>
+            ) : (
+              <>
+                <span className="text-[11px]">🪟</span> Windows
+              </>
+            )}
+          </button>
+        ))}
       </div>
 
       {/* Command box */}
