@@ -173,7 +173,7 @@ export function ChatMessage({ role, content, thinking, streaming, rawStdout, cre
         {/* Text content bubble */}
         {textContent && (
           <div
-            className="max-w-[60%] rounded-[20px] px-4 py-2.5 text-sm leading-relaxed break-words"
+            className="max-w-[72%] rounded-[20px] px-4 py-2.5 text-sm leading-relaxed break-words"
             style={{
               background: "hsl(var(--muted))",
               color: "hsl(var(--foreground))",
