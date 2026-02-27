@@ -185,7 +185,7 @@ export function ChatSidebar({ conversations, activeId, onSelect, onNew, onDelete
               key={f}
               onClick={() => setAgentFilter(f)}
               className={cn(
-                "flex-1 px-2 py-1 rounded-md text-[10px] font-medium transition-all duration-150",
+                "flex-1 flex items-center justify-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium transition-all duration-150",
                 agentFilter === f
                   ? f === "openclaw"
                     ? "bg-primary/15 text-primary"
@@ -195,7 +195,14 @@ export function ChatSidebar({ conversations, activeId, onSelect, onNew, onDelete
                   : "text-muted-foreground/60 hover:bg-accent/40 hover:text-muted-foreground"
               )}
             >
-              {f === "all" ? "All" : f === "openclaw" ? "⬡ OpenClaw" : "✦ Claude"}
+              {f !== "all" && (
+                <img
+                  src={f === "openclaw" ? openclawImg : claudecodeImg}
+                  alt={f}
+                  className="w-3.5 h-3.5 rounded object-cover shrink-0"
+                />
+              )}
+              {f === "all" ? "All" : f === "openclaw" ? "OpenClaw" : "Claude"}
             </button>
           ))}
         </div>
