@@ -235,17 +235,48 @@ export default function Landing() {
 
       {/* ── Hero ── */}
       <section className="relative flex flex-col items-center justify-center pt-16 pb-14 px-5 overflow-hidden">
-        {/* ambient glow behind terminal */}
+        {/* ambient glow */}
         <div className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[500px] rounded-full blur-3xl transition-all duration-700 bg-foreground/5" />
 
         <div className="relative z-10 flex flex-col items-center text-center max-w-2xl w-full">
-          <h1 className="heading-display mb-3 text-center">
-            Chat with your machine.<br />
-            <span className="text-muted-foreground/60">From anywhere.</span>
+
+          {/* Category badge */}
+          <div className="inline-flex items-center gap-2 mb-6 px-3 py-1.5 rounded-full border border-border/40 text-xs text-muted-foreground/70 font-medium" style={{ background: "hsl(var(--muted)/0.4)" }}>
+            <span className="w-1.5 h-1.5 rounded-full bg-foreground/40 inline-block" />
+            AI agent relay for your local machine
+          </div>
+
+          <h1 className="heading-display mb-4 text-center">
+            Run AI agents on<br />
+            <span className="text-muted-foreground/55">your own machine.</span>
           </h1>
-          <p className="body-lg text-muted-foreground mb-8 max-w-xl text-center">
-            PrivaClaw connects OpenClaw, Claude Code, and Codex to your local machine through a secure relay — giving you a private AI terminal in the browser.
+
+          {/* What it does — two-sentence explainer */}
+          <p className="body-lg text-muted-foreground mb-3 max-w-xl text-center">
+            PrivaClaw is a secure browser terminal that lets you run <strong className="text-foreground/80">OpenClaw</strong>, <strong className="text-foreground/80">Claude Code</strong>, and <strong className="text-foreground/80">Codex</strong> on your own hardware — no cloud execution, no data leaving your box.
           </p>
+          <p className="text-sm text-muted-foreground/60 mb-7 max-w-lg text-center">
+            Install the lightweight connector on any machine, pair it with a one-time code, and get a full PTY terminal plus AI chat in your browser from anywhere in the world.
+          </p>
+
+          {/* Key capabilities pills */}
+          <div className="flex flex-wrap justify-center gap-2 mb-8">
+            {[
+              "🖥️ Full PTY terminal",
+              "🔒 End-to-end encrypted relay",
+              "🤖 OpenClaw · Claude Code · Codex",
+              "📱 Works on mobile",
+              "⚡ Background execution",
+            ].map((pill) => (
+              <span
+                key={pill}
+                className="px-3 py-1 rounded-full text-xs text-muted-foreground/70 border border-border/30"
+                style={{ background: "hsl(var(--muted)/0.3)" }}
+              >
+                {pill}
+              </span>
+            ))}
+          </div>
 
           {/* Terminal animation */}
           <div className="w-full mb-8 animate-fade-in">
