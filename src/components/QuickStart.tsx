@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Copy, Check, Terminal, Loader2, Wifi, AlertCircle, Info } from "lucide-react";
 import type { Tables } from "@/integrations/supabase/types";
@@ -20,12 +20,13 @@ export function QuickStart({ userId, projectId, onDeviceOnline }: QuickStartProp
   const [copied, setCopied] = useState(false);
   const [online, setOnline] = useState(false);
   const [platform, setPlatform] = useState<Platform>("unix");
-  const didCreate = useRef(false); // prevent double-create in StrictMode
 
-  // Auto-create a device once userId is available
-  useEffect(() => {
-    if (!userId || didCreate.current) return;
-    didCreate.current = true;
+  const handleDeviceOnline = useCallback(
+    (dev: Tables<"devices">) => onDeviceOnline(dev),
+    [onDeviceOnline]
+  );
+
+  const doCreate = useCallback(async () => {
     setCreating(true);
     setCreateError(null);
     const pairingCode = Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -33,27 +34,19 @@ export function QuickStart({ userId, projectId, onDeviceOnline }: QuickStartProp
     const insertPayload: any = projectId
       ? { project_id: projectId, name: "My Device", pairing_code: pairingCode }
       : { user_id: userId, name: "My Device", pairing_code: pairingCode };
-    supabase
-      .from("devices")
-      .insert(insertPayload)
-      .select()
-      .single()
-      .then(({ data, error }) => {
-        if (error) {
-          setCreateError(error.message);
-          didCreate.current = false; // allow retry
-        } else if (data) {
-          setDevice(data as Tables<"devices">);
-        }
-        setCreating(false);
-      });
+    const { data, error } = await supabase.from("devices").insert(insertPayload).select().single();
+    if (error) {
+      setCreateError(error.message);
+    } else if (data) {
+      setDevice(data as Tables<"devices">);
+    }
+    setCreating(false);
   }, [userId, projectId]);
 
-  // Stable callback so realtime effect doesn't re-subscribe on each render
-  const handleDeviceOnline = useCallback(
-    (dev: Tables<"devices">) => onDeviceOnline(dev),
-    [onDeviceOnline]
-  );
+  const createDevice = useCallback(() => {
+    if (!userId || creating) return;
+    doCreate();
+  }, [userId, creating, doCreate]);
 
   // Watch for device to come online via realtime
   useEffect(() => {
@@ -129,26 +122,9 @@ Write-Host "Connector running."`
   };
 
   const retry = () => {
-    didCreate.current = false;
     setCreateError(null);
     setDevice(null);
-    setCreating(true);
-    const pairingCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-    didCreate.current = true;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const insertPayload: any = projectId
-      ? { project_id: projectId, name: "My Device", pairing_code: pairingCode }
-      : { user_id: userId, name: "My Device", pairing_code: pairingCode };
-    supabase
-      .from("devices")
-      .insert(insertPayload)
-      .select()
-      .single()
-      .then(({ data, error }) => {
-        if (error) { setCreateError(error.message); didCreate.current = false; }
-        else if (data) setDevice(data as Tables<"devices">);
-        setCreating(false);
-      });
+    doCreate();
   };
 
   return (
@@ -181,8 +157,8 @@ Write-Host "Connector running."`
         </div>
       )}
 
-      {/* Platform toggle */}
-      {!createError && (
+      {/* Platform toggle — only show once device is created */}
+      {!createError && device && (
         <div className="flex items-center gap-1 p-1 rounded-lg bg-muted/40 border border-border/40 self-start">
           {(["unix", "windows"] as Platform[]).map((p) => (
             <button
@@ -204,29 +180,39 @@ Write-Host "Connector running."`
         </div>
       )}
 
-      {/* Command box */}
+      {/* Command box or Generate button */}
       {!createError && (
-        <div className="relative rounded-xl border border-border/50 bg-muted/40 overflow-hidden">
-          {creating ? (
-            <div className="flex items-center gap-2 px-4 py-5 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Generating install command…
-            </div>
-          ) : (
-            <>
-              <pre className="px-4 py-4 pr-12 text-xs font-mono text-foreground/90 overflow-x-auto whitespace-pre leading-relaxed [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                <code>{command}</code>
-              </pre>
-              <button
-                onClick={copy}
-                className="absolute top-2 right-2 p-2 rounded-lg hover:bg-accent/60 text-muted-foreground hover:text-foreground transition-colors"
-                title="Copy command"
-              >
-                {copied ? <Check className="h-4 w-4 text-primary" /> : <Copy className="h-4 w-4" />}
-              </button>
-            </>
-          )}
-        </div>
+        !device && !creating ? (
+          <button
+            onClick={createDevice}
+            className="flex items-center justify-center gap-2 w-full rounded-xl border border-border/50 bg-muted/40 px-4 py-5 text-sm font-medium text-foreground hover:bg-muted/70 transition-colors"
+          >
+            <Terminal className="h-4 w-4 text-primary" />
+            Generate install command
+          </button>
+        ) : (
+          <div className="relative rounded-xl border border-border/50 bg-muted/40 overflow-hidden">
+            {creating ? (
+              <div className="flex items-center gap-2 px-4 py-5 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Generating install command…
+              </div>
+            ) : (
+              <>
+                <pre className="px-4 py-4 pr-12 text-xs font-mono text-foreground/90 overflow-x-auto whitespace-pre leading-relaxed [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                  <code>{command}</code>
+                </pre>
+                <button
+                  onClick={copy}
+                  className="absolute top-2 right-2 p-2 rounded-lg hover:bg-accent/60 text-muted-foreground hover:text-foreground transition-colors"
+                  title="Copy command"
+                >
+                  {copied ? <Check className="h-4 w-4 text-primary" /> : <Copy className="h-4 w-4" />}
+                </button>
+              </>
+            )}
+          </div>
+        )
       )}
 
       {/* macOS hint */}
