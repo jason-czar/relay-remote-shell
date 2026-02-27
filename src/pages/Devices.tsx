@@ -61,7 +61,7 @@ export default function Devices() {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
       setDevices((prev) => prev.filter((d) => d.id !== deleteId));
-      toast({ title: "Device removed" });
+      
     }
     setDeleting(false);
     setDeleteId(null);
