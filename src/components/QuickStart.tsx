@@ -8,11 +8,12 @@ const API_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
 type Platform = "unix" | "windows";
 
 interface QuickStartProps {
-  projectId: string;
+  userId: string;
+  projectId?: string;
   onDeviceOnline: (device: Tables<"devices">) => void;
 }
 
-export function QuickStart({ projectId, onDeviceOnline }: QuickStartProps) {
+export function QuickStart({ userId, projectId, onDeviceOnline }: QuickStartProps) {
   const [device, setDevice] = useState<Tables<"devices"> | null>(null);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
