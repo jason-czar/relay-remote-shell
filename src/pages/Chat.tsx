@@ -374,6 +374,11 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
           </div>
 
           {/* Right: send button */}
+          <div className="relative flex items-center justify-center">
+            {/* Pulse ring while streaming */}
+            {isStreaming && (
+              <span className="absolute inset-0 rounded-full animate-ping bg-foreground/20 pointer-events-none" />
+            )}
           <button
             type="button"
             onClick={isStreaming ? onAbort : onSend}
@@ -406,6 +411,7 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
               <ArrowUp size={19} />
             </span>
           </button>
+          </div>
         </div>
       </div>
 
