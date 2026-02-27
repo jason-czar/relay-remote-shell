@@ -53,10 +53,10 @@ export function AppLayout({ children }: { children: ReactNode }) {
       <div className="h-screen flex w-full overflow-hidden">
         <div className="relative flex shrink-0">
           <AppSidebar />
-          {/* Drag handle */}
+          {/* Drag handle — desktop only */}
           <div
             onMouseDown={onMouseDown}
-            className="absolute right-0 top-0 h-full w-1 cursor-col-resize z-50 group"
+            className="absolute right-0 top-0 h-full w-1 cursor-col-resize z-50 group hidden md:block"
           >
             <div className="h-full w-px bg-border/0 group-hover:bg-border/60 transition-colors duration-150" />
           </div>
