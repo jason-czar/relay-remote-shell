@@ -1157,8 +1157,15 @@ export default function Chat() {
                 );
               })}
             </div>
-            {/* Right — device pill */}
-            <div className="ml-auto flex items-center">
+            {/* Right — refresh + device pill */}
+            <div className="ml-auto flex items-center gap-2">
+              <button
+                onClick={() => window.location.reload()}
+                className="w-7 h-7 rounded-full flex items-center justify-center text-muted-foreground/60 hover:text-foreground hover:bg-muted/50 transition-all duration-150"
+                title="Refresh page"
+              >
+                <RefreshCw className="h-3.5 w-3.5" />
+              </button>
               <Popover>
                 <PopoverTrigger asChild>
                   <button className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all duration-150 border border-border/30 bg-muted/20 hover:bg-muted/50 hover:border-border/60 text-muted-foreground hover:text-foreground">
