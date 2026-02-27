@@ -125,7 +125,7 @@ export function AppSidebar() {
         </SidebarGroup>
 
         {/* ── Conversations ─────────────────────────────────────────────── */}
-        {isChat && !collapsed && (
+        {!collapsed && (
           <SidebarGroup className="flex flex-col flex-1 min-h-0">
             <SidebarGroupLabel className="pb-1">
               <div className="flex items-center justify-between w-full pr-1">
