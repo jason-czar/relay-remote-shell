@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Send, ChevronDown, Paperclip, X, FileText, Image, Plus, Monitor, Terminal, Loader2, WifiOff, Square, Mic, ArrowUp, RefreshCw } from "lucide-react";
+import { Send, ChevronDown, Paperclip, X, FileText, Image, Plus, Monitor, Terminal, Loader2, WifiOff, Square, Mic, ArrowUp, RefreshCw, SquarePen } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -1157,8 +1157,15 @@ export default function Chat() {
                 );
               })}
             </div>
-            {/* Right — refresh + device pill */}
+            {/* Right — new chat + refresh + device pill */}
             <div className="ml-auto flex items-center gap-2">
+              <button
+                onClick={() => setActiveConvId(null)}
+                className="w-8 h-8 rounded-full flex items-center justify-center bg-muted/40 hover:bg-muted/70 text-foreground transition-all duration-150 border border-border/30"
+                title="New conversation"
+              >
+                <SquarePen className="h-3.5 w-3.5" />
+              </button>
               <button
                 onClick={() => window.location.reload()}
                 className="w-7 h-7 rounded-full flex items-center justify-center text-muted-foreground/60 hover:text-foreground hover:bg-muted/50 transition-all duration-150"
