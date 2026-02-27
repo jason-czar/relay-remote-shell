@@ -195,48 +195,48 @@ export default function Dashboard() {
           {health?.status === "ok" && (
             <CardContent>
               <TooltipProvider>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div className="rounded-lg border border-border p-3 text-center">
-                        <Server className="h-4 w-4 text-muted-foreground mx-auto mb-1" />
-                        <p className="text-lg font-bold">{health.connectors ?? 0}</p>
-                        <p className="text-xs text-muted-foreground">Connectors</p>
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent>Active WebSocket connectors</TooltipContent>
-                  </Tooltip>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div className="rounded-lg border border-border p-3 text-center">
-                        <Terminal className="h-4 w-4 text-muted-foreground mx-auto mb-1" />
-                        <p className="text-lg font-bold">{health.sessions ?? 0}</p>
-                        <p className="text-xs text-muted-foreground">Sessions</p>
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent>Active browser terminal sessions</TooltipContent>
-                  </Tooltip>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div className="rounded-lg border border-border p-3 text-center">
-                        <Clock className="h-4 w-4 text-muted-foreground mx-auto mb-1" />
-                        <p className="text-lg font-bold">{formatUptime(health.uptime_seconds ?? 0)}</p>
-                        <p className="text-xs text-muted-foreground">Uptime</p>
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent>Server uptime since last restart</TooltipContent>
-                  </Tooltip>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div className="rounded-lg border border-border p-3 text-center">
-                        <MemoryStick className="h-4 w-4 text-muted-foreground mx-auto mb-1" />
-                        <p className="text-lg font-bold">{health.memory_mb ?? "?"}MB</p>
-                        <p className="text-xs text-muted-foreground">Memory</p>
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent>Resident set size (RSS)</TooltipContent>
-                  </Tooltip>
-                </div>
+                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                   <Tooltip>
+                     <TooltipTrigger asChild>
+                       <div className="rounded-2xl bg-[hsl(0,0%,11%)] border border-border/40 p-3 text-center hover:border-border/60 transition-colors">
+                         <Server className="h-4 w-4 text-muted-foreground mx-auto mb-1" />
+                         <p className="text-lg font-bold">{health.connectors ?? 0}</p>
+                         <p className="text-xs text-muted-foreground">Connectors</p>
+                       </div>
+                     </TooltipTrigger>
+                     <TooltipContent>Active WebSocket connectors</TooltipContent>
+                   </Tooltip>
+                   <Tooltip>
+                     <TooltipTrigger asChild>
+                       <div className="rounded-2xl bg-[hsl(0,0%,11%)] border border-border/40 p-3 text-center hover:border-border/60 transition-colors">
+                         <Terminal className="h-4 w-4 text-muted-foreground mx-auto mb-1" />
+                         <p className="text-lg font-bold">{health.sessions ?? 0}</p>
+                         <p className="text-xs text-muted-foreground">Sessions</p>
+                       </div>
+                     </TooltipTrigger>
+                     <TooltipContent>Active browser terminal sessions</TooltipContent>
+                   </Tooltip>
+                   <Tooltip>
+                     <TooltipTrigger asChild>
+                       <div className="rounded-2xl bg-[hsl(0,0%,11%)] border border-border/40 p-3 text-center hover:border-border/60 transition-colors">
+                         <Clock className="h-4 w-4 text-muted-foreground mx-auto mb-1" />
+                         <p className="text-lg font-bold">{formatUptime(health.uptime_seconds ?? 0)}</p>
+                         <p className="text-xs text-muted-foreground">Uptime</p>
+                       </div>
+                     </TooltipTrigger>
+                     <TooltipContent>Server uptime since last restart</TooltipContent>
+                   </Tooltip>
+                   <Tooltip>
+                     <TooltipTrigger asChild>
+                       <div className="rounded-2xl bg-[hsl(0,0%,11%)] border border-border/40 p-3 text-center hover:border-border/60 transition-colors">
+                         <MemoryStick className="h-4 w-4 text-muted-foreground mx-auto mb-1" />
+                         <p className="text-lg font-bold">{health.memory_mb ?? "?"}MB</p>
+                         <p className="text-xs text-muted-foreground">Memory</p>
+                       </div>
+                     </TooltipTrigger>
+                     <TooltipContent>Resident set size (RSS)</TooltipContent>
+                   </Tooltip>
+                 </div>
               </TooltipProvider>
               {health.timestamp && (
                 <p className="text-xs text-muted-foreground text-center mt-3">
@@ -270,21 +270,23 @@ export default function Dashboard() {
                 {onlineDevices.length === 0 ? (
                   <p className="text-sm text-muted-foreground">No devices currently online</p>
                 ) : (
-                  <div className="space-y-3">
-                    {onlineDevices.slice(0, 5).map((device) => (
-                      <div key={device.id} className="flex items-center justify-between rounded-lg border border-border p-3">
-                        <div className="flex items-center gap-3">
-                          <Monitor className="h-4 w-4 text-muted-foreground" />
-                          <div>
-                            <p className="text-sm font-medium">{device.name}</p>
-                            <StatusBadge status="online" />
-                          </div>
-                        </div>
-                        <Button size="sm" variant="outline" className="gap-1" onClick={() => navigate(`/terminal/${device.id}`)}>
-                          <Terminal className="h-3 w-3" /> Connect
-                        </Button>
-                      </div>
-                    ))}
+                   <div className="space-y-2">
+                     {onlineDevices.slice(0, 5).map((device) => (
+                       <div key={device.id} className="flex items-center justify-between rounded-2xl bg-[hsl(0,0%,11%)] border border-border/40 px-4 py-3 hover:border-border/70 transition-colors">
+                         <div className="flex items-center gap-3">
+                           <div className="flex items-center justify-center h-8 w-8 rounded-full bg-[hsl(0,0%,17%)]">
+                             <Monitor className="h-4 w-4 text-muted-foreground" />
+                           </div>
+                           <div>
+                             <p className="text-sm font-medium">{device.name}</p>
+                             <StatusBadge status="online" />
+                           </div>
+                         </div>
+                         <button className="flex items-center gap-1.5 h-8 px-3.5 rounded-full bg-[hsl(0,0%,22%)] hover:bg-[hsl(0,0%,28%)] text-foreground/80 hover:text-foreground text-xs font-medium transition-colors border border-border/40" onClick={() => navigate(`/terminal/${device.id}`)}>
+                           <Terminal className="h-3 w-3" /> Connect
+                         </button>
+                       </div>
+                     ))}
                   </div>
                 )}
               </CardContent>
@@ -299,41 +301,41 @@ export default function Dashboard() {
                 {sessions.length === 0 ? (
                   <p className="text-sm text-muted-foreground">No sessions yet</p>
                 ) : (
-                  <div className="space-y-3">
-                    {sessions.slice(0, 5).map((session) => {
-                      const device = devices.find((d) => d.id === session.device_id);
-                      const duration = session.ended_at
-                        ? Math.round((new Date(session.ended_at).getTime() - new Date(session.started_at).getTime()) / 1000)
-                        : Math.round((Date.now() - new Date(session.started_at).getTime()) / 1000);
-                      const durationStr = duration >= 3600
-                        ? `${Math.floor(duration / 3600)}h ${Math.floor((duration % 3600) / 60)}m`
-                        : duration >= 60
-                          ? `${Math.floor(duration / 60)}m ${duration % 60}s`
-                          : `${duration}s`;
-                      return (
-                        <div key={session.id} className="flex items-center justify-between rounded-lg border border-border p-3">
-                          <div>
-                            <p className="text-sm font-medium">{device?.name ?? session.id.slice(0, 8)}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {new Date(session.started_at).toLocaleString()} · {durationStr}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <StatusBadge status={session.status} />
-                            {session.status === "active" && device && (
-                              <Button size="sm" variant="ghost" className="gap-1 h-7" onClick={() => navigate(`/terminal/${device.id}`)}>
-                                <Terminal className="h-3 w-3" /> Rejoin
-                              </Button>
-                            )}
-                            {session.status === "ended" && (
-                              <Button size="sm" variant="ghost" className="gap-1 h-7" onClick={() => navigate(`/playback/${session.id}`)}>
-                                <Play className="h-3 w-3" /> Replay
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
+                   <div className="space-y-2">
+                     {sessions.slice(0, 5).map((session) => {
+                       const device = devices.find((d) => d.id === session.device_id);
+                       const duration = session.ended_at
+                         ? Math.round((new Date(session.ended_at).getTime() - new Date(session.started_at).getTime()) / 1000)
+                         : Math.round((Date.now() - new Date(session.started_at).getTime()) / 1000);
+                       const durationStr = duration >= 3600
+                         ? `${Math.floor(duration / 3600)}h ${Math.floor((duration % 3600) / 60)}m`
+                         : duration >= 60
+                           ? `${Math.floor(duration / 60)}m ${duration % 60}s`
+                           : `${duration}s`;
+                       return (
+                         <div key={session.id} className="flex items-center justify-between rounded-2xl bg-[hsl(0,0%,11%)] border border-border/40 px-4 py-3 hover:border-border/70 transition-colors">
+                           <div>
+                             <p className="text-sm font-medium">{device?.name ?? session.id.slice(0, 8)}</p>
+                             <p className="text-xs text-muted-foreground">
+                               {new Date(session.started_at).toLocaleString()} · {durationStr}
+                             </p>
+                           </div>
+                           <div className="flex items-center gap-2">
+                             <StatusBadge status={session.status} />
+                             {session.status === "active" && device && (
+                               <button className="flex items-center gap-1.5 h-8 px-3.5 rounded-full bg-[hsl(0,0%,22%)] hover:bg-[hsl(0,0%,28%)] text-foreground/80 hover:text-foreground text-xs font-medium transition-colors border border-border/40" onClick={() => navigate(`/terminal/${device.id}`)}>
+                                 <Terminal className="h-3 w-3" /> Rejoin
+                               </button>
+                             )}
+                             {session.status === "ended" && (
+                               <button className="flex items-center gap-1.5 h-8 px-3.5 rounded-full bg-[hsl(0,0%,22%)] hover:bg-[hsl(0,0%,28%)] text-foreground/80 hover:text-foreground text-xs font-medium transition-colors border border-border/40" onClick={() => navigate(`/playback/${session.id}`)}>
+                                 <Play className="h-3 w-3" /> Replay
+                               </button>
+                             )}
+                           </div>
+                         </div>
+                       );
+                     })}
                   </div>
                 )}
               </CardContent>
@@ -347,9 +349,9 @@ export default function Dashboard() {
                 <CardTitle className="heading-4">Your Node Configurations</CardTitle>
                 <CardDescription className="body-sm">Saved relay configs for your OpenClaw nodes ({skillConfigs.length})</CardDescription>
               </div>
-              <Button variant="outline" size="sm" className="gap-1.5" onClick={() => navigate("/skill/privaclaw")}>
+              <button className="flex items-center gap-1.5 h-8 px-3.5 rounded-full bg-[hsl(0,0%,22%)] hover:bg-[hsl(0,0%,28%)] text-foreground/80 hover:text-foreground text-xs font-medium transition-colors border border-border/40" onClick={() => navigate("/skill/privaclaw")}>
                 <Plus className="h-3.5 w-3.5" /> Add Node
-              </Button>
+              </button>
             </CardHeader>
             <CardContent>
               {skillConfigs.length === 0 ? (
@@ -361,13 +363,15 @@ export default function Dashboard() {
                   </Button>
                 </div>
               ) : (
-                <div className="space-y-3">
+                  <div className="space-y-2">
                   {skillConfigs.map((sc: any) => {
                     const cfg = sc.config || {};
                     return (
-                      <div key={sc.id} className="flex items-center justify-between rounded-lg border border-border p-3">
+                      <div key={sc.id} className="flex items-center justify-between rounded-2xl bg-[hsl(0,0%,11%)] border border-border/40 px-4 py-3 hover:border-border/70 transition-colors">
                         <div className="flex items-center gap-3">
-                          <Settings2 className="h-4 w-4 text-muted-foreground" />
+                          <div className="flex items-center justify-center h-8 w-8 rounded-full bg-[hsl(0,0%,17%)]">
+                            <Settings2 className="h-4 w-4 text-muted-foreground" />
+                          </div>
                           <div>
                             <p className="text-sm font-medium">{sc.name || cfg.nodeName || sc.skill_slug}</p>
                             <p className="text-xs text-muted-foreground">
@@ -375,9 +379,9 @@ export default function Dashboard() {
                             </p>
                           </div>
                         </div>
-                        <Button size="sm" variant="outline" className="gap-1.5" onClick={() => navigate("/skill/privaclaw")}>
+                        <button className="flex items-center gap-1.5 h-8 px-3.5 rounded-full bg-[hsl(0,0%,22%)] hover:bg-[hsl(0,0%,28%)] text-foreground/80 hover:text-foreground text-xs font-medium transition-colors border border-border/40" onClick={() => navigate("/skill/privaclaw")}>
                           <Settings2 className="h-3 w-3" /> Configure
-                        </Button>
+                        </button>
                       </div>
                     );
                   })}
@@ -407,40 +411,42 @@ export default function Dashboard() {
                   </Button>
                 </div>
               ) : (
-                <div className="space-y-3">
-                  {nodes.map((node) => {
-                    const connectedAgo = timeSince(node.connected_at);
-                    const heartbeatAgo = timeSince(node.last_heartbeat);
-                    return (
-                      <div key={node.device_id} className="flex items-center justify-between rounded-lg border border-border p-3">
-                        <div className="flex items-center gap-3">
-                          {node.kind === "openclaw" ? (
-                            <Plug className="h-4 w-4 text-muted-foreground" />
-                          ) : (
-                            <Monitor className="h-4 w-4 text-muted-foreground" />
-                          )}
-                          <div>
-                            <p className="text-sm font-medium">{node.name}</p>
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                              <Badge variant={node.online ? "default" : "secondary"} className="text-[10px] px-1.5 py-0">
-                                {node.online ? "online" : "offline"}
-                              </Badge>
-                              <span className="flex items-center gap-1">
-                                <Clock className="h-3 w-3" />
-                                {connectedAgo}
-                              </span>
-                              {node.kind !== "connector" && (
-                                <span>· heartbeat {heartbeatAgo}</span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                        <Badge variant="outline" className="text-xs">
-                          {node.kind}
-                        </Badge>
-                      </div>
-                    );
-                  })}
+                 <div className="space-y-2">
+                   {nodes.map((node) => {
+                     const connectedAgo = timeSince(node.connected_at);
+                     const heartbeatAgo = timeSince(node.last_heartbeat);
+                     return (
+                       <div key={node.device_id} className="flex items-center justify-between rounded-2xl bg-[hsl(0,0%,11%)] border border-border/40 px-4 py-3 hover:border-border/70 transition-colors">
+                         <div className="flex items-center gap-3">
+                           <div className="flex items-center justify-center h-8 w-8 rounded-full bg-[hsl(0,0%,17%)]">
+                             {node.kind === "openclaw" ? (
+                               <Plug className="h-4 w-4 text-muted-foreground" />
+                             ) : (
+                               <Monitor className="h-4 w-4 text-muted-foreground" />
+                             )}
+                           </div>
+                           <div>
+                             <p className="text-sm font-medium">{node.name}</p>
+                             <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                               <Badge variant={node.online ? "default" : "secondary"} className="text-[10px] px-1.5 py-0">
+                                 {node.online ? "online" : "offline"}
+                               </Badge>
+                               <span className="flex items-center gap-1">
+                                 <Clock className="h-3 w-3" />
+                                 {connectedAgo}
+                               </span>
+                               {node.kind !== "connector" && (
+                                 <span>· heartbeat {heartbeatAgo}</span>
+                               )}
+                             </div>
+                           </div>
+                         </div>
+                         <span className="flex items-center h-7 px-3 rounded-full border border-border/50 text-xs text-muted-foreground bg-[hsl(0,0%,14%)]">
+                           {node.kind}
+                         </span>
+                       </div>
+                     );
+                   })}
                   <p className="text-xs text-muted-foreground text-center pt-1">
                     {onlineNodes.length} online · {nodes.length} total · updates every 30s
                   </p>
