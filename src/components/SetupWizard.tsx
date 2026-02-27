@@ -78,27 +78,12 @@ export function SetupWizard({ projectId, onComplete, onSkip, existingDevice }: S
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // The single all-in-one command
-  const oneLineCommand = device?.pairing_code
-    ? `set -e
-RELAY_DIR="$HOME/relay-connector"
-API_URL="${API_URL}"
-PAIR_CODE="${device.pairing_code}"
-NAME="${device.name || "MyDevice"}"
-
-rm -rf "$RELAY_DIR"
-curl -fsSL "$API_URL/download-connector?install=1" | bash
-
-cd "$RELAY_DIR"
-./relay-connector --pair "$PAIR_CODE" --api "$API_URL" --name "$NAME"
-
-echo "Starting connector in background..."
-(
-  cd "$RELAY_DIR"
-  nohup ./relay-connector connect >/dev/null 2>&1 &
-)
-echo "Connector running."`
+  // Three separate commands
+  const cmd1 = `curl -fsSL "${API_URL}/download-connector?install=1" | bash`;
+  const cmd2 = device?.pairing_code
+    ? `cd ~/relay-connector && ./relay-connector --pair "${device.pairing_code}" --api "${API_URL}" --name "${device.name || "MyDevice"}"`
     : "";
+  const cmd3 = `cd ~/relay-connector && nohup ./relay-connector connect >/dev/null 2>&1 &`;
 
   const steps = [
     { num: 1, label: "Name Device" },
@@ -174,7 +159,7 @@ echo "Connector running."`
         </Card>
       )}
 
-      {/* Step 2: Run the one-liner */}
+      {/* Step 2: Run the 3 commands */}
       {step === 2 && device && (
         <Card>
           <CardContent className="pt-6 space-y-5">
@@ -183,26 +168,35 @@ echo "Connector running."`
                 <Terminal className="h-5 w-5 text-primary" />
               </div>
               <div>
-                <h3 className="font-semibold">Run this on your machine</h3>
+                <h3 className="font-semibold">Run these commands on your machine</h3>
                 <p className="text-sm text-muted-foreground">
-                  One command installs, pairs, and starts the connector
+                  Three steps: install, pair, and start the connector
                 </p>
               </div>
             </div>
 
-            <div className="relative">
-              <pre className="bg-muted rounded-lg p-4 pr-12 text-sm font-mono overflow-x-auto whitespace-pre leading-relaxed">
-                <code>{oneLineCommand}</code>
-              </pre>
-              <Button
-                size="icon"
-                variant="ghost"
-                className="absolute top-2 right-2 h-8 w-8"
-                onClick={() => copyToClipboard(oneLineCommand)}
-              >
-                {copied ? <Check className="h-3.5 w-3.5 text-primary" /> : <Copy className="h-3.5 w-3.5" />}
-              </Button>
-            </div>
+            {[
+              { label: "1. Install the connector", cmd: cmd1 },
+              { label: "2. Pair this device", cmd: cmd2 },
+              { label: "3. Start in background", cmd: cmd3 },
+            ].map(({ label, cmd }, i) => (
+              <div key={i} className="space-y-1">
+                <p className="text-xs text-muted-foreground font-medium">{label}</p>
+                <div className="relative">
+                  <pre className="bg-muted rounded-lg p-3 pr-10 text-sm font-mono overflow-x-auto whitespace-pre">
+                    <code>{cmd}</code>
+                  </pre>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="absolute top-1.5 right-1.5 h-7 w-7"
+                    onClick={() => copyToClipboard(cmd)}
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+            ))}
 
             <div className="flex items-center gap-2 text-sm">
               <span className="text-muted-foreground">Pairing code:</span>
