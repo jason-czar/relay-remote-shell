@@ -22,16 +22,19 @@ export function QuickStart({ userId, projectId, onDeviceOnline }: QuickStartProp
   const [platform, setPlatform] = useState<Platform>("unix");
   const didCreate = useRef(false); // prevent double-create in StrictMode
 
-  // Auto-create a device once projectId is available
+  // Auto-create a device once userId is available
   useEffect(() => {
-    if (!projectId || didCreate.current) return;
+    if (!userId || didCreate.current) return;
     didCreate.current = true;
     setCreating(true);
     setCreateError(null);
     const pairingCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const insertPayload = projectId
+      ? { project_id: projectId, name: "My Device", pairing_code: pairingCode }
+      : { user_id: userId, name: "My Device", pairing_code: pairingCode };
     supabase
       .from("devices")
-      .insert({ project_id: projectId, name: "My Device", pairing_code: pairingCode })
+      .insert(insertPayload)
       .select()
       .single()
       .then(({ data, error }) => {
