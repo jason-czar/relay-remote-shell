@@ -29,6 +29,7 @@ interface ChatMessageProps {
   thinking?: boolean;
   streaming?: boolean;
   rawStdout?: string;
+  thinkingContent?: string;
   createdAt?: string;
   agent?: "openclaw" | "claude" | "codex";
   onRegenerate?: () => void;
@@ -93,12 +94,13 @@ function CodeBlock({ language, value }: { language: string; value: string }) {
   );
 }
 
-export function ChatMessage({ role, content, thinking, streaming, rawStdout, createdAt, agent, onRegenerate }: ChatMessageProps) {
+export function ChatMessage({ role, content, thinking, streaming, rawStdout, thinkingContent, createdAt, agent, onRegenerate }: ChatMessageProps) {
   const isUser = role === "user";
   const agentImg = agent === "claude" ? claudecodeImg : agent === "codex" ? codexImg : openclawImg;
   const [hovered, setHovered] = useState(false);
   const [copied, setCopied] = useState(false);
   const [debugOpen, setDebugOpen] = useState(false);
+  const [thinkingOpen, setThinkingOpen] = useState(false);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(content);
@@ -202,6 +204,26 @@ export function ChatMessage({ role, content, thinking, streaming, rawStdout, cre
     >
       <div className="flex-1 min-w-0">
         <div className="text-sm md:text-[15px] leading-relaxed md:leading-7 text-foreground break-words pt-0.5">
+          {/* Codex reasoning / thinking collapsible */}
+          {thinkingContent && (
+            <div className="mb-3">
+              <button
+                onClick={() => setThinkingOpen((v) => !v)}
+                className="flex items-center gap-1.5 text-xs text-muted-foreground/70 hover:text-muted-foreground transition-colors mb-1"
+              >
+                {thinkingOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                <span className="italic">Thinking…</span>
+              </button>
+              {thinkingOpen && (
+                <div
+                  className="rounded-lg border border-border/30 px-3 py-2.5 text-xs text-muted-foreground/80 leading-relaxed whitespace-pre-wrap font-mono"
+                  style={{ background: "hsl(var(--muted)/0.3)" }}
+                >
+                  {thinkingContent}
+                </div>
+              )}
+            </div>
+          )}
           {streaming && !content && (
             <span className="inline-flex gap-1 items-center h-5">
               {[0, 1, 2].map((i) => (
