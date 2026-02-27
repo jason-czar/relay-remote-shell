@@ -127,7 +127,7 @@ export function AppSidebar() {
                 className="h-6 w-6 rounded shrink-0"
                 src="/lovable-uploads/3c00a1cc-702c-41f2-b489-b7bfd8f24dee.png"
               />
-              {!collapsed && (
+              {(!collapsed || (isMobile && openMobile)) && (
                 <span className="font-mono text-sm font-bold tracking-tight text-foreground">
                   PrivaClaw
                 </span>
