@@ -420,7 +420,7 @@ export default function Chat() {
     if (!user) return;
     // Load devices + first project in parallel
     Promise.all([
-      supabase.from("devices").select("id, name, status, project_id"),
+      supabase.from("devices").select("id, name, status, project_id, user_id"),
       supabase.from("projects").select("id").limit(1).single(),
     ]).then(([devRes, projRes]) => {
       const data = devRes.data;
