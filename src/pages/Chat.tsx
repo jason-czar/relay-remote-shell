@@ -1295,22 +1295,8 @@ export default function Chat() {
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
-            {/* Right — new chat + refresh + device pill */}
+            {/* Right — device pill + refresh + new chat */}
             <div className="ml-auto flex items-center gap-3">
-              <button
-                onClick={() => setActiveConvId(null)}
-                className="w-10 h-10 rounded-full flex items-center justify-center bg-muted/40 hover:bg-muted/70 text-foreground transition-all duration-150 border border-border/30"
-                title="New conversation"
-              >
-                <SquarePen className="h-5 w-5" />
-              </button>
-              <button
-                onClick={() => window.location.reload()}
-                className="hidden sm:flex w-9 h-9 rounded-full items-center justify-center text-muted-foreground/60 hover:text-foreground hover:bg-muted/50 transition-all duration-150"
-                title="Refresh page"
-              >
-                <RefreshCw className="h-5 w-5" />
-              </button>
               <Popover>
                 <PopoverTrigger asChild>
                   <button className="flex items-center gap-2 px-3.5 py-2 rounded-full text-sm font-medium transition-all duration-150 border border-border/30 bg-muted/20 hover:bg-muted/50 hover:border-border/60 text-muted-foreground hover:text-foreground">
@@ -1345,6 +1331,20 @@ export default function Chat() {
                   )}
                 </PopoverContent>
               </Popover>
+              <button
+                onClick={() => window.location.reload()}
+                className="hidden sm:flex w-9 h-9 rounded-full items-center justify-center text-muted-foreground/60 hover:text-foreground hover:bg-muted/50 transition-all duration-150"
+                title="Refresh page"
+              >
+                <RefreshCw className="h-5 w-5" />
+              </button>
+              <button
+                onClick={() => setActiveConvId(null)}
+                className="w-10 h-10 rounded-full flex items-center justify-center bg-muted/40 hover:bg-muted/70 text-foreground transition-all duration-150 border border-border/30"
+                title="New conversation"
+              >
+                <SquarePen className="h-5 w-5" />
+              </button>
             </div>
           </div>
 
