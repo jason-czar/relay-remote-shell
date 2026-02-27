@@ -302,25 +302,6 @@ export default function Landing() {
             No port forwarding. No public IP. Just install the connector on your machine, pair it once, and everything runs on <em>your</em> hardware while you chat from your phone, tablet, or laptop.
           </p>
 
-          {/* Key capabilities pills */}
-          <div className="flex flex-wrap justify-center gap-2 mb-8">
-            {[
-              "🏠 Runs on your hardware",
-              "🔒 No port forwarding needed",
-              "🖥️ Full terminal access",
-              "🤖 OpenClaw · Claude Code · Codex",
-              "📱 Any device, anywhere",
-            ].map((pill) => (
-              <span
-                key={pill}
-                className="px-3 py-1 rounded-full text-xs text-muted-foreground/70 border border-border/30"
-                style={{ background: "hsl(var(--muted)/0.3)" }}
-              >
-                {pill}
-              </span>
-            ))}
-          </div>
-
           {/* Agent preview */}
           <div className="w-full mb-8 animate-fade-in">
             <AgentPreview />
@@ -423,6 +404,25 @@ export default function Landing() {
           </div>
         </div>
       </section>
+
+      {/* ── Capability pills ── */}
+      <div className="flex flex-wrap justify-center gap-2 px-5 py-8 border-t border-border/10">
+        {[
+          "🏠 Runs on your hardware",
+          "🔒 No port forwarding needed",
+          "🖥️ Full terminal access",
+          "🤖 OpenClaw · Claude Code · Codex",
+          "📱 Any device, anywhere",
+        ].map((pill) => (
+          <span
+            key={pill}
+            className="px-3 py-1.5 rounded-full text-xs text-muted-foreground/70 border border-border/30"
+            style={{ background: "hsl(var(--muted)/0.3)" }}
+          >
+            {pill}
+          </span>
+        ))}
+      </div>
 
       {/* ── How it works ── */}
       <section className="border-t border-border/20 px-5 py-16">
