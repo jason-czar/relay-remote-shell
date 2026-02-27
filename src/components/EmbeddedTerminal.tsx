@@ -146,7 +146,7 @@ export function EmbeddedTerminal({ deviceId }: Props) {
       scrollback: 5000,
       allowTransparency: true,
       theme: {
-        background: "#0a0e1a",
+        background: "transparent",
         foreground: "#c8d8c8",
         cursor: "#39ff8f",
         cursorAccent: "#0a0e1a",
@@ -268,24 +268,31 @@ export function EmbeddedTerminal({ deviceId }: Props) {
   const latencyColor = latency === null ? "text-muted-foreground/40" : latency < 80 ? "text-green-400" : latency < 200 ? "text-yellow-400" : "text-red-400";
 
   return (
-    <div className="flex flex-col h-full w-full">
-      {/* Status bar */}
-      <div className="shrink-0 flex items-center gap-2 px-3 py-1.5 border-b border-border/20 bg-[#0a0e1a] text-xs">
-        {status === "connecting" && <><Loader2 className="h-3 w-3 animate-spin text-muted-foreground/60" /><span className="text-muted-foreground/60">Connecting…</span></> }
-        {status === "online" && !bgReconnecting && <><Wifi className="h-3 w-3 text-green-400" /><span className="text-green-400/80">Connected</span></> }
-        {status === "offline" && <><WifiOff className="h-3 w-3 text-red-400" /><span className="text-red-400/80">Disconnected</span></> }
-        {bgReconnecting && <><Loader2 className="h-3 w-3 animate-spin text-yellow-400" /><span className="text-yellow-400/80">Reconnecting…</span></> }
-        {latency !== null && !bgReconnecting && (
-          <span className={`ml-auto font-mono ${latencyColor}`}>{latency}ms</span>
-        )}
-        {/* Font size controls */}
-        <div className="ml-auto flex items-center gap-1">
-          <button onClick={() => setFontSizeIdx(i => { const n = Math.max(0, i-1); if(termRef.current){termRef.current.options.fontSize=FONT_SIZES[n];fitRef.current?.fit();} localStorage.setItem("terminal-font-size-idx",String(n)); return n; })} className="px-1.5 py-0.5 rounded text-muted-foreground/50 hover:text-foreground hover:bg-white/5 transition-colors">A−</button>
-          <button onClick={() => setFontSizeIdx(i => { const n = Math.min(FONT_SIZES.length-1, i+1); if(termRef.current){termRef.current.options.fontSize=FONT_SIZES[n];fitRef.current?.fit();} localStorage.setItem("terminal-font-size-idx",String(n)); return n; })} className="px-1.5 py-0.5 rounded text-muted-foreground/50 hover:text-foreground hover:bg-white/5 transition-colors">A+</button>
+    <div className="flex flex-col h-full w-full bg-background">
+      {/* Slim status + controls bar — matches chat header aesthetic */}
+      <div className="shrink-0 flex items-center gap-2 px-4 py-1.5 border-b border-border/20 text-xs">
+        <div className="flex items-center gap-1.5">
+          {status === "connecting" && <><Loader2 className="h-3 w-3 animate-spin text-muted-foreground/50" /><span className="text-muted-foreground/50">Connecting…</span></>}
+          {status === "online" && !bgReconnecting && <><Wifi className="h-3 w-3 text-green-500/70" /><span className="text-muted-foreground/60">Connected</span></>}
+          {status === "offline" && <><WifiOff className="h-3 w-3 text-red-400/80" /><span className="text-muted-foreground/60">Disconnected</span></>}
+          {bgReconnecting && <><Loader2 className="h-3 w-3 animate-spin text-yellow-400/80" /><span className="text-muted-foreground/60">Reconnecting…</span></>}
+          {latency !== null && !bgReconnecting && (
+            <span className={`ml-2 font-mono text-[11px] ${latencyColor}`}>{latency}ms</span>
+          )}
+        </div>
+        <div className="ml-auto flex items-center gap-0.5">
+          <button
+            onClick={() => setFontSizeIdx(i => { const n = Math.max(0, i-1); if(termRef.current){termRef.current.options.fontSize=FONT_SIZES[n];fitRef.current?.fit();} localStorage.setItem("terminal-font-size-idx",String(n)); return n; })}
+            className="px-2 py-0.5 rounded text-[11px] text-muted-foreground/50 hover:text-foreground hover:bg-secondary transition-colors"
+          >A−</button>
+          <button
+            onClick={() => setFontSizeIdx(i => { const n = Math.min(FONT_SIZES.length-1, i+1); if(termRef.current){termRef.current.options.fontSize=FONT_SIZES[n];fitRef.current?.fit();} localStorage.setItem("terminal-font-size-idx",String(n)); return n; })}
+            className="px-2 py-0.5 rounded text-[11px] text-muted-foreground/50 hover:text-foreground hover:bg-secondary transition-colors"
+          >A+</button>
         </div>
       </div>
       {/* Terminal canvas */}
-      <div ref={containerRef} className="flex-1 min-h-0 p-2" style={{ background: "#0a0e1a" }} />
+      <div ref={containerRef} className="flex-1 min-h-0 px-2 pt-2" />
     </div>
   );
 }
