@@ -170,7 +170,10 @@ export function SetupWizard({ projectId, onComplete, onSkip, existingDevice }: S
               <div>
                 <h3 className="font-semibold">Run these commands on your machine</h3>
                 <p className="text-sm text-muted-foreground">
-                  Three steps: install, pair, and start the connector
+                  Three steps: install, pair, and start the connector.{" "}
+                  <a href="/docs" target="_blank" rel="noopener noreferrer" className="text-primary underline-offset-2 hover:underline">
+                    Need help?
+                  </a>
                 </p>
               </div>
             </div>
