@@ -1601,7 +1601,7 @@ export default function Chat() {
       setAgentSwitchPending(newAgent);
     } else {
       setAgent(newAgent);
-      setModel(newAgent === "openclaw" ? OPENCLAW_MODELS[1].id : newAgent === "codex" ? CODEX_MODELS[1].id : CLAUDE_MODELS[1].id);
+      setModel("auto");
       if (activeConvId) {
         supabase.from("chat_conversations").update({ agent: newAgent }).eq("id", activeConvId);
         setConversations((prev) => prev.map((c) => c.id === activeConvId ? { ...c, agent: newAgent } : c));
@@ -2084,7 +2084,7 @@ export default function Chat() {
               <AlertDialogCancel>Cancel</AlertDialogCancel>
               <AlertDialogAction onClick={() => {
                 setAgent(agentSwitchPending!);
-                setModel(agentSwitchPending === "openclaw" ? OPENCLAW_MODELS[1].id : agentSwitchPending === "codex" ? CODEX_MODELS[1].id : CLAUDE_MODELS[1].id);
+                setModel("auto");
                 setAgentSwitchPending(null);
                 setActiveConvId(null);
                 handleNew();
