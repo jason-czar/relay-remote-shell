@@ -432,16 +432,21 @@ export function ChatMessage({ role, content, thinking, streaming, activityStatus
               style={{ animationDuration: "0.7s" }}
             />
           )}
-          {/* Tool-call chips */}
-          {(streaming || thinking) && toolCalls && toolCalls.length > 0 && (
+          {/* Tool-call chips — animated while streaming, faded when done */}
+          {toolCalls && toolCalls.length > 0 && (
             <div className="flex flex-wrap gap-1 mt-2">
               {toolCalls.map((name, i) => (
                 <span
                   key={name}
-                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-muted/60 text-muted-foreground/60 border border-border/30 select-none animate-chip-in"
-                  style={{ animationDelay: `${i * 40}ms` }}
+                  className={cn(
+                    "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border select-none",
+                    streaming || thinking
+                      ? "bg-muted/60 text-muted-foreground/60 border-border/30 animate-chip-in"
+                      : "bg-muted/30 text-muted-foreground/35 border-border/15"
+                  )}
+                  style={streaming || thinking ? { animationDelay: `${i * 40}ms` } : undefined}
                 >
-                  <span className="w-1 h-1 rounded-full bg-primary/50 shrink-0" />
+                  <span className={cn("w-1 h-1 rounded-full shrink-0", streaming || thinking ? "bg-primary/50" : "bg-muted-foreground/25")} />
                   {name}
                 </span>
               ))}
