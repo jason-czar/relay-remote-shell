@@ -60,37 +60,22 @@ export interface AgentModel {
   description: string;
 }
 
-// OpenClaw uses the same Anthropic models that openclaw agent supports via --model
+// OpenClaw: model list can't be reliably queried from the device — Auto only
 export const OPENCLAW_MODELS: AgentModel[] = [
-{ id: "auto", label: "Auto", description: "Use agent's default model" },
-{ id: "claude-opus-4-5", label: "Opus 4.5", description: "Most capable" },
-{ id: "claude-sonnet-4-5", label: "Sonnet 4.5", description: "Balanced" },
-{ id: "claude-haiku-4-5", label: "Haiku 4.5", description: "Fast & compact" },
-{ id: "claude-opus-4", label: "Opus 4", description: "Previous opus" },
-{ id: "claude-sonnet-4", label: "Sonnet 4", description: "Previous sonnet" },
-{ id: "claude-haiku-3-5", label: "Haiku 3.5", description: "Previous haiku" }];
+{ id: "auto", label: "Auto", description: "Use agent's default model" }];
 
-
-// Claude Code uses `claude --model <id>` — same model family
+// Claude Code: model list can't be reliably queried from the device — Auto only
 export const CLAUDE_MODELS: AgentModel[] = [
-{ id: "auto", label: "Auto", description: "Use Claude Code's default model" },
-{ id: "claude-opus-4-5", label: "Opus 4.5", description: "Most capable" },
-{ id: "claude-sonnet-4-5", label: "Sonnet 4.5", description: "Balanced" },
-{ id: "claude-haiku-4-5", label: "Haiku 4.5", description: "Fast & compact" },
-{ id: "claude-opus-4", label: "Opus 4", description: "Previous opus" },
-{ id: "claude-sonnet-4", label: "Sonnet 4", description: "Previous sonnet" },
-{ id: "claude-haiku-3-5", label: "Haiku 3.5", description: "Previous haiku" }];
+{ id: "auto", label: "Auto", description: "Use Claude Code's default model" }];
 
-
-// Codex CLI uses `codex --model <id>`
+// Codex CLI — models confirmed available (from codex model picker)
 export const CODEX_MODELS: AgentModel[] = [
 { id: "auto", label: "Auto", description: "Use Codex's default model" },
-{ id: "o4-mini", label: "o4-mini", description: "Fast & efficient" },
-{ id: "o3", label: "o3", description: "Most capable" },
-{ id: "o3-mini", label: "o3-mini", description: "Balanced" },
-{ id: "gpt-4.1", label: "GPT-4.1", description: "Latest GPT-4 series" },
-{ id: "gpt-4.1-mini", label: "GPT-4.1 mini", description: "Efficient GPT-4" },
-{ id: "gpt-4o", label: "GPT-4o", description: "Previous multimodal" }];
+{ id: "gpt-5.3-codex", label: "GPT-5.3-Codex", description: "Latest Codex model" },
+{ id: "gpt-5.2-codex", label: "GPT-5.2-Codex", description: "Previous Codex" },
+{ id: "gpt-5.1-codex-max", label: "GPT-5.1-Codex-Max", description: "Max capacity" },
+{ id: "gpt-5.2", label: "GPT-5.2", description: "General purpose" },
+{ id: "gpt-5.1-codex-mini", label: "GPT-5.1-Codex-Mini", description: "Fast & lightweight" }];
 
 
 // ── Slash commands ───────────────────────────────────────────────────────────
