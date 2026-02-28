@@ -1084,6 +1084,7 @@ export default function Chat() {
         let codexThinking = "";
         let codexThinkingDurationMs: number | undefined;
         let claudeThinking = "";
+        let openclawThinking = "";
 
         if (convData?.agent === "openclaw") {
           const jsonBlocks = cleaned.match(/\{[\s\S]*?\}/g) ?? [];
@@ -1092,8 +1093,27 @@ export default function Chat() {
           for (let i = candidates.length - 1; i >= 0; i--) {
             try {
               const parsed = JSON.parse(candidates[i]);
-              const payloadText = parsed?.payloads?.[0]?.text;
-              if (payloadText) {responseText = String(payloadText);break;}
+              // Extract thinking blocks from payloads array
+              if (Array.isArray(parsed?.payloads)) {
+                const thinkingParts: string[] = [];
+                let textFound = false;
+                for (const p of parsed.payloads) {
+                  if ((p.type === "thinking" || p.type === "redacted_thinking") && typeof p.thinking === "string") {
+                    thinkingParts.push(p.thinking.trim());
+                  }
+                  if (p.type === "text" && typeof p.text === "string" && !textFound) {
+                    responseText = p.text;
+                    textFound = true;
+                  }
+                }
+                if (thinkingParts.length > 0) openclawThinking = thinkingParts.join("\n\n");
+                // Fallback: first payload text
+                if (!textFound) {
+                  const payloadText = parsed.payloads[0]?.text;
+                  if (payloadText) responseText = String(payloadText);
+                }
+                if (responseText) break;
+              }
               const fallback = parsed.content ?? parsed.message ?? parsed.response ?? parsed.text ?? parsed.result;
               if (fallback && typeof fallback === "string") {responseText = fallback;break;}
             } catch {/* try next */}
@@ -1295,6 +1315,10 @@ export default function Chat() {
               if (codexThinkingDurationMs !== undefined) {
                 thinkingDurationMapRef.current.set(revealedIdx, codexThinkingDurationMs);
               }
+            }
+            // Store OpenClaw thinking blocks
+            if (convData?.agent === "openclaw" && openclawThinking) {
+              thinkingMapRef.current.set(revealedIdx, openclawThinking);
             }
             // Store Claude Code thinking blocks
             if (convData?.agent === "claude" && claudeThinking) {
