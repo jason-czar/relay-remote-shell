@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { X, Terminal, Wifi, WifiOff, Plus, Copy, Check, Loader2, Info, AlertCircle, Trash2, Power } from "lucide-react";
@@ -194,8 +194,42 @@ function AddDeviceFlow({ userId, projectId, onCreated, onDone }: { userId: strin
   );
 }
 
+const MIN_WIDTH = 280;
+const MAX_WIDTH = 640;
+const DEFAULT_WIDTH = 360;
+
 export function DevicePanel({ open, onClose, devices, selectedDeviceId, onSelectDevice, userId, projectId, onDeviceAdded, onDeviceDeleted }: DevicePanelProps) {
   const [showAdd, setShowAdd] = useState(false);
+  const [panelWidth, setPanelWidth] = useState(DEFAULT_WIDTH);
+  const isResizing = useRef(false);
+  const startX = useRef(0);
+  const startWidth = useRef(DEFAULT_WIDTH);
+
+  const onResizeStart = useCallback((e: React.MouseEvent) => {
+    // Only on desktop
+    if (window.innerWidth < 768) return;
+    isResizing.current = true;
+    startX.current = e.clientX;
+    startWidth.current = panelWidth;
+    document.body.style.cursor = "ew-resize";
+    document.body.style.userSelect = "none";
+
+    const onMove = (ev: MouseEvent) => {
+      if (!isResizing.current) return;
+      const delta = startX.current - ev.clientX;
+      const next = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, startWidth.current + delta));
+      setPanelWidth(next);
+    };
+    const onUp = () => {
+      isResizing.current = false;
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  }, [panelWidth]);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [disconnectingId, setDisconnectingId] = useState<string | null>(null);
@@ -265,11 +299,19 @@ export function DevicePanel({ open, onClose, devices, selectedDeviceId, onSelect
       {/* Panel */}
       <div
         onClick={(e) => e.stopPropagation()}
+        style={{ width: window.innerWidth >= 768 ? panelWidth : undefined }}
         className={cn(
-          "fixed top-0 right-0 h-full z-50 w-80 max-w-[92vw] flex flex-col bg-background border-l border-border/60 shadow-2xl transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
+          "fixed top-0 right-0 h-full z-50 max-w-[92vw] flex flex-col bg-background border-l border-border/60 shadow-2xl transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
+          "md:max-w-none",
           open ? "translate-x-0" : "translate-x-full"
         )}
       >
+        {/* Resize handle — desktop only */}
+        <div
+          onMouseDown={onResizeStart}
+          className="absolute left-0 top-0 h-full w-1.5 cursor-ew-resize hidden md:block hover:bg-primary/30 active:bg-primary/50 transition-colors z-10"
+          title="Drag to resize"
+        />
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-border/40 shrink-0">
           <div className="flex items-center gap-2">
