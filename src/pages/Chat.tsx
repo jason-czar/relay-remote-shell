@@ -467,6 +467,8 @@ export default function Chat() {
   const activeConvIdRef = useRef<string | null>(null);
   // Store raw relay stdout keyed by message array index (session-only, not persisted)
   const rawStdoutMapRef = useRef<Map<number, string>>(new Map());
+  // Store tool calls used per message (session-only, not persisted)
+  const toolCallsMapRef = useRef<Map<number, string[]>>(new Map());
   // Store codex reasoning summaries keyed by message array index
   const thinkingMapRef = useRef<Map<number, string>>(new Map());
   const thinkingDurationMapRef = useRef<Map<number, number>>(new Map());
@@ -1236,6 +1238,8 @@ export default function Chat() {
             revealedIdx = prev.length;
             // Store raw stdout keyed by this message's index for the debug panel
             rawStdoutMapRef.current.set(revealedIdx, stdout);
+            // Snapshot tool calls for this message
+            toolCallsMapRef.current.set(revealedIdx, [...toolCalls]);
             // Store codex reasoning if present
             if (convData?.agent === "codex" && (codexThinking ?? "")) {
               thinkingMapRef.current.set(revealedIdx, codexThinking ?? "");
@@ -1813,7 +1817,7 @@ export default function Chat() {
                     content={msg.content}
                     streaming={streamingMsgIndex === i}
                     activityStatus={streamingMsgIndex === i ? activityStatus : undefined}
-                    toolCalls={streamingMsgIndex === i ? toolCalls : undefined}
+                    toolCalls={streamingMsgIndex === i ? toolCalls : (msg.role === "assistant" ? toolCallsMapRef.current.get(i) : undefined)}
                     rawStdout={msg.role === "assistant" ? rawStdoutMapRef.current.get(i) : undefined}
                     thinkingContent={msg.role === "assistant" ? thinkingMapRef.current.get(i) : undefined}
                     thinkingDurationMs={msg.role === "assistant" ? thinkingDurationMapRef.current.get(i) : undefined}
