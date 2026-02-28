@@ -192,8 +192,8 @@ export default function Settings() {
     <AppLayout>
       <div className="space-y-6 h-full flex flex-col">
         <div>
-          <h1 className="heading-1">Settings</h1>
-          <p className="body-sm text-muted-foreground">Manage your workspace</p>
+          <p className="text-xs text-muted-foreground uppercase tracking-widest font-medium">Settings</p>
+          <h1 className="heading-1">{TABS.find(t => t.value === activeTab)?.label ?? "Settings"}</h1>
         </div>
 
         <Tabs value={activeTab} onValueChange={handleTabChange} className="flex-1 flex flex-col min-h-0">
