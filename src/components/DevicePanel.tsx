@@ -199,10 +199,34 @@ export function DevicePanel({ open, onClose, devices, selectedDeviceId, onSelect
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [disconnectingId, setDisconnectingId] = useState<string | null>(null);
+  const [expandedOfflineId, setExpandedOfflineId] = useState<string | null>(null);
+  const [offlinePlatform, setOfflinePlatform] = useState<Platform>("unix");
+  const [offlineCopiedIdx, setOfflineCopiedIdx] = useState<number | null>(null);
+
+  const getOfflineCommands = useCallback((d: Tables<"devices">) => {
+    if (!d.pairing_code) return [];
+    const unix = [
+      { label: "1. Install", cmd: `curl -fsSL "${API_URL}/download-connector?install=1" | bash` },
+      { label: "2. Pair", cmd: `cd ~/relay-connector && ./relay-connector --pair "${d.pairing_code}" --api "${API_URL}" --name "${d.name}"` },
+      { label: "3. Start", cmd: `cd ~/relay-connector && nohup ./relay-connector connect > relay.log 2>&1 &` },
+    ];
+    const win = [
+      { label: "1. Install", cmd: `$s=(Invoke-WebRequest "${API_URL}/download-connector?install=ps" -UseBasicParsing).Content; Invoke-Expression $s` },
+      { label: "2. Pair", cmd: `cd "$env:USERPROFILE\\relay-connector"; .\\relay-connector.exe --pair "${d.pairing_code}" --api "${API_URL}" --name "${d.name}"` },
+      { label: "3. Start", cmd: `Start-Process -FilePath "$env:USERPROFILE\\relay-connector\\relay-connector.exe" -ArgumentList "connect" -WindowStyle Hidden` },
+    ];
+    return offlinePlatform === "unix" ? unix : win;
+  }, [offlinePlatform]);
+
+  const copyOfflineCmd = useCallback((cmd: string, idx: number) => {
+    navigator.clipboard.writeText(cmd);
+    setOfflineCopiedIdx(idx);
+    setTimeout(() => setOfflineCopiedIdx(null), 2000);
+  }, []);
 
   // Reset state when panel closes
   useEffect(() => {
-    if (!open) { setShowAdd(false); setConfirmDeleteId(null); }
+    if (!open) { setShowAdd(false); setConfirmDeleteId(null); setExpandedOfflineId(null); }
   }, [open]);
 
   const handleDeviceAdded = useCallback((d: Tables<"devices">) => {
@@ -276,9 +300,12 @@ export function DevicePanel({ open, onClose, devices, selectedDeviceId, onSelect
                         : "hover:bg-muted/60 text-foreground/80 border border-transparent"
                     )}
                   >
-                    {/* Status dot + name — clickable to select */}
+                    {/* Status dot + name — clickable to select (online) or expand commands (offline) */}
                     <button
-                      onClick={() => { onSelectDevice(d.id); onClose(); }}
+                      onClick={() => {
+                        if (d.status === "online") { onSelectDevice(d.id); onClose(); }
+                        else setExpandedOfflineId((prev) => prev === d.id ? null : d.id);
+                      }}
                       className="flex items-center gap-3 flex-1 min-w-0 text-left"
                     >
                       <span className={cn(
@@ -337,6 +364,49 @@ export function DevicePanel({ open, onClose, devices, selectedDeviceId, onSelect
                       )}
                     </div>
                   </div>
+                  {/* Offline expand — connection commands */}
+                  {d.status === "offline" && expandedOfflineId === d.id && (
+                    <div className="mt-1 mb-1 flex flex-col gap-2 px-1 pb-1">
+                      {/* Platform toggle */}
+                      <div className="flex gap-1 p-0.5 rounded-lg bg-muted/50 border border-border/40 self-start">
+                        {(["unix", "windows"] as Platform[]).map((p) => (
+                          <button
+                            key={p}
+                            onClick={(e) => { e.stopPropagation(); setOfflinePlatform(p); }}
+                            className={cn(
+                              "px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors",
+                              offlinePlatform === p
+                                ? "bg-background text-foreground shadow-sm"
+                                : "text-muted-foreground hover:text-foreground"
+                            )}
+                          >
+                            {p === "unix" ? "macOS / Linux" : "Windows"}
+                          </button>
+                        ))}
+                      </div>
+                      {/* Commands */}
+                      {getOfflineCommands(d).map((c, i) => (
+                        <div key={i} className="flex flex-col gap-0.5">
+                          <span className="text-[10px] text-muted-foreground font-medium px-0.5">{c.label}</span>
+                          <div className="flex items-center gap-1.5 rounded-lg bg-muted/40 border border-border/40 px-2.5 py-2">
+                            <code className="flex-1 text-[11px] text-foreground/80 font-mono truncate">{c.cmd}</code>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); copyOfflineCmd(c.cmd, i); }}
+                              className="shrink-0 w-6 h-6 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                              title="Copy"
+                            >
+                              {offlineCopiedIdx === i
+                                ? <Check className="h-3 w-3 text-primary" />
+                                : <Copy className="h-3 w-3" />}
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                      {!d.pairing_code && (
+                        <p className="text-[11px] text-muted-foreground px-0.5">No pairing code — add a new device to get connection commands.</p>
+                      )}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
