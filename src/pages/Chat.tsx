@@ -451,6 +451,8 @@ export default function Chat() {
   const [thinking, setThinking] = useState(false);
   const [agentSwitchPending, setAgentSwitchPending] = useState<"openclaw" | "claude" | "codex" | "terminal" | null>(null);
   const [streamingMsgIndex, setStreamingMsgIndex] = useState<number | null>(null);
+  const [activityStatus, setActivityStatus] = useState<"thinking" | "writing" | "running" | null>(null);
+  const activityTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
   const [showWizard, setShowWizard] = useState(false);
@@ -474,6 +476,28 @@ export default function Chat() {
   const abortStreamRef = useRef(false);
   const [isScrolledUp, setIsScrolledUp] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+
+  // ── Activity status helpers ───────────────────────────────────────────────
+  const startActivity = useCallback((stdout?: string) => {
+    if (activityTimerRef.current) clearInterval(activityTimerRef.current);
+    // Parse stdout patterns to infer initial state
+    const hasToolUse = stdout ? /\bBash\b|\brun\b.*tool|\bexecut|\bsearching\b/i.test(stdout) : false;
+    const hasWrite = stdout ? /\bWrite\b|\bEdit\b|\bCreate\b/i.test(stdout) : false;
+    const initial: "thinking" | "writing" | "running" = hasToolUse ? "running" : hasWrite ? "writing" : "thinking";
+    setActivityStatus(initial);
+    // Cycle: thinking → writing → running → thinking, updating every ~4s
+    const CYCLE: Array<"thinking" | "writing" | "running"> = ["thinking", "writing", "running"];
+    let idx = CYCLE.indexOf(initial);
+    activityTimerRef.current = setInterval(() => {
+      idx = (idx + 1) % CYCLE.length;
+      setActivityStatus(CYCLE[idx]);
+    }, 4000);
+  }, []);
+
+  const stopActivity = useCallback(() => {
+    if (activityTimerRef.current) { clearInterval(activityTimerRef.current); activityTimerRef.current = null; }
+    setActivityStatus(null);
+  }, []);
   const prevMsgCountRef = useRef(0);
 
   // ── Device selection with per-device agent persistence ───────────────
@@ -930,6 +954,7 @@ export default function Chat() {
     const userMsg: Message = { role: "user", content: displayText };
     setMessages((prev) => [...prev, userMsg]);
     setThinking(true);
+    startActivity();
 
     let convId = activeConvId;
     if (!convId) {
@@ -1184,6 +1209,7 @@ export default function Chat() {
           });
           setThinking(false);
           setStreamingMsgIndex(revealedIdx!);
+          stopActivity(); setActivityStatus("writing");
 
           await new Promise<void>((resolveStream) => {
             let tokenIdx = 0;
@@ -1194,6 +1220,7 @@ export default function Chat() {
                 clearInterval(streamIntervalRef.current!);
                 streamIntervalRef.current = null;
                 setStreamingMsgIndex(null);
+                stopActivity();
                 resolveStream();
                 return;
               }
@@ -1215,6 +1242,7 @@ export default function Chat() {
         } else {
           // Background: just clear thinking if still set
           setThinking(false);
+          stopActivity();
         }
 
         await saveMessage(jobConvId, "assistant", responseText);
@@ -1260,6 +1288,7 @@ export default function Chat() {
         if (isActive) {
           setThinking(false);
           setStreamingMsgIndex(null);
+          stopActivity();
           if (streamIntervalRef.current) {clearInterval(streamIntervalRef.current);streamIntervalRef.current = null;}
           setRelayStatus("idle");
           setTimeout(() => textareaRef.current?.focus(), 50);
@@ -1281,8 +1310,9 @@ export default function Chat() {
     }
     setStreamingMsgIndex(null);
     setThinking(false);
+    stopActivity();
     setTimeout(() => textareaRef.current?.focus(), 50);
-  }, []);
+  }, [stopActivity]);
 
   // ── Regenerate ─────────────────────────────────────────────────────────
   const handleRegenerate = useCallback(async () => {
@@ -1305,6 +1335,7 @@ export default function Chat() {
       const userMsg: Message = { role: "user", content: text };
       setMessages((prev) => [...prev, userMsg]);
       setThinking(true);
+      startActivity();
       const convId = activeConvId;
       if (!convId) return;
       saveMessage(convId, "user", text);
@@ -1392,6 +1423,7 @@ export default function Chat() {
           if (activeConvIdRef.current === jobConvId) {
             setThinking(false);
             setStreamingMsgIndex(null);
+            stopActivity();
             setRelayStatus("idle");
             setTimeout(() => textareaRef.current?.focus(), 50);
           }
@@ -1481,6 +1513,7 @@ export default function Chat() {
       const userMsg: Message = { role: "user", content: `/${cmd.name}` };
       setMessages((prev) => [...prev, userMsg]);
       setThinking(true);
+      startActivity();
       try {
         const rawCmd = cmd.rawCommand(agent === "terminal" ? "openclaw" : agent);
         const stdout = await sendViaRelay(rawCmd, agent === "openclaw");
@@ -1491,6 +1524,7 @@ export default function Chat() {
         setMessages((prev) => [...prev, { role: "assistant", content: `⚠️ ${msg}` }]);
       } finally {
         setThinking(false);
+        stopActivity();
         setRelayStatus("idle");
       }
     }
@@ -1740,6 +1774,7 @@ export default function Chat() {
                     role={msg.role}
                     content={msg.content}
                     streaming={streamingMsgIndex === i}
+                    activityStatus={streamingMsgIndex === i ? activityStatus : undefined}
                     rawStdout={msg.role === "assistant" ? rawStdoutMapRef.current.get(i) : undefined}
                     thinkingContent={msg.role === "assistant" ? thinkingMapRef.current.get(i) : undefined}
                     thinkingDurationMs={msg.role === "assistant" ? thinkingDurationMapRef.current.get(i) : undefined}
@@ -1758,7 +1793,7 @@ export default function Chat() {
                 )}
                 {thinking &&
                 <div className="animate-fade-in">
-                    <ChatMessage role="assistant" content="" thinking agent={(agent as string) === "terminal" ? "openclaw" : agent as "openclaw" | "claude" | "codex"} />
+                    <ChatMessage role="assistant" content="" thinking activityStatus={activityStatus} agent={(agent as string) === "terminal" ? "openclaw" : agent as "openclaw" | "claude" | "codex"} />
                   </div>
                 }
               </div>

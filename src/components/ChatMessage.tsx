@@ -137,6 +137,7 @@ interface ChatMessageProps {
   content: string;
   thinking?: boolean;
   streaming?: boolean;
+  activityStatus?: "thinking" | "writing" | "running" | null;
   rawStdout?: string;
   thinkingContent?: string;
   thinkingDurationMs?: number;
@@ -204,7 +205,7 @@ function CodeBlock({ language, value }: { language: string; value: string }) {
   );
 }
 
-export function ChatMessage({ role, content, thinking, streaming, rawStdout, thinkingContent, thinkingDurationMs, createdAt, agent, onRegenerate }: ChatMessageProps) {
+export function ChatMessage({ role, content, thinking, streaming, activityStatus, rawStdout, thinkingContent, thinkingDurationMs, createdAt, agent, onRegenerate }: ChatMessageProps) {
   const isUser = role === "user";
   const agentImg = agent === "claude" ? claudecodeImg : agent === "codex" ? codexImg : openclawImg;
   const [hovered, setHovered] = useState(false);
@@ -413,6 +414,23 @@ export function ChatMessage({ role, content, thinking, streaming, rawStdout, thi
               className="inline-block w-0.5 h-3.5 ml-0.5 align-middle bg-primary rounded-full animate-pulse"
               style={{ animationDuration: "0.7s" }}
             />
+          )}
+          {/* Activity status pill */}
+          {(streaming || thinking) && activityStatus && (
+            <div className="flex items-center gap-1.5 mt-2">
+              <span className="flex gap-0.5">
+                {[0, 1, 2].map((i) => (
+                  <span
+                    key={i}
+                    className="w-1 h-1 rounded-full bg-muted-foreground/50 animate-bounce"
+                    style={{ animationDelay: `${i * 0.15}s`, animationDuration: "0.8s" }}
+                  />
+                ))}
+              </span>
+              <span className="text-[11px] text-muted-foreground/50 font-medium tracking-wide select-none">
+                {activityStatus === "thinking" ? "thinking…" : activityStatus === "writing" ? "writing…" : "running…"}
+              </span>
+            </div>
           )}
         </div>
 
