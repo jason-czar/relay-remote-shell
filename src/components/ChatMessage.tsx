@@ -138,6 +138,7 @@ interface ChatMessageProps {
   thinking?: boolean;
   streaming?: boolean;
   activityStatus?: "thinking" | "writing" | "running" | null;
+  toolCalls?: string[];
   rawStdout?: string;
   thinkingContent?: string;
   thinkingDurationMs?: number;
@@ -205,7 +206,7 @@ function CodeBlock({ language, value }: { language: string; value: string }) {
   );
 }
 
-export function ChatMessage({ role, content, thinking, streaming, activityStatus, rawStdout, thinkingContent, thinkingDurationMs, createdAt, agent, onRegenerate }: ChatMessageProps) {
+export function ChatMessage({ role, content, thinking, streaming, activityStatus, toolCalls, rawStdout, thinkingContent, thinkingDurationMs, createdAt, agent, onRegenerate }: ChatMessageProps) {
   const isUser = role === "user";
   const agentImg = agent === "claude" ? claudecodeImg : agent === "codex" ? codexImg : openclawImg;
   const [hovered, setHovered] = useState(false);
@@ -414,6 +415,20 @@ export function ChatMessage({ role, content, thinking, streaming, activityStatus
               className="inline-block w-0.5 h-3.5 ml-0.5 align-middle bg-primary rounded-full animate-pulse"
               style={{ animationDuration: "0.7s" }}
             />
+          )}
+          {/* Tool-call chips */}
+          {(streaming || thinking) && toolCalls && toolCalls.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-2">
+              {toolCalls.map((name) => (
+                <span
+                  key={name}
+                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-muted/60 text-muted-foreground/60 border border-border/30 select-none"
+                >
+                  <span className="w-1 h-1 rounded-full bg-primary/50 shrink-0" />
+                  {name}
+                </span>
+              ))}
+            </div>
           )}
           {/* Activity status pill */}
           {(streaming || thinking) && activityStatus && (

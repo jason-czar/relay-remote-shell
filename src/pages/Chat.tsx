@@ -424,16 +424,39 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
 
 }
 
-// ── Chunk → activity status parser ───────────────────────────────────────────
-function parseChunkActivity(chunk: string): "thinking" | "writing" | "running" | null {
-  // Tool-call / shell execution signals → running
-  if (/\"type\"\s*:\s*\"tool_use\"|\"name\"\s*:\s*\"(Bash|bash|shell|run|exec|grep|find|cat|ls|mkdir|write_file|Edit|create_file|computer)\"/.test(chunk)) return "running";
-  if (/running tool|executing|tool_input|tool_result/i.test(chunk)) return "running";
-  // Write / edit signals → writing
-  if (/\"type\"\s*:\s*\"(text_delta|content_block_start)\"|writing|editing|creating/i.test(chunk)) return "writing";
-  // Reasoning / thinking tags → thinking
-  if (/<thinking>|\"type\"\s*:\s*\"thinking\"|reasoning/i.test(chunk)) return "thinking";
-  return null;
+// ── Friendly display names for known tool names ──────────────────────────────
+const TOOL_LABELS: Record<string, string> = {
+  bash: "Bash", shell: "Bash", run: "Bash", exec: "Bash",
+  edit: "Edit file", write_file: "Write file", create_file: "Create file",
+  str_replace_editor: "Edit file", str_replace_based_edit_tool: "Edit file",
+  read_file: "Read file", cat: "Read file",
+  search: "Search", grep: "Search", ripgrep: "Search", web_search: "Web search",
+  find: "Find", ls: "List files", list_directory: "List files",
+  mkdir: "Make dir", computer: "Computer", browser: "Browser",
+  todo_write: "Todo", notebook_edit: "Edit notebook",
+};
+
+function friendlyToolName(raw: string): string {
+  const key = raw.toLowerCase().replace(/[^a-z0-9_]/g, "");
+  return TOOL_LABELS[key] ?? raw.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+// ── Chunk → activity status + tool name parser ────────────────────────────────
+function parseChunkActivity(chunk: string): { status: "thinking" | "writing" | "running" | null; toolName: string | null } {
+  // Tool-call signals — try to extract the tool name from JSON
+  if (/\"type\"\s*:\s*\"tool_use\"/.test(chunk)) {
+    const nameMatch = chunk.match(/"name"\s*:\s*"([^"]+)"/);
+    return { status: "running", toolName: nameMatch ? friendlyToolName(nameMatch[1]) : "Tool" };
+  }
+  // Named tool patterns without full JSON
+  const toolMatch = chunk.match(/\"name\"\s*:\s*\"(Bash|bash|shell|run|exec|grep|find|cat|ls|mkdir|write_file|Edit|create_file|computer|str_replace|web_search|search|read_file|browser|notebook)[^"]*\"/);
+  if (toolMatch) return { status: "running", toolName: friendlyToolName(toolMatch[1]) };
+  if (/running tool|tool_input|tool_result/i.test(chunk)) return { status: "running", toolName: null };
+  // Write / edit → writing
+  if (/\"type\"\s*:\s*\"(text_delta|content_block_start)\"|writing|editing|creating/i.test(chunk)) return { status: "writing", toolName: null };
+  // Reasoning → thinking
+  if (/<thinking>|\"type\"\s*:\s*\"thinking\"|reasoning/i.test(chunk)) return { status: "thinking", toolName: null };
+  return { status: null, toolName: null };
 }
 
 export default function Chat() {
@@ -465,6 +488,7 @@ export default function Chat() {
   const [streamingMsgIndex, setStreamingMsgIndex] = useState<number | null>(null);
   const [activityStatus, setActivityStatus] = useState<"thinking" | "writing" | "running" | null>(null);
   const activityTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [toolCalls, setToolCalls] = useState<string[]>([]);
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
   const [showWizard, setShowWizard] = useState(false);
@@ -494,17 +518,20 @@ export default function Chat() {
     if (activityTimerRef.current) clearInterval(activityTimerRef.current);
     activityTimerRef.current = null;
     setActivityStatus("thinking");
+    setToolCalls([]);
   }, []);
 
   // Called for each live stdout chunk — promotes status based on content
   const onChunkActivity = useCallback((chunk: string) => {
-    const parsed = parseChunkActivity(chunk);
-    if (parsed) setActivityStatus(parsed);
+    const { status, toolName } = parseChunkActivity(chunk);
+    if (status) setActivityStatus(status);
+    if (toolName) setToolCalls((prev) => prev.includes(toolName) ? prev : [...prev, toolName]);
   }, []);
 
   const stopActivity = useCallback(() => {
     if (activityTimerRef.current) { clearInterval(activityTimerRef.current); activityTimerRef.current = null; }
     setActivityStatus(null);
+    setToolCalls([]);
   }, []);
   const prevMsgCountRef = useRef(0);
 
@@ -1786,6 +1813,7 @@ export default function Chat() {
                     content={msg.content}
                     streaming={streamingMsgIndex === i}
                     activityStatus={streamingMsgIndex === i ? activityStatus : undefined}
+                    toolCalls={streamingMsgIndex === i ? toolCalls : undefined}
                     rawStdout={msg.role === "assistant" ? rawStdoutMapRef.current.get(i) : undefined}
                     thinkingContent={msg.role === "assistant" ? thinkingMapRef.current.get(i) : undefined}
                     thinkingDurationMs={msg.role === "assistant" ? thinkingDurationMapRef.current.get(i) : undefined}
@@ -1804,7 +1832,7 @@ export default function Chat() {
                 )}
                 {thinking &&
                 <div className="animate-fade-in">
-                    <ChatMessage role="assistant" content="" thinking activityStatus={activityStatus} agent={(agent as string) === "terminal" ? "openclaw" : agent as "openclaw" | "claude" | "codex"} />
+                    <ChatMessage role="assistant" content="" thinking activityStatus={activityStatus} toolCalls={toolCalls} agent={(agent as string) === "terminal" ? "openclaw" : agent as "openclaw" | "claude" | "codex"} />
                   </div>
                 }
               </div>
