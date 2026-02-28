@@ -61,7 +61,7 @@ function AddDeviceFlow({ userId, projectId, onDone }: { userId: string; projectI
   const unixCommands = device?.pairing_code ? [
     { label: "1. Install the connector", cmd: `curl -fsSL "${API_URL}/download-connector?install=1" | bash` },
     { label: "2. Pair this device", cmd: `cd ~/relay-connector && ./relay-connector --pair "${device.pairing_code}" --api "${API_URL}" --name "${device.name}"` },
-    { label: "3. Start in background", cmd: `cd ~/relay-connector && nohup ./relay-connector connect >/dev/null 2>&1 &` },
+    { label: "3. Start in background", cmd: `cd ~/relay-connector && nohup ./relay-connector connect > relay.log 2>&1 &` },
   ] : [];
 
   const windowsCommands = device?.pairing_code ? [
