@@ -11,7 +11,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Camera, User, Lock, Save, RotateCcw, Timer, Trash2 } from "lucide-react";
+import { Camera, User, Lock, Save, RotateCcw, Timer, Trash2, MessageSquare } from "lucide-react";
+import { getThinkingPanelEnabled, setThinkingPanelEnabled } from "@/hooks/useThinkingPanel";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import type { Tables } from "@/integrations/supabase/types";
 import { displayNameSchema, passwordSchema } from "@/lib/validations";
@@ -35,6 +36,7 @@ export default function Settings() {
   const [changingPassword, setChangingPassword] = useState(false);
 
   const [timeoutSettings, setTimeoutSettings] = useState<InactivitySettings>(getInactivitySettings);
+  const [showThinking, setShowThinkingState] = useState(getThinkingPanelEnabled);
 
   useEffect(() => {
     if (!user) return;
@@ -340,6 +342,35 @@ export default function Settings() {
                 </Select>
               </div>
             )}
+          </CardContent>
+        </Card>
+
+        {/* Chat Preferences */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="heading-4 flex items-center gap-2">
+              <MessageSquare className="h-4 w-4" /> Chat Preferences
+            </CardTitle>
+            <CardDescription className="body-sm">Customize the chat interface behaviour</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <Label htmlFor="thinking-toggle">Show thinking / reasoning panels</Label>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Display model reasoning steps for OpenClaw, Claude Code, and Codex responses
+                </p>
+              </div>
+              <Switch
+                id="thinking-toggle"
+                checked={showThinking}
+                onCheckedChange={(checked) => {
+                  setShowThinkingState(checked);
+                  setThinkingPanelEnabled(checked);
+                  toast({ title: checked ? "Thinking panels enabled" : "Thinking panels hidden" });
+                }}
+              />
+            </div>
           </CardContent>
         </Card>
 
