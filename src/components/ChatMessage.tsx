@@ -288,10 +288,10 @@ export function ChatMessage({ role, content, thinking, streaming, activityStatus
         {waitElapsed >= 5 && (
           <span className="ml-2 text-xs text-muted-foreground/50 animate-fade-in">
             {waitElapsed >= 30
-              ? "Still waiting — this may take a moment…"
+              ? `Still waiting — this may take a moment… (${waitElapsed}s)`
               : waitElapsed >= 15
-              ? "Waiting for response…"
-              : "Sending to device…"}
+              ? `Waiting for response… (${waitElapsed}s)`
+              : `Sending to device… (${waitElapsed}s)`}
           </span>
         )}
       </div>
