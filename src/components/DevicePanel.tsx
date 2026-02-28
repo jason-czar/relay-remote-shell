@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
-import { X, Terminal, Wifi, WifiOff, Plus, Copy, Check, Loader2, Info, ChevronRight, AlertCircle } from "lucide-react";
+import { X, Terminal, Wifi, WifiOff, Plus, Copy, Check, Loader2, Info, AlertCircle, Trash2, Power } from "lucide-react";
 import type { Tables } from "@/integrations/supabase/types";
 
 const API_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
@@ -17,6 +17,7 @@ interface DevicePanelProps {
   userId: string;
   projectId?: string;
   onDeviceAdded: (device: Tables<"devices">) => void;
+  onDeviceDeleted: (id: string) => void;
 }
 
 function AddDeviceFlow({ userId, projectId, onDone }: { userId: string; projectId?: string; onDone: (d: Tables<"devices">) => void }) {
@@ -193,18 +194,36 @@ function AddDeviceFlow({ userId, projectId, onDone }: { userId: string; projectI
   );
 }
 
-export function DevicePanel({ open, onClose, devices, selectedDeviceId, onSelectDevice, userId, projectId, onDeviceAdded }: DevicePanelProps) {
+export function DevicePanel({ open, onClose, devices, selectedDeviceId, onSelectDevice, userId, projectId, onDeviceAdded, onDeviceDeleted }: DevicePanelProps) {
   const [showAdd, setShowAdd] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [disconnectingId, setDisconnectingId] = useState<string | null>(null);
 
-  // Reset add flow when panel closes
+  // Reset state when panel closes
   useEffect(() => {
-    if (!open) setShowAdd(false);
+    if (!open) { setShowAdd(false); setConfirmDeleteId(null); }
   }, [open]);
 
   const handleDeviceAdded = useCallback((d: Tables<"devices">) => {
     onDeviceAdded(d);
-    // Keep showing add flow so user sees the "connected" confirmation
   }, [onDeviceAdded]);
+
+  const handleDisconnect = useCallback(async (id: string) => {
+    setDisconnectingId(id);
+    // End all active sessions for this device, then mark offline
+    await supabase.from("sessions").update({ status: "ended", ended_at: new Date().toISOString() }).eq("device_id", id).eq("status", "active");
+    await supabase.from("devices").update({ status: "offline" }).eq("id", id);
+    setDisconnectingId(null);
+  }, []);
+
+  const handleDelete = useCallback(async (id: string) => {
+    setDeletingId(id);
+    await supabase.from("devices").delete().eq("id", id);
+    setDeletingId(null);
+    setConfirmDeleteId(null);
+    onDeviceDeleted(id);
+  }, [onDeviceDeleted]);
 
   return (
     <>
@@ -246,29 +265,77 @@ export function DevicePanel({ open, onClose, devices, selectedDeviceId, onSelect
             <div className="flex flex-col gap-1">
               <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide px-1 mb-1">Connected devices</p>
               {devices.map((d) => (
-                <button
-                  key={d.id}
-                  onClick={() => { onSelectDevice(d.id); onClose(); }}
-                  className={cn(
-                    "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-150 group",
-                    selectedDeviceId === d.id
-                      ? "bg-primary/8 text-foreground border border-primary/20"
-                      : "hover:bg-muted/60 text-foreground/80 border border-transparent"
-                  )}
-                >
-                  <span className={cn(
-                    "w-2 h-2 rounded-full shrink-0 transition-colors",
-                    d.status === "online" ? "bg-status-online animate-pulse" : "bg-muted-foreground/30"
-                  )} />
-                  <span className="flex-1 text-left truncate font-medium">{d.name}</span>
-                  <span className={cn(
-                    "text-[11px] font-medium",
-                    d.status === "online" ? "text-status-online" : "text-muted-foreground/50"
-                  )}>
-                    {d.status === "online" ? "online" : "offline"}
-                  </span>
-                  {selectedDeviceId === d.id && <ChevronRight className="h-3.5 w-3.5 text-primary shrink-0" />}
-                </button>
+                <div key={d.id} className="flex flex-col">
+                  <div
+                    className={cn(
+                      "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-150",
+                      selectedDeviceId === d.id
+                        ? "bg-primary/8 text-foreground border border-primary/20"
+                        : "hover:bg-muted/60 text-foreground/80 border border-transparent"
+                    )}
+                  >
+                    {/* Status dot + name — clickable to select */}
+                    <button
+                      onClick={() => { onSelectDevice(d.id); onClose(); }}
+                      className="flex items-center gap-3 flex-1 min-w-0 text-left"
+                    >
+                      <span className={cn(
+                        "w-2 h-2 rounded-full shrink-0 transition-colors",
+                        d.status === "online" ? "bg-status-online animate-pulse" : "bg-muted-foreground/30"
+                      )} />
+                      <span className="flex-1 truncate font-medium">{d.name}</span>
+                      <span className={cn(
+                        "text-[11px] font-medium shrink-0",
+                        d.status === "online" ? "text-status-online" : "text-muted-foreground/50"
+                      )}>
+                        {d.status === "online" ? "online" : "offline"}
+                      </span>
+                    </button>
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-1 shrink-0">
+                      {/* Disconnect — only meaningful when online */}
+                      {d.status === "online" && (
+                        <button
+                          onClick={() => handleDisconnect(d.id)}
+                          disabled={disconnectingId === d.id}
+                          title="Disconnect device"
+                          className="w-6 h-6 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-40"
+                        >
+                          {disconnectingId === d.id
+                            ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            : <Power className="h-3.5 w-3.5" />}
+                        </button>
+                      )}
+                      {/* Delete */}
+                      {confirmDeleteId === d.id ? (
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => handleDelete(d.id)}
+                            disabled={deletingId === d.id}
+                            className="px-2 py-0.5 rounded text-[11px] font-medium bg-destructive/90 text-destructive-foreground hover:bg-destructive transition-colors disabled:opacity-50"
+                          >
+                            {deletingId === d.id ? <Loader2 className="h-3 w-3 animate-spin" /> : "Delete"}
+                          </button>
+                          <button
+                            onClick={() => setConfirmDeleteId(null)}
+                            className="px-2 py-0.5 rounded text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setConfirmDeleteId(d.id)}
+                          title="Delete device"
+                          className="w-6 h-6 flex items-center justify-center rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
               ))}
             </div>
           )}
