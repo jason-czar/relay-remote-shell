@@ -11,18 +11,13 @@ import { useInactivityTimeout } from "@/hooks/useInactivityTimeout";
 import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
 import Landing from "./pages/Landing";
-import Dashboard from "./pages/Dashboard";
-import Projects from "./pages/Projects";
 import ProjectView from "./pages/ProjectView";
 import TerminalSession from "./pages/TerminalSession";
 import SessionPlayback from "./pages/SessionPlayback";
 import Settings from "./pages/Settings";
-import SkillConfig from "./pages/SkillConfig";
 import MultiSession from "./pages/MultiSession";
-import Docs from "./pages/Docs";
 import Install from "./pages/Install";
 import Chat from "./pages/Chat";
-import Devices from "./pages/Devices";
 import NotFound from "./pages/NotFound";
 import TermsOfService from "./pages/TermsOfService";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
@@ -71,17 +66,17 @@ const App = () => (
                 
                 <Route path="/auth" element={<AuthRoute><Auth /></AuthRoute>} />
                 <Route path="/reset-password" element={<ResetPassword />} />
-                <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-                <Route path="/projects" element={<ProtectedRoute><Projects /></ProtectedRoute>} />
+                <Route path="/dashboard" element={<ProtectedRoute><Navigate to="/settings?tab=dashboard" replace /></ProtectedRoute>} />
+                <Route path="/projects" element={<ProtectedRoute><Navigate to="/settings?tab=projects" replace /></ProtectedRoute>} />
                 <Route path="/project/:projectId" element={<ProtectedRoute><ProjectView /></ProtectedRoute>} />
                 <Route path="/terminal/:deviceId" element={<ProtectedRoute><TerminalSession /></ProtectedRoute>} />
                 <Route path="/playback/:sessionId" element={<ProtectedRoute><SessionPlayback /></ProtectedRoute>} />
                 <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-                <Route path="/skill/privaclaw" element={<ProtectedRoute><SkillConfig /></ProtectedRoute>} />
+                <Route path="/skill/privaclaw" element={<ProtectedRoute><Navigate to="/settings?tab=privaclaw" replace /></ProtectedRoute>} />
                 <Route path="/multi-session" element={<ProtectedRoute><MultiSession /></ProtectedRoute>} />
-                <Route path="/devices" element={<ProtectedRoute><Devices /></ProtectedRoute>} />
+                <Route path="/devices" element={<ProtectedRoute><Navigate to="/settings?tab=devices" replace /></ProtectedRoute>} />
                 <Route path="/chat" element={<Navigate to="/" replace />} />
-                <Route path="/docs" element={<Docs />} />
+                <Route path="/docs" element={<Navigate to="/settings?tab=docs" replace />} />
                 <Route path="/terms" element={<TermsOfService />} />
                 <Route path="/privacy" element={<PrivacyPolicy />} />
                 <Route path="/install" element={<Install />} />
