@@ -71,7 +71,24 @@ interface UseDeviceModelsResult {
   fetch: (deviceId: string, agent: string) => Promise<void>;
 }
 
-const CACHE = new Map<string, AgentModel[]>();
+const MEM_CACHE = new Map<string, AgentModel[]>();
+
+const LS_PREFIX = "device_models:";
+
+function lsRead(key: string): AgentModel[] | null {
+  try {
+    const raw = localStorage.getItem(LS_PREFIX + key);
+    if (!raw) return null;
+    const { models, ts } = JSON.parse(raw) as { models: AgentModel[]; ts: number };
+    // Expire after 24h
+    if (Date.now() - ts > 86_400_000) { localStorage.removeItem(LS_PREFIX + key); return null; }
+    return models;
+  } catch { return null; }
+}
+
+function lsWrite(key: string, models: AgentModel[]) {
+  try { localStorage.setItem(LS_PREFIX + key, JSON.stringify({ models, ts: Date.now() })); } catch { /* quota */ }
+}
 
 export function useDeviceModels(): UseDeviceModelsResult {
   const [models, setModels] = useState<AgentModel[] | null>(null);
@@ -82,8 +99,18 @@ export function useDeviceModels(): UseDeviceModelsResult {
     if (agent === "terminal") return;
 
     const cacheKey = `${deviceId}:${agent}`;
-    if (CACHE.has(cacheKey)) {
-      setModels(CACHE.get(cacheKey)!);
+
+    // 1. In-memory cache (instant)
+    if (MEM_CACHE.has(cacheKey)) {
+      setModels(MEM_CACHE.get(cacheKey)!);
+      return;
+    }
+
+    // 2. localStorage cache (available immediately, triggers background refresh)
+    const persisted = lsRead(cacheKey);
+    if (persisted) {
+      MEM_CACHE.set(cacheKey, persisted);
+      setModels(persisted);
       return;
     }
 
@@ -164,7 +191,8 @@ export function useDeviceModels(): UseDeviceModelsResult {
       const parsed = parseModels(agent, raw);
       if (parsed.length === 0) throw new Error("No models found in output");
 
-      CACHE.set(cacheKey, parsed);
+      MEM_CACHE.set(cacheKey, parsed);
+      lsWrite(cacheKey, parsed);
       setModels(parsed);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -179,5 +207,7 @@ export function useDeviceModels(): UseDeviceModelsResult {
 
 /** Invalidate the cache for a device+agent so next open re-fetches */
 export function invalidateDeviceModelCache(deviceId: string, agent: string) {
-  CACHE.delete(`${deviceId}:${agent}`);
+  const key = `${deviceId}:${agent}`;
+  MEM_CACHE.delete(key);
+  try { localStorage.removeItem("device_models:" + key); } catch { /* ignore */ }
 }
