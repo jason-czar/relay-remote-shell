@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import openclawImg from "@/assets/openclaw.png";
 import claudecodeImg from "@/assets/claudecode.png";
-import { Plus, Trash2, Search, MessageSquare, ChevronLeft, Pencil, Check, X, RefreshCw } from "lucide-react";
+import { Plus, Trash2, Search, MessageSquare, ChevronLeft, Pencil, Check, X, RefreshCw, FolderOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   AlertDialog,
@@ -19,6 +19,7 @@ export interface Conversation {
   title: string;
   agent: string;
   created_at: string;
+  workdir?: string | null;
 }
 
 interface ChatSidebarProps {
@@ -272,7 +273,15 @@ export function ChatSidebar({ conversations, activeId, onSelect, onNew, onDelete
               ) : (
                 /* ── Normal row ── */
                 <>
-                  <span className="flex-1 truncate text-xs text-muted-foreground/50 group-hover:text-muted-foreground transition-colors duration-150">{conv.title}</span>
+                  <div className="flex-1 min-w-0">
+                    <span className="block truncate text-xs text-muted-foreground/50 group-hover:text-muted-foreground transition-colors duration-150">{conv.title}</span>
+                    {conv.workdir && (
+                      <span className="flex items-center gap-0.5 truncate text-[10px] text-muted-foreground/30 group-hover:text-muted-foreground/50 transition-colors duration-150 mt-0.5">
+                        <FolderOpen className="h-2.5 w-2.5 shrink-0" />
+                        <span className="truncate">{conv.workdir.replace(/^.*\//, "…/")}</span>
+                      </span>
+                    )}
+                  </div>
                   <div className="shrink-0 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
                     <button
                       className="p-0.5 rounded hover:text-foreground hover:bg-accent/60 transition-colors"
