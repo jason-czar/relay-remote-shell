@@ -850,6 +850,8 @@ export default function Chat() {
         resolve(result);
       };
 
+      let substantiveWaitCount = 0;
+      const MAX_SUBSTANTIVE_WAITS = 6; // up to 6 × SILENCE_MS extra waits before giving up
       const resetSilence = () => {
         if (silenceTimer) clearTimeout(silenceTimer);
         // If the output already contains a CLI error line, finish immediately
@@ -858,7 +860,10 @@ export default function Chat() {
         silenceTimer = setTimeout(() => {
           // For OpenClaw: detect complete JSON object and finish immediately — no need to wait full 8s
           if (isOpenClaw) {
-            if (!outputBuffer.includes("{")) return; // no JSON yet
+            if (!outputBuffer.includes("{")) {
+              // No JSON started yet — keep waiting if we haven't exceeded wait budget
+              if (substantiveWaitCount++ < MAX_SUBSTANTIVE_WAITS) { resetSilence(); return; }
+            }
             // Walk the buffer to find a balanced top-level { ... } and finish early
             const firstBrace = outputBuffer.indexOf("{");
             let depth = 0,inStr = false,esc = false;
@@ -876,7 +881,10 @@ export default function Chat() {
           // For Claude Code: keep waiting until we have at least 10 non-noise characters
           if (!isOpenClaw) {
             const stripped = outputBuffer.replace(/\x1b[\s\S]{1,10}/g, "").replace(/[%$#>\[\]?;=\r\n\s]/g, "");
-            if (stripped.length < 10) return;
+            if (stripped.length < 10) {
+              // Not enough substantive content yet — reschedule up to budget
+              if (substantiveWaitCount++ < MAX_SUBSTANTIVE_WAITS) { resetSilence(); return; }
+            }
           }
           finish(outputBuffer);
         }, SILENCE_MS);
@@ -936,11 +944,13 @@ export default function Chat() {
                 const chunk = decodeURIComponent(escape(atob(data_b64)));
                 outputBuffer += chunk;
                 onChunk?.(chunk);
+                substantiveWaitCount = 0;
                 resetSilence();
               } catch {
                 const chunk = atob(data_b64);
                 outputBuffer += chunk;
                 onChunk?.(chunk);
+                substantiveWaitCount = 0;
                 resetSilence();
               }
             }
