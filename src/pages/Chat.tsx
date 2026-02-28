@@ -424,6 +424,18 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
 
 }
 
+// ── Chunk → activity status parser ───────────────────────────────────────────
+function parseChunkActivity(chunk: string): "thinking" | "writing" | "running" | null {
+  // Tool-call / shell execution signals → running
+  if (/\"type\"\s*:\s*\"tool_use\"|\"name\"\s*:\s*\"(Bash|bash|shell|run|exec|grep|find|cat|ls|mkdir|write_file|Edit|create_file|computer)\"/.test(chunk)) return "running";
+  if (/running tool|executing|tool_input|tool_result/i.test(chunk)) return "running";
+  // Write / edit signals → writing
+  if (/\"type\"\s*:\s*\"(text_delta|content_block_start)\"|writing|editing|creating/i.test(chunk)) return "writing";
+  // Reasoning / thinking tags → thinking
+  if (/<thinking>|\"type\"\s*:\s*\"thinking\"|reasoning/i.test(chunk)) return "thinking";
+  return null;
+}
+
 export default function Chat() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -478,20 +490,16 @@ export default function Chat() {
   const [unreadCount, setUnreadCount] = useState(0);
 
   // ── Activity status helpers ───────────────────────────────────────────────
-  const startActivity = useCallback((stdout?: string) => {
+  const startActivity = useCallback(() => {
     if (activityTimerRef.current) clearInterval(activityTimerRef.current);
-    // Parse stdout patterns to infer initial state
-    const hasToolUse = stdout ? /\bBash\b|\brun\b.*tool|\bexecut|\bsearching\b/i.test(stdout) : false;
-    const hasWrite = stdout ? /\bWrite\b|\bEdit\b|\bCreate\b/i.test(stdout) : false;
-    const initial: "thinking" | "writing" | "running" = hasToolUse ? "running" : hasWrite ? "writing" : "thinking";
-    setActivityStatus(initial);
-    // Cycle: thinking → writing → running → thinking, updating every ~4s
-    const CYCLE: Array<"thinking" | "writing" | "running"> = ["thinking", "writing", "running"];
-    let idx = CYCLE.indexOf(initial);
-    activityTimerRef.current = setInterval(() => {
-      idx = (idx + 1) % CYCLE.length;
-      setActivityStatus(CYCLE[idx]);
-    }, 4000);
+    activityTimerRef.current = null;
+    setActivityStatus("thinking");
+  }, []);
+
+  // Called for each live stdout chunk — promotes status based on content
+  const onChunkActivity = useCallback((chunk: string) => {
+    const parsed = parseChunkActivity(chunk);
+    if (parsed) setActivityStatus(parsed);
   }, []);
 
   const stopActivity = useCallback(() => {
@@ -700,7 +708,7 @@ export default function Chat() {
   };
 
   // ── Relay send (with auto-retry + status banner) ───────────────────────
-  const sendViaRelay = useCallback(async (command: string, isOpenClaw = false): Promise<string> => {
+  const sendViaRelay = useCallback(async (command: string, isOpenClaw = false, onChunk?: (chunk: string) => void): Promise<string> => {
     const MAX_RETRIES = 3;
     const RETRY_DELAYS = [1000, 2500, 5000];
 
@@ -715,7 +723,7 @@ export default function Chat() {
       }
 
       try {
-        const result = await sendViaRelayOnce(command, isOpenClaw);
+        const result = await sendViaRelayOnce(command, isOpenClaw, onChunk);
         setRelayStatus("idle");
         return result;
       } catch (err) {
@@ -729,7 +737,7 @@ export default function Chat() {
     throw new Error("Relay unreachable");
   }, [selectedDeviceId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const sendViaRelayOnce = useCallback(async (command: string, isOpenClaw = false): Promise<string> => {
+  const sendViaRelayOnce = useCallback(async (command: string, isOpenClaw = false, onChunk?: (chunk: string) => void): Promise<string> => {
     // 1. Start session
     const { data: sesData, error: sesErr } = await supabase.functions.invoke("start-session", {
       body: { device_id: selectedDeviceId }
@@ -846,9 +854,12 @@ export default function Chat() {
               try {
                 const chunk = decodeURIComponent(escape(atob(data_b64)));
                 outputBuffer += chunk;
+                onChunk?.(chunk);
                 resetSilence();
               } catch {
-                outputBuffer += atob(data_b64);
+                const chunk = atob(data_b64);
+                outputBuffer += chunk;
+                onChunk?.(chunk);
                 resetSilence();
               }
             }
@@ -1000,7 +1011,7 @@ export default function Chat() {
 
       try {
         const command = await buildCommand(fullText, jobConvId, model);
-        const stdout = await sendViaRelay(command, agent === "openclaw");
+        const stdout = await sendViaRelay(command, agent === "openclaw", onChunkActivity);
         console.debug("[Chat] raw stdout:", stdout);
 
         const cleaned = stripAnsi(stdout);
@@ -1135,7 +1146,7 @@ export default function Chat() {
         if (!responseText.trim()) {
           console.warn("[Chat] Empty response detected, retrying once…");
           try {
-            const retryStdout = await sendViaRelay(command, convData?.agent === "openclaw");
+            const retryStdout = await sendViaRelay(command, convData?.agent === "openclaw", onChunkActivity);
             const retryCleaned = stripAnsi(retryStdout);
 
             if (convData?.agent === "openclaw") {
@@ -1354,7 +1365,7 @@ export default function Chat() {
         replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, "");
         try {
           const command = await buildCommand(text, jobConvId, model);
-          const stdout = await sendViaRelay(command, agent === "openclaw");
+          const stdout = await sendViaRelay(command, agent === "openclaw", onChunkActivity);
           const cleaned = stripAnsi(stdout);
           const { data: convData } = await supabase.from("chat_conversations").select("agent, openclaw_session_id, claude_session_id").eq("id", jobConvId).single();
           let responseText = "";
