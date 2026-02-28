@@ -264,6 +264,7 @@ export function DevicePanel({ open, onClose, devices, selectedDeviceId, onSelect
 
       {/* Panel */}
       <div
+        onClick={(e) => e.stopPropagation()}
         className={cn(
           "fixed top-0 right-0 h-full z-50 w-80 max-w-[92vw] flex flex-col bg-background border-l border-border/60 shadow-2xl transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
           open ? "translate-x-0" : "translate-x-full"
