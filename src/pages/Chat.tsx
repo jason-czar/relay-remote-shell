@@ -1996,6 +1996,14 @@ export default function Chat() {
           });
           setSelectedDeviceId(d.id);
         }}
+        onDeviceDeleted={(id) => {
+          setDevices((prev) => prev.filter((x) => x.id !== id));
+          if (selectedDeviceId === id) {
+            const remaining = devices.filter((x) => x.id !== id);
+            const next = remaining.find((d) => d.status === "online") ?? remaining[0];
+            if (next) setSelectedDeviceId(next.id);
+          }
+        }}
       />
     </AppLayout>);
 
