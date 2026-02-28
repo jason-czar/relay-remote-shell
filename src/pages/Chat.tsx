@@ -8,7 +8,7 @@ import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useScribe } from "@elevenlabs/react";
 import { cn } from "@/lib/utils";
 import { AppLayout } from "@/components/AppLayout";
-import { ChatMessage } from "@/components/ChatMessage";
+import { ChatMessage, EMPTY_RESPONSE_TEXT } from "@/components/ChatMessage";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/useAuth";
@@ -1331,7 +1331,7 @@ export default function Chat() {
           }
         }
 
-        responseText = responseText.trim() || "No response was received from the device. Try rephrasing your message, or check that the device is connected and the agent is running.";
+        responseText = responseText.trim() || EMPTY_RESPONSE_TEXT;
 
         // Only do streaming reveal if this conv is still the active one
         const isActive = activeConvIdRef.current === jobConvId;
@@ -1563,7 +1563,7 @@ export default function Chat() {
               }
             }
           }
-          responseText = responseText.trim() || "No response was received from the device. Try rephrasing your message, or check that the device is connected and the agent is running.";
+          responseText = responseText.trim() || EMPTY_RESPONSE_TEXT;
           await saveMessage(jobConvId, "assistant", responseText);
           if (activeConvIdRef.current === jobConvId) {
             setMessages((prev) => [...prev, { role: "assistant", content: responseText }]);
@@ -1963,9 +1963,9 @@ export default function Chat() {
                     agent={(agent as string) === "terminal" ? "openclaw" : agent as "openclaw" | "claude" | "codex"}
                     onRegenerate={
                     msg.role === "assistant" &&
-                    i === messages.length - 1 &&
                     !thinking &&
-                    streamingMsgIndex === null ?
+                    streamingMsgIndex === null &&
+                    (i === messages.length - 1 || msg.content === EMPTY_RESPONSE_TEXT) ?
                     handleRegenerate :
                     undefined
                     } />

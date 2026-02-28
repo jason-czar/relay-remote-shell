@@ -1,5 +1,7 @@
 import { cn } from "@/lib/utils";
-import { Copy, Check, Terminal, ChevronDown, ChevronRight, RefreshCw } from "lucide-react";
+import { Copy, Check, Terminal, ChevronDown, ChevronRight, RefreshCw, RotateCcw } from "lucide-react";
+
+export const EMPTY_RESPONSE_TEXT = "No response was received from the device. Try rephrasing your message, or check that the device is connected and the agent is running.";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useState, useEffect, useRef } from "react";
@@ -400,6 +402,20 @@ export function ChatMessage({ role, content, thinking, streaming, activityStatus
           {!streaming && !content && !thinkingContent && (
             <span className="italic text-muted-foreground/40 text-base">(empty response)</span>
           )}
+          {!streaming && content === EMPTY_RESPONSE_TEXT ? (
+            <div className="flex flex-col gap-3 py-1">
+              <p className="text-sm text-muted-foreground leading-relaxed">{EMPTY_RESPONSE_TEXT}</p>
+              {onRegenerate && (
+                <button
+                  onClick={onRegenerate}
+                  className="self-start flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-muted hover:bg-accent text-foreground transition-colors border border-border"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  Retry
+                </button>
+              )}
+            </div>
+          ) : (
           <ReactMarkdown
             remarkPlugins={[remarkGfm]}
             components={{
@@ -440,6 +456,7 @@ export function ChatMessage({ role, content, thinking, streaming, activityStatus
           >
             {content}
           </ReactMarkdown>
+          )}
           {streaming && content && (
             <span
               className="inline-block w-0.5 h-3.5 ml-0.5 align-middle bg-primary rounded-full animate-pulse"
