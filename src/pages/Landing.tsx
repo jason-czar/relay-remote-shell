@@ -155,7 +155,7 @@ function AgentPreview() {
               <span className={`shrink-0 mt-1 text-sm font-bold ${preview.color}`}>&gt;</span>
             )}
             <div
-              className={`max-w-[85%] px-4 py-2.5 rounded-xl text-[0.8rem] leading-[1.6] whitespace-pre-wrap ${
+              className={`max-w-[85%] px-4 py-2.5 rounded-xl text-[0.8rem] leading-[1.6] whitespace-pre-wrap text-left ${
                 msg.role === "user"
                   ? "bg-primary/15 text-foreground rounded-br-sm"
                   : "bg-muted/50 text-foreground/80 rounded-bl-sm"
