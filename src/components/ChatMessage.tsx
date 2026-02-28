@@ -23,6 +23,115 @@ const codeTheme = {
   },
 };
 
+// ── Unified diff detection & renderer ────────────────────────────────────────
+
+function looksLikeDiff(value: string): boolean {
+  const lines = value.split("\n");
+  const hasHunk = lines.some((l) => l.startsWith("@@") || l.startsWith("--- ") || l.startsWith("+++ "));
+  const hasChanges = lines.some((l) => l.startsWith("+") || l.startsWith("-"));
+  return hasHunk && hasChanges;
+}
+
+function DiffBlock({ value }: { value: string }) {
+  const [copied, setCopied] = useState(false);
+  const [blockHovered, setBlockHovered] = useState(false);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(value);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const lines = value.split("\n");
+
+  return (
+    <div
+      className="relative my-3 rounded-xl overflow-hidden border border-border/40"
+      onMouseEnter={() => setBlockHovered(true)}
+      onMouseLeave={() => setBlockHovered(false)}
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between px-3 py-1.5 bg-[hsl(0_0%_12%)] border-b border-border/40">
+        <span className="text-[10px] font-mono text-muted-foreground/60 uppercase tracking-widest">diff</span>
+      </div>
+      {/* Floating copy */}
+      <button
+        onClick={handleCopy}
+        className={cn(
+          "absolute top-1.5 right-2 z-10 flex items-center gap-1 px-2 py-1 rounded-md",
+          "text-[10px] transition-all duration-150",
+          "bg-[hsl(0_0%_14%)] border border-border/40",
+          copied ? "text-primary opacity-100" : "text-muted-foreground/70 hover:text-foreground",
+          blockHovered ? "opacity-100" : "opacity-0 pointer-events-none"
+        )}
+      >
+        {copied ? (
+          <><Check className="h-3 w-3" /><span>Copied</span></>
+        ) : (
+          <><Copy className="h-3 w-3" /><span>Copy</span></>
+        )}
+      </button>
+      {/* Diff lines */}
+      <div
+        className="overflow-x-auto thinking-scroll bg-[hsl(0_0%_6%)] text-[13px] leading-[1.65]"
+        style={{ fontFamily: "'JetBrains Mono', 'Fira Code', monospace" }}
+      >
+        <table className="w-full border-collapse">
+          <tbody>
+            {lines.map((line, i) => {
+              // File headers --- / +++
+              if (line.startsWith("--- ") || line.startsWith("+++ ")) {
+                return (
+                  <tr key={i} className="bg-[hsl(220_20%_10%)]">
+                    <td className="pl-3 pr-3 py-0 w-4 text-right text-muted-foreground/30 text-[11px] select-none border-r border-border/20" />
+                    <td className="px-4 py-0 text-muted-foreground/70 whitespace-pre">{line}</td>
+                  </tr>
+                );
+              }
+              // Hunk header @@
+              if (line.startsWith("@@")) {
+                return (
+                  <tr key={i} className="bg-[hsl(210_30%_10%)]">
+                    <td className="pl-3 pr-3 py-0 w-4 text-right text-muted-foreground/30 text-[11px] select-none border-r border-[hsl(210_30%_16%)]" />
+                    <td className="px-4 py-[1px] text-[hsl(200_70%_62%)] whitespace-pre">{line}</td>
+                  </tr>
+                );
+              }
+              // Added line
+              if (line.startsWith("+")) {
+                return (
+                  <tr key={i} className="bg-[hsl(142_45%_7%)] hover:bg-[hsl(142_45%_10%)] transition-colors duration-75">
+                    <td className="pl-3 pr-3 py-0 w-4 text-center text-[hsl(142_60%_38%)] text-[12px] font-bold select-none border-r border-[hsl(142_40%_13%)]">+</td>
+                    <td className="px-4 py-0 text-[hsl(142_55%_70%)] whitespace-pre">{line.slice(1)}</td>
+                  </tr>
+                );
+              }
+              // Removed line
+              if (line.startsWith("-")) {
+                return (
+                  <tr key={i} className="bg-[hsl(0_45%_8%)] hover:bg-[hsl(0_45%_11%)] transition-colors duration-75">
+                    <td className="pl-3 pr-3 py-0 w-4 text-center text-[hsl(0_60%_48%)] text-[12px] font-bold select-none border-r border-[hsl(0_40%_15%)]">−</td>
+                    <td className="px-4 py-0 text-[hsl(0_70%_68%)] whitespace-pre">{line.slice(1)}</td>
+                  </tr>
+                );
+              }
+              // Context line
+              return (
+                <tr key={i}>
+                  <td className="pl-3 pr-3 py-0 w-4 text-right text-muted-foreground/20 text-[11px] select-none border-r border-border/20" />
+                  <td className="px-4 py-0 text-muted-foreground/55 whitespace-pre">{line || " "}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ── Standard code block ───────────────────────────────────────────────────────
+
 interface ChatMessageProps {
   role: "user" | "assistant";
   content: string;
@@ -79,10 +188,10 @@ function CodeBlock({ language, value }: { language: string; value: string }) {
         style={codeTheme}
         language={language || "text"}
         PreTag="div"
-            customStyle={{
-              margin: 0,
-              padding: "14px 18px",
-              fontSize: "13px",
+        customStyle={{
+          margin: 0,
+          padding: "14px 18px",
+          fontSize: "13px",
           lineHeight: "1.6",
           overflowX: "auto",
           background: "hsl(0 0% 6%)",
@@ -146,7 +255,6 @@ export function ChatMessage({ role, content, thinking, streaming, rawStdout, thi
       if (encoding === "base64" && type?.startsWith("image/")) {
         imageAttachments.push({ name, type, src: `data:${type};base64,${body.trim()}` });
       } else if (encoding === "base64") {
-        // non-image binary — just show filename chip
         imageAttachments.push({ name, type: type ?? "file", src: "" });
       } else {
         textAttachments.push({ name, text: body.trim() });
@@ -269,7 +377,12 @@ export function ChatMessage({ role, content, thinking, streaming, rawStdout, thi
                 const value = String(children).replace(/\n$/, "");
                 // Block code fence
                 if (match || (className && className.includes("language-"))) {
-                  return <CodeBlock language={match?.[1] ?? ""} value={value} />;
+                  const lang = match?.[1] ?? "";
+                  // Route diff/patch (explicit or auto-detected) through the diff renderer
+                  if (lang === "diff" || lang === "patch" || looksLikeDiff(value)) {
+                    return <DiffBlock value={value} />;
+                  }
+                  return <CodeBlock language={lang} value={value} />;
                 }
                 // Inline code
                 return (
