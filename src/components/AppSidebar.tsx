@@ -396,18 +396,6 @@ export function AppSidebar() {
             </div>
           )}
         </div>
-        {/* Install App — icon+label when expanded, icon-only when collapsed */}
-        <button
-          onClick={() => navigate("/install")}
-          className={cn(
-            "flex items-center gap-2 px-2 py-1.5 rounded-md text-xs text-muted-foreground/40 hover:text-foreground hover:bg-accent/40 transition-colors group w-full",
-            collapsed && "justify-center px-0"
-          )}
-          title="Install App"
-        >
-          <Smartphone className="h-3.5 w-3.5 shrink-0 group-hover:text-primary transition-colors" />
-          {!collapsed && <span>Install App</span>}
-        </button>
       </SidebarFooter>
     </Sidebar>
 
