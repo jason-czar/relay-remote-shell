@@ -20,6 +20,8 @@ export interface Conversation {
   agent: string;
   created_at: string;
   workdir?: string | null;
+  device_id?: string | null;
+  device_status?: "online" | "offline" | null;
 }
 
 interface ChatSidebarProps {
@@ -219,7 +221,7 @@ export function ChatSidebar({ conversations, activeId, onSelect, onNew, onDelete
         </div>
 
         {/* Conversations */}
-        <div className="flex-1 overflow-y-auto px-2 pb-4 space-y-0.5">
+        <div className="flex-1 overflow-y-auto px-2 pb-4 thinking-scroll">
           {filtered.length === 0 && (
             <div className="flex flex-col items-center justify-center py-10 text-center px-3">
               <MessageSquare className="h-7 w-7 text-muted-foreground/20 mb-2" />
@@ -228,82 +230,123 @@ export function ChatSidebar({ conversations, activeId, onSelect, onNew, onDelete
               </p>
             </div>
           )}
-          {filtered.map((conv) => (
-            <div
-              key={conv.id}
-              className={cn(
-                "group flex items-center gap-1.5 rounded-lg px-2 py-2 cursor-pointer transition-all duration-150",
-                activeId === conv.id
-                  ? "bg-accent/60 text-foreground"
-                  : "text-muted-foreground/50 hover:bg-accent/30 hover:text-muted-foreground"
-              )}
-              onClick={() => editingId !== conv.id && onSelect(conv.id)}
-              onMouseEnter={() => setHoveredId(conv.id)}
-              onMouseLeave={() => setHoveredId(null)}
-            >
-              {editingId === conv.id ? (
-                /* ── Inline rename input ── */
-                <div className="flex items-center gap-1 flex-1 min-w-0" onClick={(e) => e.stopPropagation()}>
-                  <input
-                    ref={editInputRef}
-                    value={editValue}
-                    onChange={(e) => setEditValue(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") commitEdit();
-                      if (e.key === "Escape") cancelEdit();
-                    }}
-                    onBlur={commitEdit}
-                    className="flex-1 min-w-0 bg-background/60 border border-primary/40 rounded px-1.5 py-0.5 text-xs text-foreground outline-none focus:border-primary/80 transition-colors"
-                  />
-                  <button
-                    onMouseDown={(e) => { e.preventDefault(); commitEdit(); }}
-                    className="shrink-0 p-0.5 rounded text-primary hover:bg-primary/10 transition-colors"
-                    title="Save"
-                  >
-                    <Check className="h-3 w-3" />
-                  </button>
-                  <button
-                    onMouseDown={(e) => { e.preventDefault(); cancelEdit(); }}
-                    className="shrink-0 p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-accent/60 transition-colors"
-                    title="Cancel"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </div>
-              ) : (
-                /* ── Normal row ── */
-                <>
-                  <div className="flex-1 min-w-0">
-                    <span className="block truncate text-xs text-muted-foreground/50 group-hover:text-muted-foreground transition-colors duration-150">{conv.title}</span>
-                    {conv.workdir && (
-                      <span className="flex items-center gap-0.5 truncate text-[10px] text-muted-foreground/30 group-hover:text-muted-foreground/50 transition-colors duration-150 mt-0.5">
-                        <FolderOpen className="h-2.5 w-2.5 shrink-0" />
-                        <span className="truncate">{conv.workdir.replace(/^.*\//, "…/")}</span>
-                      </span>
+          {filtered.length > 0 && (() => {
+            const active = filtered.filter((c) => c.device_status === "online");
+            const previous = filtered.filter((c) => c.device_status !== "online");
+            const renderConv = (conv: Conversation, dimmed?: boolean) => (
+              <div
+                key={conv.id}
+                className={cn(
+                  "group flex items-center gap-1.5 rounded-lg px-2 py-2 cursor-pointer transition-all duration-150",
+                  activeId === conv.id
+                    ? "bg-accent/60 text-foreground"
+                    : dimmed
+                    ? "text-muted-foreground/30 hover:bg-accent/20 hover:text-muted-foreground/60"
+                    : "text-muted-foreground/50 hover:bg-accent/30 hover:text-muted-foreground"
+                )}
+                onClick={() => editingId !== conv.id && onSelect(conv.id)}
+                onMouseEnter={() => setHoveredId(conv.id)}
+                onMouseLeave={() => setHoveredId(null)}
+              >
+                {editingId === conv.id ? (
+                  /* ── Inline rename input ── */
+                  <div className="flex items-center gap-1 flex-1 min-w-0" onClick={(e) => e.stopPropagation()}>
+                    <input
+                      ref={editInputRef}
+                      value={editValue}
+                      onChange={(e) => setEditValue(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") commitEdit();
+                        if (e.key === "Escape") cancelEdit();
+                      }}
+                      onBlur={commitEdit}
+                      className="flex-1 min-w-0 bg-background/60 border border-primary/40 rounded px-1.5 py-0.5 text-xs text-foreground outline-none focus:border-primary/80 transition-colors"
+                    />
+                    <button
+                      onMouseDown={(e) => { e.preventDefault(); commitEdit(); }}
+                      className="shrink-0 p-0.5 rounded text-primary hover:bg-primary/10 transition-colors"
+                      title="Save"
+                    >
+                      <Check className="h-3 w-3" />
+                    </button>
+                    <button
+                      onMouseDown={(e) => { e.preventDefault(); cancelEdit(); }}
+                      className="shrink-0 p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-accent/60 transition-colors"
+                      title="Cancel"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ) : (
+                  /* ── Normal row ── */
+                  <>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        {conv.device_status === "online" && (
+                          <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-status-online animate-pulse" />
+                        )}
+                        <span className={cn(
+                          "block truncate text-xs transition-colors duration-150",
+                          dimmed ? "text-muted-foreground/30 group-hover:text-muted-foreground/60" : "text-muted-foreground/50 group-hover:text-muted-foreground"
+                        )}>{conv.title}</span>
+                      </div>
+                      {conv.workdir && (
+                        <span className={cn(
+                          "flex items-center gap-0.5 truncate text-[10px] transition-colors duration-150 mt-0.5",
+                          dimmed ? "text-muted-foreground/20 group-hover:text-muted-foreground/35" : "text-muted-foreground/30 group-hover:text-muted-foreground/50"
+                        )}>
+                          <FolderOpen className="h-2.5 w-2.5 shrink-0" />
+                          <span className="truncate">{conv.workdir.replace(/^.*\//, "…/")}</span>
+                        </span>
+                      )}
+                    </div>
+                    <div className="shrink-0 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                      <button
+                        className="p-0.5 rounded hover:text-foreground hover:bg-accent/60 transition-colors"
+                        onClick={(e) => startEdit(e, conv)}
+                        aria-label="Rename"
+                        title="Rename"
+                      >
+                        <Pencil className="h-3 w-3" />
+                      </button>
+                      <button
+                        className="p-0.5 rounded hover:text-destructive hover:bg-destructive/10 transition-colors"
+                        onClick={(e) => { e.stopPropagation(); setDeleteId(conv.id); }}
+                        aria-label="Delete"
+                        title="Delete"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            );
+            return (
+              <>
+                {active.length > 0 && (
+                  <div className="mb-1">
+                    <div className="flex items-center gap-1.5 px-2 py-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-status-online animate-pulse shrink-0" />
+                      <span className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground/40">Active</span>
+                    </div>
+                    <div className="space-y-0.5">{active.map((c) => renderConv(c, false))}</div>
+                  </div>
+                )}
+                {previous.length > 0 && (
+                  <div className={cn(active.length > 0 && "mt-3")}>
+                    {active.length > 0 && (
+                      <div className="flex items-center gap-1.5 px-2 py-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/30 shrink-0" />
+                        <span className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground/30">Previous</span>
+                      </div>
                     )}
+                    <div className="space-y-0.5">{previous.map((c) => renderConv(c, true))}</div>
                   </div>
-                  <div className="shrink-0 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
-                    <button
-                      className="p-0.5 rounded hover:text-foreground hover:bg-accent/60 transition-colors"
-                      onClick={(e) => startEdit(e, conv)}
-                      aria-label="Rename"
-                      title="Rename"
-                    >
-                      <Pencil className="h-3 w-3" />
-                    </button>
-                    <button
-                      className="p-0.5 rounded hover:text-destructive hover:bg-destructive/10 transition-colors"
-                      onClick={(e) => { e.stopPropagation(); setDeleteId(conv.id); }}
-                      aria-label="Delete"
-                      title="Delete"
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-          ))}
+                )}
+              </>
+            );
+          })()}
         </div>
       </div>
 

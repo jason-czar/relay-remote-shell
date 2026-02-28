@@ -9,7 +9,10 @@ export interface Conversation {
   model: string;
   created_at: string;
   workdir?: string | null;
+  device_id?: string | null;
+  device_status?: "online" | "offline" | null;
 }
+
 
 interface ChatContextValue {
   conversations: Conversation[];
@@ -140,15 +143,20 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     if (!user) return;
     supabase
     .from("chat_conversations")
-      .select("id, title, agent, model, created_at, devices(workdir)")
+      .select("id, title, agent, model, created_at, device_id, devices(workdir, status)")
       .eq("user_id", user.id)
       .order("updated_at", { ascending: false })
       .then(({ data }) => {
         if (data) {
           const mapped = (data as unknown as Array<{
             id: string; title: string; agent: string; model: string;
-            created_at: string; devices: { workdir: string | null } | null;
-          }>).map(({ devices, ...rest }) => ({ ...rest, workdir: devices?.workdir ?? null }));
+            created_at: string; device_id: string | null;
+            devices: { workdir: string | null; status: string | null } | null;
+          }>).map(({ devices, ...rest }) => ({
+            ...rest,
+            workdir: devices?.workdir ?? null,
+            device_status: (devices?.status as "online" | "offline" | null) ?? null,
+          }));
           setConversations(mapped as Conversation[]);
           const saved = localStorage.getItem("activeConvId");
           if (saved && !data.find((c) => c.id === saved)) {
@@ -354,14 +362,19 @@ print(json.dumps({'claude':read_sessions(h('~/.claude/sessions')),'codex':read_s
       // Refresh sidebar
       const { data } = await supabase
         .from("chat_conversations")
-        .select("id, title, agent, model, created_at, devices(workdir)")
+        .select("id, title, agent, model, created_at, device_id, devices(workdir, status)")
         .eq("user_id", user.id)
         .order("updated_at", { ascending: false });
       if (data) {
         const mapped = (data as unknown as Array<{
           id: string; title: string; agent: string; model: string;
-          created_at: string; devices: { workdir: string | null } | null;
-        }>).map(({ devices, ...rest }) => ({ ...rest, workdir: devices?.workdir ?? null }));
+          created_at: string; device_id: string | null;
+          devices: { workdir: string | null; status: string | null } | null;
+        }>).map(({ devices, ...rest }) => ({
+          ...rest,
+          workdir: devices?.workdir ?? null,
+          device_status: (devices?.status as "online" | "offline" | null) ?? null,
+        }));
         setConversations(mapped as Conversation[]);
       }
 
