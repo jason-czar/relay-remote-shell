@@ -8,6 +8,7 @@ export interface Conversation {
   agent: string;
   model: string;
   created_at: string;
+  workdir?: string | null;
 }
 
 interface ChatContextValue {
@@ -138,13 +139,17 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!user) return;
     supabase
-      .from("chat_conversations")
-      .select("id, title, agent, model, created_at")
+    .from("chat_conversations")
+      .select("id, title, agent, model, created_at, devices(workdir)")
       .eq("user_id", user.id)
       .order("updated_at", { ascending: false })
       .then(({ data }) => {
         if (data) {
-          setConversations(data as Conversation[]);
+          const mapped = (data as unknown as Array<{
+            id: string; title: string; agent: string; model: string;
+            created_at: string; devices: { workdir: string | null } | null;
+          }>).map(({ devices, ...rest }) => ({ ...rest, workdir: devices?.workdir ?? null }));
+          setConversations(mapped as Conversation[]);
           const saved = localStorage.getItem("activeConvId");
           if (saved && !data.find((c) => c.id === saved)) {
             setActiveConvId(null);
@@ -349,10 +354,16 @@ print(json.dumps({'claude':read_sessions(h('~/.claude/sessions')),'codex':read_s
       // Refresh sidebar
       const { data } = await supabase
         .from("chat_conversations")
-        .select("id, title, agent, model, created_at")
+        .select("id, title, agent, model, created_at, devices(workdir)")
         .eq("user_id", user.id)
         .order("updated_at", { ascending: false });
-      if (data) setConversations(data as Conversation[]);
+      if (data) {
+        const mapped = (data as unknown as Array<{
+          id: string; title: string; agent: string; model: string;
+          created_at: string; devices: { workdir: string | null } | null;
+        }>).map(({ devices, ...rest }) => ({ ...rest, workdir: devices?.workdir ?? null }));
+        setConversations(mapped as Conversation[]);
+      }
 
       return { imported, updated };
     } finally {

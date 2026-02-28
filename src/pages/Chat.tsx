@@ -826,11 +826,24 @@ export default function Chat() {
     }
   }, []);
 
+
   // ── Parse claude session id from stdout ───────────────────────────────
   const extractClaudeSessionId = (stdout: string): string | null => {
     const match = stdout.match(/Session ID:\s*(\S+)/i) ?? stdout.match(/"session_id"\s*:\s*"([^"]+)"/);
     return match ? match[1] : null;
   };
+
+  // ── Extract working directory from OSC 7 sequences in stdout ─────────
+  // Shells like zsh/fish emit: \x1b]7;file://hostname/path\x07 or \x1b]7;file://hostname/path\x1b\\
+  const extractCwd = (stdout: string): string | null => {
+    const match = stdout.match(/\x1b\]7;file:\/\/[^/]*([^\x07\x1b]+)(?:\x07|\x1b\\)/);
+    if (match) return decodeURIComponent(match[1]);
+    // Also try plain ]7;file:// (without ESC prefix, some terminals)
+    const match2 = stdout.match(/\]7;file:\/\/[^/]*([^\r\n\x07]+)/);
+    if (match2) return decodeURIComponent(match2[1]);
+    return null;
+  };
+
 
   // ── Send message ──────────────────────────────────────────────────────
   const handleSend = useCallback(async () => {
@@ -915,7 +928,7 @@ export default function Chat() {
 
         const { data: convData } = await supabase.
         from("chat_conversations").
-        select("agent, openclaw_session_id, claude_session_id").
+        select("agent, openclaw_session_id, claude_session_id, device_id").
         eq("id", jobConvId).
         single();
 
@@ -1030,6 +1043,12 @@ export default function Chat() {
             if (sessionId) {
               await supabase.from("chat_conversations").update({ claude_session_id: sessionId }).eq("id", jobConvId);
             }
+          }
+          // Extract cwd from OSC 7 shell escape and persist to device
+          const detectedCwd = extractCwd(stdout);
+          if (detectedCwd && convData?.device_id) {
+            await supabase.from("devices").update({ workdir: detectedCwd }).eq("id", convData.device_id);
+            setConversations((prev) => prev.map((c) => c.id === jobConvId ? { ...c, workdir: detectedCwd } : c));
           }
         }
 
@@ -1457,8 +1476,8 @@ export default function Chat() {
 
             {/* Left — sidebar trigger */}
             <SidebarTrigger className="scale-125" />
-            {/* Center — agent dropdown */}
-            <div className="absolute left-1/2 -translate-x-1/2">
+            {/* Center — agent dropdown + conversation context */}
+            <div className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center gap-0">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                    <button className="flex items-center gap-3 px-5 py-2.5 rounded-full text-base font-medium transition-all duration-150 hover:bg-accent text-foreground select-none">
@@ -1477,6 +1496,17 @@ export default function Chat() {
                   )}
                 </DropdownMenuContent>
               </DropdownMenu>
+              {(() => {
+                const activeConv = conversations.find((c) => c.id === activeConvId);
+                const cwd = activeConv?.workdir;
+                if (!cwd) return null;
+                const shortCwd = cwd.replace(/^\/Users\/[^/]+/, "~").replace(/^\/home\/[^/]+/, "~");
+                return (
+                  <span className="flex items-center gap-1 text-[10px] text-muted-foreground/40 max-w-[260px] truncate -mt-1 pb-1">
+                    <span className="truncate">{shortCwd}</span>
+                  </span>
+                );
+              })()}
             </div>
             {/* Right — device pill + refresh + new chat */}
             <div className="ml-auto flex items-center gap-3">
