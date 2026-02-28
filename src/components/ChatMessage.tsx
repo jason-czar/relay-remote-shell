@@ -330,7 +330,7 @@ export function ChatMessage({ role, content, thinking, streaming, activityStatus
   // Assistant — hover actions
   return (
     <div
-      className="group flex items-start pt-2 pb-1 px-1"
+      className="group flex items-start pt-5 pb-1 px-1"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
