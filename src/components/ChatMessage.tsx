@@ -207,6 +207,15 @@ function CodeBlock({ language, value }: { language: string; value: string }) {
 }
 
 export function ChatMessage({ role, content, thinking, streaming, activityStatus, toolCalls, rawStdout, thinkingContent, thinkingDurationMs, createdAt, agent, onRegenerate }: ChatMessageProps) {
+  const [thinkingPanelEnabled, setThinkingPanelEnabled] = useState(() => {
+    const v = localStorage.getItem("show-thinking-panel");
+    return v === null ? true : v === "true";
+  });
+  useEffect(() => {
+    const handler = (e: Event) => setThinkingPanelEnabled((e as CustomEvent<boolean>).detail);
+    window.addEventListener("thinking-panel-change", handler);
+    return () => window.removeEventListener("thinking-panel-change", handler);
+  }, []);
   const isUser = role === "user";
   const agentImg = agent === "claude" ? claudecodeImg : agent === "codex" ? codexImg : openclawImg;
   const [hovered, setHovered] = useState(false);
@@ -328,7 +337,7 @@ export function ChatMessage({ role, content, thinking, streaming, activityStatus
       <div className="flex-1 min-w-0">
         <div className="text-[18px] md:text-[19px] leading-[1.45] text-foreground break-words pt-0.5">
           {/* Reasoning / thinking collapsible — Codex (with duration) and Claude Code (without) */}
-          {thinkingContent && (() => {
+          {thinkingPanelEnabled && thinkingContent && (() => {
             const firstLine = thinkingContent.split("\n").find((l) => l.trim()) ?? "";
             const preview = firstLine.length > 72 ? firstLine.slice(0, 72).trimEnd() + "…" : firstLine;
             const label = agent === "claude"
