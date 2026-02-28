@@ -23,6 +23,8 @@ import { useChatContext } from "@/contexts/ChatContext";
 import { SetupWizard } from "@/components/SetupWizard";
 import { QuickStart } from "@/components/QuickStart";
 import { DevicePanel } from "@/components/DevicePanel";
+import { useRelayHealth } from "@/hooks/useRelayHealth";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface AttachedFile {
   name: string;
@@ -538,6 +540,8 @@ export default function Chat() {
   const prevMsgCountRef = useRef(0);
 
   const [devicePanelOpen, setDevicePanelOpen] = useState(false);
+  const [devicesLoaded, setDevicesLoaded] = useState(false);
+  const { health: relayHealth, refresh: refreshRelayHealth } = useRelayHealth(true);
 
   // ── Device selection with per-device agent persistence ───────────────
   const setSelectedDeviceId = useCallback((id: string) => {
@@ -571,7 +575,11 @@ export default function Chat() {
       const data = devRes.data;
       if (data) {
         setDevices(data as Tables<"devices">[]);
-        if (data.length > 0) {
+          if (!devicesLoaded) {
+            setDevicesLoaded(true);
+            if (data.length === 0) setDevicePanelOpen(true);
+          }
+          if (data.length > 0) {
           // Use persisted device if still valid, else pick online/first
           const persisted = localStorage.getItem("chat-device-id");
           const found = persisted ? data.find((d) => d.id === persisted) : null;
@@ -1642,6 +1650,49 @@ export default function Chat() {
             </div>
             {/* Right — device pill + refresh + new chat */}
             <div className="ml-auto flex items-center gap-3">
+              {/* Relay health pill */}
+              {(() => {
+                const s = relayHealth.status;
+                const dotColor =
+                  s === "healthy" ? "bg-green-500" :
+                  s === "degraded" ? "bg-yellow-500" :
+                  s === "unreachable" ? "bg-destructive" :
+                  "bg-muted-foreground/40";
+                const label =
+                  s === "checking" ? "Checking relay…" :
+                  s === "healthy" ? `Relay · ${relayHealth.connectors} connector${relayHealth.connectors !== 1 ? "s" : ""}` :
+                  s === "degraded" ? "Relay · no connectors" :
+                  "Relay unreachable";
+                const tooltip =
+                  s === "healthy"
+                    ? `${relayHealth.connectors} connector(s) · ${relayHealth.sessions} session(s)${relayHealth.uptime ? ` · up ${Math.floor(relayHealth.uptime / 60)}m` : ""}`
+                    : s === "unreachable"
+                    ? (relayHealth.error ?? "Cannot reach relay server")
+                    : label;
+                return (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={refreshRelayHealth}
+                        className={cn(
+                          "flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium transition-colors",
+                          s === "healthy" ? "text-foreground/70 hover:bg-accent" :
+                          s === "checking" ? "text-muted-foreground" :
+                          "text-destructive/80 hover:bg-destructive/10"
+                        )}
+                      >
+                        {s === "checking"
+                          ? <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                          : <span className={cn("w-2 h-2 rounded-full shrink-0", dotColor, s === "healthy" && "animate-pulse")} />
+                        }
+                        <span className="hidden sm:inline">{label}</span>
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-xs">{tooltip}</TooltipContent>
+                  </Tooltip>
+                );
+              })()}
+
               {/* Device pill — opens right panel */}
               <button
                 onClick={() => setDevicePanelOpen(true)}
