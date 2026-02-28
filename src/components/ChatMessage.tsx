@@ -2,7 +2,7 @@ import { cn } from "@/lib/utils";
 import { Copy, Check, Terminal, ChevronDown, ChevronRight, RefreshCw } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import openclawImg from "@/assets/openclaw.png";
@@ -213,6 +213,22 @@ export function ChatMessage({ role, content, thinking, streaming, activityStatus
   const [copied, setCopied] = useState(false);
   const [debugOpen, setDebugOpen] = useState(false);
   const [thinkingOpen, setThinkingOpen] = useState(false);
+
+  // Progress bar — ticks every 200ms, asymptotically approaches 95% over ~25s
+  const AVG_DURATION_MS = 25_000;
+  const [progress, setProgress] = useState(0);
+  const startTimeRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!streaming) { setProgress(0); startTimeRef.current = null; return; }
+    startTimeRef.current = Date.now();
+    const id = setInterval(() => {
+      const elapsed = Date.now() - (startTimeRef.current ?? Date.now());
+      // Ease toward 95% — never reaches 100% until stream stops
+      const p = 95 * (1 - Math.exp(-elapsed / AVG_DURATION_MS));
+      setProgress(p);
+    }, 200);
+    return () => clearInterval(id);
+  }, [streaming]);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(content);
@@ -428,6 +444,15 @@ export function ChatMessage({ role, content, thinking, streaming, activityStatus
                   {name}
                 </span>
               ))}
+            </div>
+          )}
+          {/* Streaming progress bar */}
+          {streaming && (
+            <div className="mt-2 h-[2px] w-full rounded-full overflow-hidden bg-border/30">
+              <div
+                className="h-full rounded-full bg-primary/40 transition-all duration-200 ease-out"
+                style={{ width: `${progress}%` }}
+              />
             </div>
           )}
           {/* Activity status pill */}
