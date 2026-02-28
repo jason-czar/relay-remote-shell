@@ -468,7 +468,13 @@ export function ChatMessage({ role, content, thinking, streaming, activityStatus
                 ))}
               </span>
               <span className="text-[11px] text-muted-foreground/50 font-medium tracking-wide select-none">
-                {activityStatus === "thinking" ? "thinking…" : activityStatus === "writing" ? "writing…" : "running…"}
+                {activityStatus === "thinking"
+                  ? "thinking…"
+                  : activityStatus === "writing"
+                  ? "writing…"
+                  : toolCalls && toolCalls.length > 0
+                  ? toolCalls[toolCalls.length - 1]
+                  : "running…"}
               </span>
             </div>
           )}
