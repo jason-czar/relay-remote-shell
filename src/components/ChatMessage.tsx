@@ -203,22 +203,33 @@ export function ChatMessage({ role, content, thinking, streaming, rawStdout, thi
         <div className="text-[18px] md:text-[19px] leading-[1.45] text-foreground break-words pt-0.5">
           {/* Codex reasoning / thinking collapsible */}
           {thinkingContent && (
-            <div className="mb-3">
+            <div className="mb-4">
               <button
                 onClick={() => setThinkingOpen((v) => !v)}
-                className="flex items-center gap-1.5 text-xs text-muted-foreground/70 hover:text-muted-foreground transition-colors mb-1"
+                className="group/btn flex items-center gap-2 text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors duration-150 mb-2 select-none"
               >
-                {thinkingOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-                <span className="italic">Thinking…{thinkingDurationMs !== undefined ? ` (${(thinkingDurationMs / 1000).toFixed(1)}s)` : ""}</span>
+                <ChevronDown
+                  className={cn(
+                    "h-3.5 w-3.5 transition-transform duration-200",
+                    thinkingOpen ? "rotate-0" : "-rotate-90"
+                  )}
+                />
+                <span className="italic font-medium tracking-wide">
+                  Thought for{thinkingDurationMs !== undefined ? ` ${(thinkingDurationMs / 1000).toFixed(1)}s` : "…"}
+                </span>
               </button>
-              {thinkingOpen && (
-                <div
-                  className="rounded-lg border border-border/30 px-3 py-2.5 text-xs text-muted-foreground/80 leading-relaxed whitespace-pre-wrap font-mono"
-                  style={{ background: "hsl(var(--muted)/0.3)" }}
-                >
-                  {thinkingContent}
+              <div
+                className={cn(
+                  "overflow-hidden transition-all duration-300 ease-in-out",
+                  thinkingOpen ? "max-h-[500px] opacity-100" : "max-h-0 opacity-0"
+                )}
+              >
+                <div className="border-l-2 border-primary/30 pl-3 py-0.5">
+                  <p className="text-xs text-muted-foreground/70 leading-relaxed whitespace-pre-wrap font-mono italic">
+                    {thinkingContent}
+                  </p>
                 </div>
-              )}
+              </div>
             </div>
           )}
           {streaming && !content && (
