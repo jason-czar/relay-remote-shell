@@ -229,6 +229,20 @@ export function ChatMessage({ role, content, thinking, streaming, activityStatus
   const AVG_DURATION_MS = 25_000;
   const [progress, setProgress] = useState(0);
   const startTimeRef = useRef<number | null>(null);
+
+  // Elapsed seconds while waiting (thinking=true, no content yet)
+  const [waitElapsed, setWaitElapsed] = useState(0);
+  const waitTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  useEffect(() => {
+    if (thinking) {
+      setWaitElapsed(0);
+      waitTimerRef.current = setInterval(() => setWaitElapsed((s) => s + 1), 1000);
+    } else {
+      setWaitElapsed(0);
+      if (waitTimerRef.current) { clearInterval(waitTimerRef.current); waitTimerRef.current = null; }
+    }
+    return () => { if (waitTimerRef.current) { clearInterval(waitTimerRef.current); waitTimerRef.current = null; } };
+  }, [thinking]);
   useEffect(() => {
     if (!streaming) { setProgress(0); startTimeRef.current = null; return; }
     startTimeRef.current = Date.now();
@@ -271,6 +285,15 @@ export function ChatMessage({ role, content, thinking, streaming, activityStatus
             />
           ))}
         </span>
+        {waitElapsed >= 5 && (
+          <span className="ml-2 text-xs text-muted-foreground/50 animate-fade-in">
+            {waitElapsed >= 30
+              ? "Still waiting — this may take a moment…"
+              : waitElapsed >= 15
+              ? "Waiting for response…"
+              : "Sending to device…"}
+          </span>
+        )}
       </div>
     );
   }
