@@ -327,10 +327,15 @@ export function ChatMessage({ role, content, thinking, streaming, activityStatus
     >
       <div className="flex-1 min-w-0">
         <div className="text-[18px] md:text-[19px] leading-[1.45] text-foreground break-words pt-0.5">
-          {/* Codex reasoning / thinking collapsible */}
+          {/* Reasoning / thinking collapsible — Codex (with duration) and Claude Code (without) */}
           {thinkingContent && (() => {
             const firstLine = thinkingContent.split("\n").find((l) => l.trim()) ?? "";
             const preview = firstLine.length > 72 ? firstLine.slice(0, 72).trimEnd() + "…" : firstLine;
+            const label = agent === "claude"
+              ? "Thinking"
+              : thinkingDurationMs !== undefined
+                ? `Thought for ${(thinkingDurationMs / 1000).toFixed(1)}s`
+                : "Thought for…";
             return (
               <div className="mb-4">
                 <button
@@ -344,7 +349,7 @@ export function ChatMessage({ role, content, thinking, streaming, activityStatus
                     )}
                   />
                   <span className="italic font-medium tracking-wide shrink-0">
-                    Thought for{thinkingDurationMs !== undefined ? ` ${(thinkingDurationMs / 1000).toFixed(1)}s` : "…"}
+                    {label}
                   </span>
                   {!thinkingOpen && preview && (
                     <span className="ml-1 font-mono not-italic text-muted-foreground/40 truncate min-w-0">

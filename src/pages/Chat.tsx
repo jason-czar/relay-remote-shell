@@ -1083,6 +1083,7 @@ export default function Chat() {
         let responseText = "";
         let codexThinking = "";
         let codexThinkingDurationMs: number | undefined;
+        let claudeThinking = "";
 
         if (convData?.agent === "openclaw") {
           const jsonBlocks = cleaned.match(/\{[\s\S]*?\}/g) ?? [];
@@ -1162,6 +1163,25 @@ export default function Chat() {
             if (errorMatch) responseText = `⚠️ Codex error: ${errorMatch[1].trim()}`;
           }
         } else {
+          // Claude Code: extract <thinking>...</thinking> blocks from raw stdout
+          // These appear before ANSI stripping, so we check the raw `stdout`
+          {
+            const thinkingTagOpen = "<thinking>";
+            const thinkingTagClose = "</thinking>";
+            const parts: string[] = [];
+            let searchFrom = 0;
+            while (true) {
+              const start = stdout.indexOf(thinkingTagOpen, searchFrom);
+              if (start === -1) break;
+              const end = stdout.indexOf(thinkingTagClose, start + thinkingTagOpen.length);
+              if (end === -1) break;
+              parts.push(stdout.slice(start + thinkingTagOpen.length, end).trim());
+              searchFrom = end + thinkingTagClose.length;
+            }
+            if (parts.length > 0) {
+              claudeThinking = parts.join("\n\n");
+            }
+          }
           responseText = cleaned.
           split("\n").
           filter((line) => {
@@ -1275,6 +1295,10 @@ export default function Chat() {
               if (codexThinkingDurationMs !== undefined) {
                 thinkingDurationMapRef.current.set(revealedIdx, codexThinkingDurationMs);
               }
+            }
+            // Store Claude Code thinking blocks
+            if (convData?.agent === "claude" && claudeThinking) {
+              thinkingMapRef.current.set(revealedIdx, claudeThinking);
             }
             return [...prev, { role: "assistant", content: "" }];
           });
