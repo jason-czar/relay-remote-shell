@@ -1,6 +1,6 @@
 import {
-  LayoutDashboard, FolderOpen, Settings, LogOut, Sun, Moon, Plug, BookOpen,
-  Columns2, MessageSquare, ChevronDown, Plus, Search, Trash2, Pencil, Check, X, Monitor, RefreshCw, Smartphone,
+  Settings, LogOut, Sun, Moon,
+  Columns2, MessageSquare, ChevronDown, Plus, Search, Trash2, Pencil, Check, X, Monitor, RefreshCw,
 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
@@ -25,14 +25,9 @@ import {
 } from "@/components/ui/sidebar";
 
 const setupItems = [
-  { title: "Dashboard",     url: "/dashboard",       icon: LayoutDashboard },
-  { title: "Projects",      url: "/projects",         icon: FolderOpen },
-  { title: "Devices",       url: "/devices",          icon: Monitor },
-  { title: "Multi-Session", url: "/multi-session",    icon: Columns2 },
-  { title: "Chat",          url: "/",                 icon: MessageSquare },
-  { title: "PrivaClaw",     url: "/skill/privaclaw",  icon: Plug },
-  { title: "Docs",          url: "/docs",             icon: BookOpen },
-  { title: "Settings",      url: "/settings",         icon: Settings },
+  { title: "Multi-Session", url: "/multi-session",             icon: Columns2 },
+  { title: "Chat",          url: "/",                          icon: MessageSquare },
+  { title: "Profile",       url: "/settings?tab=profile",      icon: Settings },
 ];
 
 export function AppSidebar() {
@@ -333,25 +328,18 @@ export function AppSidebar() {
             </SidebarMenuItem>
           ))}
 
-          {/* Setup toggle */}
+          {/* Settings link (direct) */}
           <SidebarMenuItem>
-            <SidebarMenuButton
-              onClick={() => setSetupOpen((o) => {
-                const next = !o;
-                try { localStorage.setItem("sidebar-setup-open", String(next)); } catch {}
-                return next;
-              })}
-              tooltip="Setup"
-              className="text-sm font-medium"
-            >
-              <Settings className="h-4 w-4 shrink-0" />
-              <span className="flex-1 text-sm">Setup</span>
-              {!collapsed && (
-                <ChevronDown className={cn(
-                  "h-3.5 w-3.5 text-muted-foreground/50 transition-transform duration-200",
-                  setupOpen && "rotate-180"
-                )} />
-              )}
+            <SidebarMenuButton asChild tooltip="Settings">
+              <NavLink
+                to="/settings"
+                end={false}
+                className="hover:bg-accent/50 text-sm font-medium"
+                activeClassName="bg-accent text-foreground font-medium"
+              >
+                <Settings className="h-4 w-4 shrink-0" />
+                <span className="flex-1 text-sm">Settings</span>
+              </NavLink>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
