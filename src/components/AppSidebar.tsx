@@ -1,6 +1,6 @@
 import {
   Settings, LogOut, Sun, Moon,
-  Columns2, MessageSquare, ChevronDown, Plus, Search, Trash2, Pencil, Check, X, Monitor, RefreshCw,
+  Plus, Search, Trash2, Pencil, Check, X, RefreshCw,
 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
@@ -24,11 +24,6 @@ import {
   SidebarFooter, useSidebar,
 } from "@/components/ui/sidebar";
 
-const setupItems = [
-  { title: "Multi-Session", url: "/multi-session",             icon: Columns2 },
-  { title: "Chat",          url: "/",                          icon: MessageSquare },
-  { title: "Profile",       url: "/settings?tab=profile",      icon: Settings },
-];
 
 export function AppSidebar() {
   const { state, setOpen, setOpenMobile, openMobile, isMobile } = useSidebar();
@@ -39,9 +34,6 @@ export function AppSidebar() {
   const location = useLocation();
   const isChat = location.pathname === "/";
 
-  const [setupOpen, setSetupOpen] = useState(() => {
-    try { return localStorage.getItem("sidebar-setup-open") === "true"; } catch { return false; }
-  });
   const [search, setSearch] = useState("");
   const [agentFilter, setAgentFilter] = useState<"all" | "openclaw" | "claude" | "codex">("all");
   const [hoveredId, setHoveredId] = useState<string | null>(null);
@@ -311,22 +303,6 @@ export function AppSidebar() {
       {/* ── Footer ──────────────────────────────────────────────────────── */}
       <SidebarFooter style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
         <SidebarMenu>
-          {/* Expandable nav items */}
-          {setupOpen && setupItems.map((item) => (
-            <SidebarMenuItem key={item.title}>
-              <SidebarMenuButton asChild tooltip={item.title}>
-                <NavLink
-                  to={item.url}
-                  end
-                  className={cn("hover:bg-accent/50 text-sm", !collapsed && "pl-7")}
-                  activeClassName="bg-accent text-foreground font-medium"
-                >
-                  <item.icon className="h-4 w-4 shrink-0" />
-                  <span className="text-sm">{item.title}</span>
-                </NavLink>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          ))}
 
           {/* Settings link (direct) */}
           <SidebarMenuItem>
