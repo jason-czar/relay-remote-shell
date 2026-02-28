@@ -20,6 +20,7 @@ import Settings from "./pages/Settings";
 import SkillConfig from "./pages/SkillConfig";
 import MultiSession from "./pages/MultiSession";
 import Docs from "./pages/Docs";
+import Install from "./pages/Install";
 import Chat from "./pages/Chat";
 import Devices from "./pages/Devices";
 import NotFound from "./pages/NotFound";
@@ -83,6 +84,7 @@ const App = () => (
                 <Route path="/docs" element={<Docs />} />
                 <Route path="/terms" element={<TermsOfService />} />
                 <Route path="/privacy" element={<PrivacyPolicy />} />
+                <Route path="/install" element={<Install />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>
