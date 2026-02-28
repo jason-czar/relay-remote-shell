@@ -1767,7 +1767,7 @@ export default function Chat() {
                       <button
                         onClick={refreshRelayHealth}
                         className={cn(
-                          "flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium transition-colors",
+                          "hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium transition-colors",
                           s === "healthy" ? "text-foreground/70 hover:bg-accent" :
                           s === "checking" ? "text-muted-foreground" :
                           "text-destructive/80 hover:bg-destructive/10"
