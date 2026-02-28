@@ -1321,7 +1321,7 @@ export default function Chat() {
           }
         }
 
-        responseText = responseText.trim() || "(empty response)";
+        responseText = responseText.trim() || "No response was received from the device. Try rephrasing your message, or check that the device is connected and the agent is running.";
 
         // Only do streaming reveal if this conv is still the active one
         const isActive = activeConvIdRef.current === jobConvId;
@@ -1553,7 +1553,7 @@ export default function Chat() {
               }
             }
           }
-          responseText = responseText.trim() || "(empty response)";
+          responseText = responseText.trim() || "No response was received from the device. Try rephrasing your message, or check that the device is connected and the agent is running.";
           await saveMessage(jobConvId, "assistant", responseText);
           if (activeConvIdRef.current === jobConvId) {
             setMessages((prev) => [...prev, { role: "assistant", content: responseText }]);
