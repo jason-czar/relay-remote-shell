@@ -235,9 +235,11 @@ export function ChatMessage({ role, content, thinking, streaming, rawStdout, thi
                 >
                   <div className="overflow-hidden">
                     <div className="border-l-2 border-primary/30 pl-3 py-0.5">
-                      <p className="text-xs text-muted-foreground/70 leading-relaxed whitespace-pre-wrap font-mono italic">
-                        {thinkingContent}
-                      </p>
+                      <div className="max-h-48 overflow-y-auto pr-1 scrollbar-thin">
+                        <p className="text-xs text-muted-foreground/70 leading-relaxed whitespace-pre-wrap font-mono italic">
+                          {thinkingContent}
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </div>
