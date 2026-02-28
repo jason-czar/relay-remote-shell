@@ -1098,8 +1098,10 @@ export default function Chat() {
                 const thinkingParts: string[] = [];
                 let textFound = false;
                 for (const p of parsed.payloads) {
-                  if ((p.type === "thinking" || p.type === "redacted_thinking") && typeof p.thinking === "string") {
+                  if (p.type === "thinking" && typeof p.thinking === "string") {
                     thinkingParts.push(p.thinking.trim());
+                  } else if (p.type === "redacted_thinking") {
+                    thinkingParts.push("*[Redacted thinking block — content encrypted by the model]*");
                   }
                   if (p.type === "text" && typeof p.text === "string" && !textFound) {
                     responseText = p.text;
