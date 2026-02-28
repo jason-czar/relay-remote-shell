@@ -601,11 +601,20 @@ export default function Chat() {
     if (!activeConvId) {setMessages([]);return;}
     supabase.
     from("chat_messages").
-    select("id, role, content, created_at").
+    select("id, role, content, created_at, raw_stdout").
     eq("conversation_id", activeConvId).
     order("created_at", { ascending: true }).
     then(({ data }) => {
-      if (data) setMessages(data as Message[]);
+      if (data) {
+        setMessages(data as Message[]);
+        // Restore raw_stdout for the debug panel on historical messages
+        rawStdoutMapRef.current.clear();
+        data.forEach((msg, idx) => {
+          if (msg.role === "assistant" && (msg as any).raw_stdout) {
+            rawStdoutMapRef.current.set(idx, (msg as any).raw_stdout as string);
+          }
+        });
+      }
     });
   }, [activeConvId]);
 
@@ -675,10 +684,20 @@ export default function Chat() {
     if (wasRunning && !isRunning) {
       supabase.
       from("chat_messages").
-      select("id, role, content").
+      select("id, role, content, raw_stdout").
       eq("conversation_id", activeConvId).
       order("created_at", { ascending: true }).
-      then(({ data }) => {if (data) setMessages(data as Message[]);});
+      then(({ data }) => {
+        if (data) {
+          setMessages(data as Message[]);
+          rawStdoutMapRef.current.clear();
+          data.forEach((msg, idx) => {
+            if (msg.role === "assistant" && (msg as any).raw_stdout) {
+              rawStdoutMapRef.current.set(idx, (msg as any).raw_stdout as string);
+            }
+          });
+        }
+      });
     }
     prevJobsRef.current = new Set(activeJobs);
   }, [activeJobs, activeConvId]);
@@ -740,8 +759,8 @@ export default function Chat() {
   }, [user, selectedDeviceId, toast]);
 
   // ── Save message to DB ─────────────────────────────────────────────────
-  const saveMessage = async (convId: string, role: "user" | "assistant", content: string) => {
-    await supabase.from("chat_messages").insert({ conversation_id: convId, role, content });
+  const saveMessage = async (convId: string, role: "user" | "assistant", content: string, rawStdout?: string) => {
+    await supabase.from("chat_messages").insert({ conversation_id: convId, role, content, ...(rawStdout ? { raw_stdout: rawStdout } : {}) } as any);
     // bump updated_at
     await supabase.from("chat_conversations").update({ updated_at: new Date().toISOString() }).eq("id", convId);
   };
@@ -1297,7 +1316,7 @@ export default function Chat() {
           stopActivity();
         }
 
-        await saveMessage(jobConvId, "assistant", responseText);
+        await saveMessage(jobConvId, "assistant", responseText, stdout);
 
         // Update title after first exchange using AI
         if (jobIsNew) {

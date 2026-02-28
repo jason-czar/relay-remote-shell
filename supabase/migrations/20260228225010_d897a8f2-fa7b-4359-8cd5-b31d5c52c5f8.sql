@@ -1,0 +1,1 @@
+ALTER TABLE public.chat_messages ADD COLUMN raw_stdout text;
