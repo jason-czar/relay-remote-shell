@@ -15,7 +15,6 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Send, ChevronDown, Paperclip, X, FileText, Image, Plus, Monitor, Terminal, Loader2, WifiOff, Square, Mic, ArrowUp, RefreshCw, SquarePen } from "lucide-react";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -23,6 +22,7 @@ import type { Tables } from "@/integrations/supabase/types";
 import { useChatContext } from "@/contexts/ChatContext";
 import { SetupWizard } from "@/components/SetupWizard";
 import { QuickStart } from "@/components/QuickStart";
+import { DevicePanel } from "@/components/DevicePanel";
 
 interface AttachedFile {
   name: string;
@@ -536,6 +536,8 @@ export default function Chat() {
     setToolCalls([]);
   }, []);
   const prevMsgCountRef = useRef(0);
+
+  const [devicePanelOpen, setDevicePanelOpen] = useState(false);
 
   // ── Device selection with per-device agent persistence ───────────────
   const setSelectedDeviceId = useCallback((id: string) => {
@@ -1640,40 +1642,23 @@ export default function Chat() {
             </div>
             {/* Right — device pill + refresh + new chat */}
             <div className="ml-auto flex items-center gap-3">
-              <Popover>
-                <PopoverTrigger asChild>
-                  <button className="flex items-center gap-2 px-3.5 py-2 rounded-full text-sm font-medium transition-all duration-150 hover:bg-accent text-foreground/80 hover:text-foreground">
-                    {(() => {
-                      const dev = devices.find((d) => d.id === selectedDeviceId);
-                      return dev ?
-                      <>
-                          <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${dev.status === "online" ? "bg-status-online animate-pulse" : "bg-muted-foreground/40"}`} />
-                          <span className="hidden sm:inline max-w-[140px] truncate">{dev.name}</span>
-                        </> :
-
-                      <span className="opacity-50 hidden sm:inline">No device</span>;
-
-                    })()}
-                    <ChevronDown className="hidden" />
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent align="end" className="w-48 p-1">
-                  {devices.length === 0 ?
-                  <p className="text-xs text-muted-foreground px-2 py-1.5">No devices found</p> :
-
-                  devices.map((d) =>
-                  <button
-                    key={d.id}
-                    onClick={() => setSelectedDeviceId(d.id)}
-                    className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs transition-colors ${selectedDeviceId === d.id ? "bg-accent text-accent-foreground font-medium" : "hover:bg-muted text-foreground/80"}`}>
-
-                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${d.status === "online" ? "bg-status-online" : "bg-muted-foreground/40"}`} />
-                        <span className="truncate">{d.name}</span>
-                      </button>
-                  )
-                  }
-                </PopoverContent>
-              </Popover>
+              {/* Device pill — opens right panel */}
+              <button
+                onClick={() => setDevicePanelOpen(true)}
+                className="flex items-center gap-2 px-3.5 py-2 rounded-full text-sm font-medium transition-all duration-150 hover:bg-accent text-foreground/80 hover:text-foreground"
+              >
+                {(() => {
+                  const dev = devices.find((d) => d.id === selectedDeviceId);
+                  return dev ? (
+                    <>
+                      <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${dev.status === "online" ? "bg-status-online animate-pulse" : "bg-muted-foreground/40"}`} />
+                      <span className="hidden sm:inline max-w-[140px] truncate">{dev.name}</span>
+                    </>
+                  ) : (
+                    <span className="opacity-50 hidden sm:inline">No device</span>
+                  );
+                })()}
+              </button>
               <button
                 onClick={() => window.location.reload()}
                 className="hidden sm:flex w-9 h-9 rounded-full items-center justify-center text-foreground/50 hover:text-foreground hover:bg-accent transition-all duration-150"
@@ -1995,6 +1980,23 @@ export default function Chat() {
           }
         </DialogContent>
       </Dialog>
+
+      <DevicePanel
+        open={devicePanelOpen}
+        onClose={() => setDevicePanelOpen(false)}
+        devices={devices}
+        selectedDeviceId={selectedDeviceId}
+        onSelectDevice={(id) => { setSelectedDeviceId(id); }}
+        userId={user?.id ?? ""}
+        projectId={projectId || undefined}
+        onDeviceAdded={(d) => {
+          setDevices((prev) => {
+            const exists = prev.find((x) => x.id === d.id);
+            return exists ? prev.map((x) => x.id === d.id ? d : x) : [...prev, d];
+          });
+          setSelectedDeviceId(d.id);
+        }}
+      />
     </AppLayout>);
 
 }
