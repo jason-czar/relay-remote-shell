@@ -15,6 +15,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Send, ChevronDown, Paperclip, X, FileText, Image, Plus, Monitor, Terminal, Loader2, WifiOff, Square, Mic, ArrowUp, RefreshCw, SquarePen } from "lucide-react";
+import { useDeviceModels, invalidateDeviceModelCache } from "@/hooks/useDeviceModels";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -162,13 +163,30 @@ interface ComposerBoxProps {
   onSlashCommand: (cmd: SlashCommand) => void;
   onAgentChange: (agent: "openclaw" | "claude" | "codex" | "terminal") => void;
   onModelChange: (model: string) => void;
+  deviceId: string | null;
 }
 
-function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, onSend, disabled, sendDisabled, placeholder, attachedFiles, onRemoveFile, onFileSelect, agent, model, onSlashCommand, onAgentChange, onModelChange, isStreaming, onAbort }: ComposerBoxProps) {
+function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, onSend, disabled, sendDisabled, placeholder, attachedFiles, onRemoveFile, onFileSelect, agent, model, onSlashCommand, onAgentChange, onModelChange, isStreaming, onAbort, deviceId }: ComposerBoxProps) {
   const [focused, setFocused] = useState(false);
   const [slashIdx, setSlashIdx] = useState(0);
   const [isDictating, setIsDictating] = useState(false);
   const [dictateError, setDictateError] = useState<string | null>(null);
+
+  const { models: deviceModels, loading: modelsLoading, error: modelsError, fetch: fetchModels } = useDeviceModels();
+
+  // Base (static) models per agent — fallback when dynamic fetch unavailable
+  const staticModels = agent === "openclaw" ? OPENCLAW_MODELS : agent === "claude" ? CLAUDE_MODELS : CODEX_MODELS;
+  // Merge: prepend Auto, then dynamic models; fall back to static if no device or fetch failed
+  const displayModels: AgentModel[] = deviceModels && deviceModels.length > 0
+    ? [{ id: "auto", label: "Auto", description: `Use ${agent === "openclaw" ? "OpenClaw" : agent === "codex" ? "Codex" : "Claude Code"}'s default model` }, ...deviceModels]
+    : staticModels;
+
+  // Auto-fetch models when a device is selected and agent changes
+  useEffect(() => {
+    if (deviceId && agent !== "terminal") fetchModels(deviceId, agent);
+  }, [deviceId, agent]); // eslint-disable-line react-hooks/exhaustive-deps
+
+
 
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
   const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
@@ -337,10 +355,30 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="min-w-[200px]">
-                {(agent === "openclaw" ? OPENCLAW_MODELS : agent === "claude" ? CLAUDE_MODELS : CODEX_MODELS).map((m) =>
-                <DropdownMenuItem key={m.id} onSelect={() => onModelChange(m.id)} className={cn(model === m.id && "bg-accent")}>
+                {/* Header with refresh */}
+                <div className="flex items-center justify-between px-2 py-1.5 border-b border-border/30 mb-1">
+                  <span className="text-[11px] font-medium text-muted-foreground/60 uppercase tracking-wider">Model</span>
+                  {deviceId && agent !== "terminal" && (
+                    <button
+                      onClick={() => { if (deviceId) { invalidateDeviceModelCache(deviceId, agent); fetchModels(deviceId, agent); } }}
+                      disabled={modelsLoading}
+                      className="flex items-center gap-1 text-[10px] text-muted-foreground/50 hover:text-foreground transition-colors disabled:opacity-40"
+                      title="Refresh model list from device"
+                    >
+                      <RefreshCw className={cn("h-3 w-3", modelsLoading && "animate-spin")} />
+                      {modelsLoading ? "Loading…" : "Refresh"}
+                    </button>
+                  )}
+                </div>
+                {modelsError && (
+                  <div className="px-2 py-1.5 mb-1">
+                    <p className="text-[10px] text-muted-foreground/50 italic">Could not fetch models — showing defaults</p>
+                  </div>
+                )}
+                {displayModels.map((m) =>
+                  <DropdownMenuItem key={m.id} onSelect={() => onModelChange(m.id)} className={cn(model === m.id && "bg-accent")}>
                     <span className="font-medium">{m.label}</span>
-                    <span className="ml-auto text-xs text-muted-foreground">{m.description}</span>
+                    {m.description && <span className="ml-auto text-xs text-muted-foreground">{m.description}</span>}
                   </DropdownMenuItem>
                 )}
               </DropdownMenuContent>
@@ -2018,7 +2056,8 @@ export default function Chat() {
                     supabase.from("chat_conversations").update({ model: m }).eq("id", activeConvId);
                     setConversations((prev) => prev.map((c) => c.id === activeConvId ? { ...c, model: m } : c));
                   }
-                }} />
+                }}
+                deviceId={selectedDeviceId ?? null} />
 
               <p className="hidden sm:block text-center text-[10px] text-muted-foreground/40 mt-2 select-none whitespace-nowrap">
                 Enter to send · Shift+Enter for newline · <span className="font-mono">/</span> for commands
