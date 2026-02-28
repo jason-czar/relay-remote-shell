@@ -202,36 +202,48 @@ export function ChatMessage({ role, content, thinking, streaming, rawStdout, thi
       <div className="flex-1 min-w-0">
         <div className="text-[18px] md:text-[19px] leading-[1.45] text-foreground break-words pt-0.5">
           {/* Codex reasoning / thinking collapsible */}
-          {thinkingContent && (
-            <div className="mb-4">
-              <button
-                onClick={() => setThinkingOpen((v) => !v)}
-                className="group/btn flex items-center gap-2 text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors duration-150 mb-2 select-none"
-              >
-                <ChevronDown
-                  className={cn(
-                    "h-3.5 w-3.5 transition-transform duration-200",
-                    thinkingOpen ? "rotate-0" : "-rotate-90"
+          {thinkingContent && (() => {
+            const firstLine = thinkingContent.split("\n").find((l) => l.trim()) ?? "";
+            const preview = firstLine.length > 72 ? firstLine.slice(0, 72).trimEnd() + "…" : firstLine;
+            return (
+              <div className="mb-4">
+                <button
+                  onClick={() => setThinkingOpen((v) => !v)}
+                  className="group/btn flex items-center gap-2 text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors duration-150 select-none w-full text-left"
+                >
+                  <ChevronDown
+                    className={cn(
+                      "h-3.5 w-3.5 shrink-0 transition-transform duration-200",
+                      thinkingOpen ? "rotate-0" : "-rotate-90"
+                    )}
+                  />
+                  <span className="italic font-medium tracking-wide shrink-0">
+                    Thought for{thinkingDurationMs !== undefined ? ` ${(thinkingDurationMs / 1000).toFixed(1)}s` : "…"}
+                  </span>
+                  {!thinkingOpen && preview && (
+                    <span className="ml-1 font-mono not-italic text-muted-foreground/40 truncate min-w-0">
+                      — {preview}
+                    </span>
                   )}
-                />
-                <span className="italic font-medium tracking-wide">
-                  Thought for{thinkingDurationMs !== undefined ? ` ${(thinkingDurationMs / 1000).toFixed(1)}s` : "…"}
-                </span>
-              </button>
-              <div
-                className={cn(
-                  "overflow-hidden transition-all duration-300 ease-in-out",
-                  thinkingOpen ? "max-h-[500px] opacity-100" : "max-h-0 opacity-0"
-                )}
-              >
-                <div className="border-l-2 border-primary/30 pl-3 py-0.5">
-                  <p className="text-xs text-muted-foreground/70 leading-relaxed whitespace-pre-wrap font-mono italic">
-                    {thinkingContent}
-                  </p>
+                </button>
+                {/* Animated expand using grid trick for true height animation */}
+                <div
+                  className={cn(
+                    "grid transition-all duration-300 ease-in-out",
+                    thinkingOpen ? "grid-rows-[1fr] opacity-100 mt-2" : "grid-rows-[0fr] opacity-0 mt-0"
+                  )}
+                >
+                  <div className="overflow-hidden">
+                    <div className="border-l-2 border-primary/30 pl-3 py-0.5">
+                      <p className="text-xs text-muted-foreground/70 leading-relaxed whitespace-pre-wrap font-mono italic">
+                        {thinkingContent}
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
           {streaming && !content && (
             <span className="inline-flex gap-1 items-center h-5">
               {[0, 1, 2].map((i) => (
