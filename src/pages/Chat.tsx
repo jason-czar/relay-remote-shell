@@ -694,6 +694,18 @@ export default function Chat() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeConvId, selectedDeviceId, gitRefreshTick]);
 
+  // Restore agent + model when switching to a conversation so the header dropdown always matches
+  useEffect(() => {
+    if (!activeConvId) return;
+    const conv = conversations.find((c) => c.id === activeConvId);
+    if (!conv) return;
+    const convAgent = conv.agent as "openclaw" | "claude" | "codex" | "terminal" | undefined;
+    if (convAgent) setAgent(convAgent);
+    if (conv.model) setModel(conv.model);
+  }, [activeConvId, conversations]); // eslint-disable-line react-hooks/exhaustive-deps
+
+
+
   // Restore agent + model when conversation or conversations list changes (handles refresh where
 
 
