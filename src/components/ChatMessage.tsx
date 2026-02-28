@@ -349,7 +349,7 @@ export function ChatMessage({ role, content, thinking, streaming, rawStdout, thi
               <span className="text-[11px] font-sans">raw stdout from relay</span>
             </div>
             {rawStdout ? (
-              <pre className="p-3 whitespace-pre-wrap break-all leading-relaxed text-primary/80 max-h-64 overflow-y-auto">
+              <pre className="p-3 whitespace-pre-wrap break-all leading-relaxed text-primary/80 max-h-64 overflow-y-auto thinking-scroll">
                 {rawStdout}
               </pre>
             ) : (
