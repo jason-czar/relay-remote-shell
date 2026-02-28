@@ -198,9 +198,18 @@ const MIN_WIDTH = 280;
 const MAX_WIDTH = 640;
 const DEFAULT_WIDTH = 360;
 
+const STORAGE_KEY = "device-panel-width";
+
 export function DevicePanel({ open, onClose, devices, selectedDeviceId, onSelectDevice, userId, projectId, onDeviceAdded, onDeviceDeleted }: DevicePanelProps) {
   const [showAdd, setShowAdd] = useState(false);
-  const [panelWidth, setPanelWidth] = useState(DEFAULT_WIDTH);
+  const [panelWidth, setPanelWidth] = useState(() => {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      const n = parseInt(stored, 10);
+      if (!isNaN(n) && n >= MIN_WIDTH && n <= MAX_WIDTH) return n;
+    }
+    return DEFAULT_WIDTH;
+  });
   const isResizing = useRef(false);
   const startX = useRef(0);
   const startWidth = useRef(DEFAULT_WIDTH);
@@ -220,10 +229,15 @@ export function DevicePanel({ open, onClose, devices, selectedDeviceId, onSelect
       const next = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, startWidth.current + delta));
       setPanelWidth(next);
     };
-    const onUp = () => {
+    const onUp = (ev: MouseEvent) => {
+      if (!isResizing.current) return;
       isResizing.current = false;
       document.body.style.cursor = "";
       document.body.style.userSelect = "";
+      // Persist final width
+      const delta = startX.current - ev.clientX;
+      const final = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, startWidth.current + delta));
+      localStorage.setItem(STORAGE_KEY, String(final));
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup", onUp);
     };
