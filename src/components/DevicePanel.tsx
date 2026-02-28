@@ -442,7 +442,7 @@ export function DevicePanel({ open, onClose, devices, selectedDeviceId, onSelect
                         ))}
                       </div>
                       {/* Commands */}
-                      {getOfflineCommands(d).map((c, i) => (
+                      {getOfflineCommands(d).length > 0 ? getOfflineCommands(d).map((c, i) => (
                         <div key={i} className="flex flex-col gap-0.5">
                           <span className="text-[10px] text-muted-foreground font-medium px-0.5">{c.label}</span>
                           <div className="flex items-center gap-1.5 rounded-lg bg-muted/40 border border-border/40 px-2.5 py-2">
@@ -458,9 +458,37 @@ export function DevicePanel({ open, onClose, devices, selectedDeviceId, onSelect
                             </button>
                           </div>
                         </div>
-                      ))}
-                      {!d.pairing_code && (
-                        <p className="text-[11px] text-muted-foreground px-0.5">No pairing code — add a new device to get connection commands.</p>
+                      )) : (
+                        <div className="flex flex-col gap-2">
+                          <p className="text-[11px] text-muted-foreground/70 px-0.5 leading-relaxed">
+                            This device has no pairing code stored. To reconnect, run the connector on your machine with:
+                          </p>
+                          {(() => {
+                            const reconnectCmd = offlinePlatform === "unix"
+                              ? `cd ~/relay-connector && nohup ./relay-connector connect > relay.log 2>&1 &`
+                              : `Start-Process -FilePath "$env:USERPROFILE\\relay-connector\\relay-connector.exe" -ArgumentList "connect" -WindowStyle Hidden`;
+                            return (
+                              <div className="flex flex-col gap-0.5">
+                                <span className="text-[10px] text-muted-foreground font-medium px-0.5">Start connector</span>
+                                <div className="flex items-center gap-1.5 rounded-lg bg-muted/40 border border-border/40 px-2.5 py-2">
+                                  <code className="flex-1 text-[11px] text-foreground/80 font-mono truncate">{reconnectCmd}</code>
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); copyOfflineCmd(reconnectCmd, 99); }}
+                                    className="shrink-0 w-6 h-6 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                                    title="Copy"
+                                  >
+                                    {offlineCopiedIdx === 99
+                                      ? <Check className="h-3 w-3 text-primary" />
+                                      : <Copy className="h-3 w-3" />}
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })()}
+                          <p className="text-[10px] text-muted-foreground/50 px-0.5">
+                            Or delete this device and add it again to get fresh install &amp; pair commands.
+                          </p>
+                        </div>
                       )}
                     </div>
                   )}
