@@ -13,7 +13,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Camera, User, Lock, Save, RotateCcw, Timer, Trash2, MessageSquare, LayoutDashboard, FolderOpen, Monitor, Plug, BookOpen } from "lucide-react";
+import { Camera, User, Lock, Save, RotateCcw, Timer, Trash2, MessageSquare, LayoutDashboard, FolderOpen, Monitor, Plug, BookOpen, LogOut } from "lucide-react";
 import { getThinkingPanelEnabled, setThinkingPanelEnabled } from "@/hooks/useThinkingPanel";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import type { Tables } from "@/integrations/supabase/types";
@@ -52,7 +52,7 @@ export default function Settings() {
     setSearchParams({ tab: v }, { replace: true });
   };
 
-  // Profile tab state
+  const handleSignOut = async () => { await signOut(); };
   const { user, signOut } = useAuth();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -379,6 +379,20 @@ export default function Settings() {
                 <CardContent>
                   <Button variant="outline" onClick={() => { resetOnboardingTour(); toast({ title: "Tour reset", description: "Visit the Dashboard to see the tour again." }); }}>
                     Restart Tour
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* Sign Out */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="heading-4 flex items-center gap-2"><LogOut className="h-4 w-4" /> Sign Out</CardTitle>
+                  <CardDescription className="body-sm">Sign out of your account on this device</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button variant="outline" onClick={handleSignOut} className="gap-2">
+                    <LogOut className="h-4 w-4" />
+                    Sign Out
                   </Button>
                 </CardContent>
               </Card>
