@@ -20,7 +20,7 @@ interface DevicePanelProps {
   onDeviceDeleted: (id: string) => void;
 }
 
-function AddDeviceFlow({ userId, projectId, onDone }: { userId: string; projectId?: string; onDone: (d: Tables<"devices">) => void }) {
+function AddDeviceFlow({ userId, projectId, onCreated, onDone }: { userId: string; projectId?: string; onCreated: (d: Tables<"devices">) => void; onDone: (d: Tables<"devices">) => void }) {
   const [deviceName, setDeviceName] = useState("");
   const [creating, setCreating] = useState(false);
   const [device, setDevice] = useState<Tables<"devices"> | null>(null);
@@ -38,7 +38,7 @@ function AddDeviceFlow({ userId, projectId, onDone }: { userId: string; projectI
       : { user_id: userId, name, pairing_code: pairingCode };
     const { data, error } = await supabase.from("devices").insert(insertPayload).select().single();
     if (error) setCreateError(error.message);
-    else if (data) setDevice(data as Tables<"devices">);
+    else if (data) { setDevice(data as Tables<"devices">); onCreated(data as Tables<"devices">); }
     setCreating(false);
   }, [userId, projectId]);
 
@@ -436,7 +436,12 @@ export function DevicePanel({ open, onClose, devices, selectedDeviceId, onSelect
                   Cancel
                 </button>
               </div>
-              <AddDeviceFlow userId={userId} projectId={projectId} onDone={handleDeviceAdded} />
+              <AddDeviceFlow
+                userId={userId}
+                projectId={projectId}
+                onCreated={(d) => onDeviceAdded(d)}
+                onDone={handleDeviceAdded}
+              />
             </div>
           )}
 
