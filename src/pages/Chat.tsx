@@ -572,16 +572,25 @@ export default function Chat() {
     localStorage.setItem("chat-device-id", id);
     // Restore the agent & model last used with this device
     const savedAgent = localStorage.getItem(`chat-agent-${id}`);
-    if (savedAgent) setAgent(savedAgent as "openclaw" | "claude" | "codex" | "terminal");
+    // Only restore device-level agent/model when there's no active conversation
+    // (conversation's stored agent takes priority and will be synced separately)
+    if (savedAgent && !activeConvId) setAgent(savedAgent as "openclaw" | "claude" | "codex" | "terminal");
     const savedModel = localStorage.getItem(`chat-model-${id}`);
     if (savedModel) setModel(savedModel);
   }, []);
 
+  // Ref to suppress device-localStorage write when agent is set by conversation sync (not user)
+  const agentFromConvRef = useRef(false);
+
   // Persist agent selection keyed by device whenever either changes
   useEffect(() => {
     if (selectedDeviceId) {
-      localStorage.setItem(`chat-agent-${selectedDeviceId}`, agent);
-      localStorage.setItem(`chat-model-${selectedDeviceId}`, model);
+      // Only persist to device localStorage when the agent was set by the user, not by conv sync
+      if (!agentFromConvRef.current) {
+        localStorage.setItem(`chat-agent-${selectedDeviceId}`, agent);
+        localStorage.setItem(`chat-model-${selectedDeviceId}`, model);
+      }
+      agentFromConvRef.current = false;
     }
     // Also persist as global default
     localStorage.setItem("chat-model-default", model);
@@ -700,8 +709,14 @@ export default function Chat() {
     const conv = conversations.find((c) => c.id === activeConvId);
     if (!conv) return;
     const convAgent = conv.agent as "openclaw" | "claude" | "codex" | "terminal" | undefined;
-    if (convAgent) setAgent(convAgent);
-    if (conv.model) setModel(conv.model);
+    if (convAgent) {
+      agentFromConvRef.current = true; // suppress device-localStorage write
+      setAgent(convAgent);
+    }
+    if (conv.model) {
+      agentFromConvRef.current = true;
+      setModel(conv.model);
+    }
   }, [activeConvId, conversations]); // eslint-disable-line react-hooks/exhaustive-deps
 
 
