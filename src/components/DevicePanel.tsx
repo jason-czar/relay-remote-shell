@@ -232,8 +232,8 @@ export function DevicePanel({ open, onClose, devices, selectedDeviceId, onSelect
   const handleDeviceAdded = useCallback((d: Tables<"devices">) => {
     onDeviceAdded(d);
     onSelectDevice(d.id);
-    onClose();
-  }, [onDeviceAdded, onSelectDevice, onClose]);
+    setShowAdd(false);
+  }, [onDeviceAdded, onSelectDevice]);
 
   const handleDisconnect = useCallback(async (id: string) => {
     setDisconnectingId(id);
