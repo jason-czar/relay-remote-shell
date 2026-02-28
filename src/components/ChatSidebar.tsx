@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import openclawImg from "@/assets/openclaw.png";
-import claudecodeImg from "@/assets/claudecode.png";
+import openclawImg from "@/assets/openclaw-icon.png";
+import claudecodeImg from "@/assets/claudecode-icon.png";
+import codexImg from "@/assets/codex-icon.png";
 import { Plus, Trash2, Search, MessageSquare, ChevronLeft, Pencil, Check, X, RefreshCw, FolderOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -43,7 +44,7 @@ export function ChatSidebar({ conversations, activeId, onSelect, onNew, onDelete
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const [agentFilter, setAgentFilter] = useState<"all" | "openclaw" | "claude">("all");
+  const [agentFilter, setAgentFilter] = useState<"all" | "openclaw" | "claude" | "codex">("all");
   const [collapsed, setCollapsed] = useState(false);
   const [width, setWidth] = useState(DEFAULT_WIDTH);
   // Inline rename state
@@ -53,6 +54,9 @@ export function ChatSidebar({ conversations, activeId, onSelect, onNew, onDelete
   const dragging = useRef(false);
   const startX = useRef(0);
   const startWidth = useRef(DEFAULT_WIDTH);
+
+  const agentIcon = (agent: string) =>
+    agent === "openclaw" ? openclawImg : agent === "codex" ? codexImg : claudecodeImg;
 
   const filtered = conversations.filter((c) => {
     const matchesSearch = c.title.toLowerCase().includes(search.toLowerCase());
@@ -193,29 +197,22 @@ export function ChatSidebar({ conversations, activeId, onSelect, onNew, onDelete
 
         {/* Agent filter pills */}
         <div className="px-3 pb-2 flex items-center gap-1">
-          {(["all", "openclaw", "claude"] as const).map((f) => (
+          {(["all", "openclaw", "claude", "codex"] as const).map((f) => (
             <button
               key={f}
               onClick={() => setAgentFilter(f)}
               className={cn(
                 "flex-1 flex items-center justify-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium transition-all duration-150",
                 agentFilter === f
-                  ? f === "openclaw"
-                    ? "bg-primary/15 text-primary"
-                    : f === "claude"
-                    ? "bg-warning/15 text-warning"
-                    : "bg-accent text-foreground"
+                  ? "bg-accent text-foreground"
                   : "text-muted-foreground/60 hover:bg-accent/40 hover:text-muted-foreground"
               )}
             >
-              {f !== "all" && (
-                <img
-                  src={f === "openclaw" ? openclawImg : claudecodeImg}
-                  alt={f}
-                  className="w-3.5 h-3.5 rounded object-cover shrink-0"
-                />
+              {f !== "all" ? (
+                <img src={agentIcon(f)} alt={f} className="w-3.5 h-3.5 rounded object-cover shrink-0" />
+              ) : (
+                <span>All</span>
               )}
-              {f === "all" ? "All" : f === "openclaw" ? "OpenClaw" : "Claude"}
             </button>
           ))}
         </div>
@@ -318,6 +315,13 @@ export function ChatSidebar({ conversations, activeId, onSelect, onNew, onDelete
                         <Trash2 className="h-3 w-3" />
                       </button>
                     </div>
+                    {/* Agent icon — shown at rest, replaced by actions on hover */}
+                    <img
+                      src={agentIcon(conv.agent)}
+                      alt={conv.agent}
+                      title={conv.agent}
+                      className="shrink-0 w-[14px] h-[14px] rounded object-cover opacity-35 group-hover:opacity-0 group-hover:w-0 group-hover:overflow-hidden transition-all duration-150"
+                    />
                   </>
                 )}
               </div>
