@@ -435,10 +435,11 @@ export function ChatMessage({ role, content, thinking, streaming, activityStatus
           {/* Tool-call chips */}
           {(streaming || thinking) && toolCalls && toolCalls.length > 0 && (
             <div className="flex flex-wrap gap-1 mt-2">
-              {toolCalls.map((name) => (
+              {toolCalls.map((name, i) => (
                 <span
                   key={name}
-                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-muted/60 text-muted-foreground/60 border border-border/30 select-none"
+                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-muted/60 text-muted-foreground/60 border border-border/30 select-none animate-chip-in"
+                  style={{ animationDelay: `${i * 40}ms` }}
                 >
                   <span className="w-1 h-1 rounded-full bg-primary/50 shrink-0" />
                   {name}
