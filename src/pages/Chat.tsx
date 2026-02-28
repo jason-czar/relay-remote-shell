@@ -457,6 +457,15 @@ export default function Chat() {
   const [projectId, setProjectId] = useState<string>("");
   const [relayStatus, setRelayStatus] = useState<"idle" | "connecting" | "retrying" | "failed">("idle");
   const relayRetryCountRef = useRef(0);
+  const [gitStatus, setGitStatus] = useState<{
+    branch: string;
+    files: number;
+    insertions: number;
+    deletions: number;
+  } | null | "loading">(null);
+  const gitFetchedForRef = useRef<string | null>(null);
+  const [gitRefreshTick, setGitRefreshTick] = useState(0);
+
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -529,16 +538,61 @@ export default function Chat() {
     });
   }, [activeConvId]);
 
-  // Restore agent + model when conversation or conversations list changes (handles refresh where
-  // conversations may load after activeConvId is restored from localStorage)
+  // ── Auto-fetch git status when conversation is opened ─────────────────
   useEffect(() => {
-    if (!activeConvId || !conversations.length) return;
-    const conv = conversations.find((c) => c.id === activeConvId);
-    if (conv) {
-      setAgent(conv.agent as "openclaw" | "claude" | "codex" | "terminal");
-      setModel(conv.model || "auto");
-    }
-  }, [activeConvId, conversations]);
+    if (!activeConvId || !selectedDeviceId) { setGitStatus(null); return; }
+    if (gitFetchedForRef.current === activeConvId) return;
+    gitFetchedForRef.current = activeConvId;
+    setGitStatus("loading");
+    (async () => {
+      try {
+        const cmd = `git branch --show-current 2>/dev/null && git diff --stat HEAD 2>/dev/null | tail -1`;
+        const { data: sesData } = await supabase.functions.invoke("start-session", { body: { device_id: selectedDeviceId } });
+        if (!sesData?.session_id) { setGitStatus(null); return; }
+        const sessionId: string = sesData.session_id;
+        const relayUrl = import.meta.env.VITE_RELAY_URL || "wss://relay.privaclaw.com";
+        const { data: { session: authSession } } = await supabase.auth.getSession();
+        const jwt = authSession?.access_token;
+        if (!jwt) { setGitStatus(null); return; }
+        const raw = await new Promise<string>((resolve) => {
+          const ws = new WebSocket(`${relayUrl}/session`);
+          let buf = ""; let done = false; let silTimer: ReturnType<typeof setTimeout> | null = null;
+          const finish = (v: string) => { if (done) return; done = true; if (silTimer) clearTimeout(silTimer); if (ws.readyState === WebSocket.OPEN) { ws.send(JSON.stringify({ type: "session_end", data: { session_id: sessionId, reason: "done" } })); ws.close(); } supabase.functions.invoke("end-session", { body: { session_id: sessionId } }).catch(() => {}); resolve(v); };
+          const resetSil = () => { if (silTimer) clearTimeout(silTimer); silTimer = setTimeout(() => finish(buf), 2500); };
+          setTimeout(() => finish(buf), 12000);
+          let promptSent = false;
+          ws.onopen = () => ws.send(JSON.stringify({ type: "auth", data: { token: jwt, session_id: sessionId, device_id: selectedDeviceId } }));
+          ws.onmessage = (e) => {
+            try {
+              const msg = JSON.parse(e.data);
+              if (msg.type === "auth_ok") {
+                ws.send(JSON.stringify({ type: "session_start", data: { session_id: sessionId, cols: 200, rows: 10 } }));
+                const PROMPT_RE = /(?:[%$#➜❯>]\s*$)/m;
+                const trySend = () => { if (promptSent) return; const plain = buf.replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, "").replace(/\x1b\[[\x30-\x3f]*[\x20-\x2f]*[\x40-\x7e]/g, "").replace(/\x1b[^[\]]/g, ""); if (PROMPT_RE.test(plain)) { promptSent = true; buf = ""; ws.send(JSON.stringify({ type: "stdin", data: { session_id: sessionId, data_b64: btoa(cmd + "\n") } })); resetSil(); } };
+                setTimeout(() => { if (!promptSent) { promptSent = true; buf = ""; ws.send(JSON.stringify({ type: "stdin", data: { session_id: sessionId, data_b64: btoa(cmd + "\n") } })); resetSil(); } }, 4000);
+                const origH = ws.onmessage; ws.onmessage = (ev) => { origH?.call(ws, ev); trySend(); };
+              } else if (msg.type === "stdout") { const { data_b64 } = (msg.data ?? {}) as { data_b64: string }; if (data_b64) { try { buf += decodeURIComponent(escape(atob(data_b64))); } catch { buf += atob(data_b64); } resetSil(); }
+              } else if (msg.type === "session_end") { finish(buf); }
+            } catch {/* ignore */}
+          };
+          ws.onerror = () => finish(buf);
+        });
+        const clean = raw.replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, "").replace(/\x1b\[[\x30-\x3f]*[\x20-\x2f]*[\x40-\x7e]/g, "").replace(/\x1b[^[\]]/g, "").replace(/\r/g, "");
+        const lines = clean.split("\n").map(l => l.trim()).filter(Boolean);
+        const branch = lines[0] ?? "";
+        const statLine = lines.find(l => l.includes("changed")) ?? "";
+        const filesMatch = statLine.match(/(\d+)\s+files? changed/);
+        const insMatch = statLine.match(/(\d+)\s+insertions?\(\+\)/);
+        const delMatch = statLine.match(/(\d+)\s+deletions?\(-\)/);
+        if (!branch || branch.includes(" ") || branch.length > 100) { setGitStatus(null); return; }
+        setGitStatus({ branch, files: filesMatch ? parseInt(filesMatch[1]) : 0, insertions: insMatch ? parseInt(insMatch[1]) : 0, deletions: delMatch ? parseInt(delMatch[1]) : 0 });
+      } catch { setGitStatus(null); }
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeConvId, selectedDeviceId, gitRefreshTick]);
+
+  // Restore agent + model when conversation or conversations list changes (handles refresh where
+
 
   // ── Reload messages when a background job for the active conv finishes ──
   const prevJobsRef = useRef<Set<string>>(new Set());
@@ -1729,6 +1783,47 @@ export default function Chat() {
           <div className="sticky bottom-0 z-20 shrink-0 pt-2 backdrop-blur-md bg-background/80 border-t border-border/10" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 1rem)' }}>
             <div className="max-w-[900px] mx-auto px-3 sm:px-8">
             <div className="max-w-[900px] mx-auto">
+              {/* Git status bar */}
+              {gitStatus && gitStatus !== "loading" && gitStatus.branch && (
+                <div className="flex items-center gap-2 px-1 pb-1.5 text-[11px] text-muted-foreground/50 select-none flex-wrap">
+                  {/* Branch */}
+                  <span className="flex items-center gap-1">
+                    <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor" className="opacity-60 shrink-0"><path d="M11.75 2.5a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0zm.75 2.453a2.25 2.25 0 1 1 0-4.906A2.25 2.25 0 0 1 12.5 4.953V5.5a2.25 2.25 0 0 1-2.25 2.25H5.75A.75.75 0 0 0 5 8.5v1.547a2.25 2.25 0 1 1-1.5 0V7.25a.75.75 0 0 1 0-1.5V5.047a2.25 2.25 0 1 1 1.5 0V5.75h4.5a.75.75 0 0 0 .75-.75v-.547zm-10.25.297a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0zM4.25 13a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5z"/></svg>
+                    <span className="font-mono">{gitStatus.branch}</span>
+                  </span>
+                  {gitStatus.files > 0 && (
+                    <>
+                      <span className="text-muted-foreground/20">·</span>
+                      <span>{gitStatus.files} file{gitStatus.files !== 1 ? "s" : ""} changed</span>
+                      {gitStatus.insertions > 0 && (
+                        <span className="text-[hsl(var(--chart-2))]">+{gitStatus.insertions}</span>
+                      )}
+                      {gitStatus.deletions > 0 && (
+                        <span className="text-destructive/70">−{gitStatus.deletions}</span>
+                      )}
+                    </>
+                  )}
+                  {gitStatus.files === 0 && (
+                    <>
+                      <span className="text-muted-foreground/20">·</span>
+                      <span className="text-muted-foreground/30">clean</span>
+                    </>
+                  )}
+                  <button
+                    onClick={() => { gitFetchedForRef.current = null; setGitRefreshTick(t => t + 1); }}
+                    className="ml-auto opacity-40 hover:opacity-80 transition-opacity"
+                    title="Refresh git status"
+                  >
+                    <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor"><path d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2z"/><path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/></svg>
+                  </button>
+                </div>
+              )}
+              {gitStatus === "loading" && (
+                <div className="flex items-center gap-1.5 px-1 pb-1.5 text-[11px] text-muted-foreground/30 select-none">
+                  <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor" className="animate-spin opacity-50"><path d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2z"/><path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/></svg>
+                  <span>Fetching git status…</span>
+                </div>
+              )}
               {/* Stop streaming button — now handled by composer send button */}
               <ComposerBox
                 textareaRef={textareaRef}
