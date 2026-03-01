@@ -21,7 +21,7 @@ export function QuickStart({ userId, projectId, onDeviceOnline }: QuickStartProp
   
   const [online, setOnline] = useState(false);
   const [platform, setPlatform] = useState<Platform>(
-    navigator.userAgent.includes("Win") ? "windows" : "unix"
+    navigator.platform.startsWith("Win") ? "windows" : "unix"
   );
 
   const handleDeviceOnline = useCallback(
