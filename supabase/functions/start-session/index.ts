@@ -72,17 +72,30 @@ Deno.serve(async (req) => {
       .single();
 
     if (devErr || !device) {
+      console.error("[start-session] Device lookup failed", {
+        device_id,
+        user_id: user.id,
+        error: devErr?.message ?? "not found",
+      });
       return json({ error: "Device not found or access denied" }, 404);
     }
 
     // Verify the user has access to this device via RLS function
-    const { data: hasAccess } = await supabaseUser
+    const { data: hasAccess, error: rpcErr } = await supabaseUser
       .rpc("is_device_in_user_project", { _device_id: device_id });
 
     // Also allow direct ownership
     const isOwner = device.user_id === user.id;
 
     if (!hasAccess && !isOwner) {
+      console.error("[start-session] Access denied", {
+        device_id,
+        user_id: user.id,
+        device_owner: device.user_id,
+        project_id: device.project_id,
+        hasAccess,
+        rpc_error: rpcErr?.message ?? null,
+      });
       return json({ error: "Device not found or access denied" }, 404);
     }
 
@@ -98,6 +111,11 @@ Deno.serve(async (req) => {
       .single();
 
     if (sesErr) {
+      console.error("[start-session] Session insert failed", {
+        device_id,
+        user_id: user.id,
+        error: sesErr.message,
+      });
       return json({ error: "Failed to create session: " + sesErr.message }, 500);
     }
 
