@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Monitor, Wifi, Activity, Plus, Terminal, Plug, RefreshCw, Clock, Settings2, HeartPulse, Server, MemoryStick, Play } from "lucide-react";
+import { LogViewerCard } from "@/components/LogViewerCard";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { DashboardSkeleton } from "@/components/LoadingSkeletons";
 import { OnboardingTour } from "@/components/OnboardingTour";
@@ -357,9 +358,12 @@ export default function DashboardContent() {
                       <span className="flex items-center h-7 px-3 rounded-full border border-border/50 text-xs text-muted-foreground bg-[hsl(0,0%,14%)]">{node.kind}</span>
                     </div>
                   ))}
-                  <p className="text-xs text-muted-foreground text-center pt-1">{onlineNodes.length} online · {nodes.length} total · updates every 30s</p>
+                   <p className="text-xs text-muted-foreground text-center pt-1">{onlineNodes.length} online · {nodes.length} total · updates every 30s</p>
                 </div>
               )}
+
+        {/* Log Viewer */}
+        <LogViewerCard />
             </CardContent>
           </Card>
         </>
