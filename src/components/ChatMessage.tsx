@@ -222,6 +222,7 @@ export function ChatMessage({ role, content, thinking, streaming, activityStatus
   const agentImg = agent === "claude" ? claudecodeImg : agent === "codex" ? codexImg : openclawImg;
   const [hovered, setHovered] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [copiedUser, setCopiedUser] = useState(false);
   const [debugOpen, setDebugOpen] = useState(false);
   const [thinkingOpen, setThinkingOpen] = useState(false);
 
@@ -347,6 +348,21 @@ export function ChatMessage({ role, content, thinking, streaming, activityStatus
           <span className="text-[10px] text-muted-foreground/40 opacity-0 group-hover:opacity-100 transition-opacity duration-150 pr-0.5">
             {formattedTime}
           </span>
+        )}
+        {/* Copy button — visible on group-hover */}
+        {textContent && (
+          <button
+            onClick={() => {
+              navigator.clipboard.writeText(textContent);
+              setCopiedUser(true);
+              setTimeout(() => setCopiedUser(false), 2000);
+            }}
+            className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground px-1.5 py-0.5 rounded hover:bg-accent"
+            title="Copy message"
+          >
+            {copiedUser ? <Check className="h-3 w-3 text-primary" /> : <Copy className="h-3 w-3" />}
+            {copiedUser ? "Copied" : "Copy"}
+          </button>
         )}
       </div>
     );
