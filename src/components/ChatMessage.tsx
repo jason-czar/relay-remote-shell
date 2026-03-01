@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { Copy, Check, Terminal, ChevronDown, ChevronRight, RefreshCw, RotateCcw, FileEdit, FileSearch, Wrench, Brain, Reply } from "lucide-react";
+import { Copy, Check, Terminal, ChevronDown, ChevronRight, RefreshCw, RotateCcw, FileEdit, FileSearch, Wrench, Brain, Reply, Zap, CheckCircle2, XCircle } from "lucide-react";
 
 export const EMPTY_RESPONSE_TEXT = "No response was received from the device. Try rephrasing your message, or check that the device is connected and the agent is running.";
 import ReactMarkdown from "react-markdown";
@@ -12,9 +12,17 @@ import claudecodeImg from "@/assets/claudecode.png";
 import codexImg from "@/assets/codex.png";
 
 export type LiveLogEntry = {
-  type: "tool" | "bash" | "write" | "read" | "think" | "info" | "error" | "output";
+  type: "tool" | "bash" | "write" | "read" | "think" | "info" | "error" | "output" | "tool_call";
   label: string;
   detail?: string;
+  /** Structured tool call data for type=tool_call */
+  toolCallData?: {
+    id?: string;
+    name: string;
+    input?: Record<string, unknown>;
+    result?: string;
+    isError?: boolean;
+  };
 };
 
 // Patch oneDark to use pure black background
@@ -134,6 +142,114 @@ function DiffBlock({ value }: { value: string }) {
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+// ── Tool call card ────────────────────────────────────────────────────────────
+
+function ToolCallCard({ entry, isLast, agentColor }: {
+  entry: LiveLogEntry;
+  isLast: boolean;
+  agentColor: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const data = entry.toolCallData;
+  if (!data) return null;
+
+  const hasInput = data.input && Object.keys(data.input).length > 0;
+  const hasResult = typeof data.result === "string";
+  const isComplete = hasResult;
+
+  // Pretty-print JSON input
+  const inputStr = hasInput ? JSON.stringify(data.input, null, 2) : null;
+
+  // Truncate result for preview
+  const resultPreview = data.result
+    ? data.result.length > 120 ? data.result.slice(0, 120) + "…" : data.result
+    : null;
+
+  return (
+    <div
+      className={cn(
+        "mx-3 my-1 rounded-lg border overflow-hidden transition-opacity duration-200",
+        isLast ? "opacity-100" : "opacity-50",
+        data.isError ? "border-destructive/30" : "border-border/30"
+      )}
+      style={{ background: "hsl(0 0% 7%)" }}
+    >
+      {/* Header row — always visible */}
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center gap-2 px-3 py-1.5 text-left hover:bg-white/5 transition-colors"
+      >
+        {/* Status icon */}
+        <span className="shrink-0">
+          {isComplete
+            ? data.isError
+              ? <XCircle className="h-3 w-3 text-destructive" />
+              : <CheckCircle2 className="h-3 w-3 text-[hsl(142_60%_45%)]" />
+            : <Zap className="h-3 w-3 animate-pulse" style={{ color: agentColor }} />
+          }
+        </span>
+        {/* Tool name */}
+        <span className="font-mono text-[11px] font-semibold shrink-0" style={{ color: agentColor }}>
+          {data.name}
+        </span>
+        {/* Input preview */}
+        {inputStr && !open && (
+          <span className="font-mono text-[10px] text-muted-foreground/50 truncate min-w-0">
+            {inputStr.replace(/\n\s+/g, " ").slice(0, 80)}
+          </span>
+        )}
+        <span className="ml-auto shrink-0 text-muted-foreground/40">
+          {open ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+        </span>
+      </button>
+
+      {/* Expanded detail */}
+      {open && (
+        <div className="border-t border-border/20">
+          {/* Input */}
+          {inputStr && (
+            <div className="px-3 py-2">
+              <div className="text-[9px] uppercase tracking-widest text-muted-foreground/40 mb-1">Input</div>
+              <pre
+                className="font-mono text-[11px] text-muted-foreground/70 whitespace-pre-wrap break-all overflow-x-auto thinking-scroll max-h-48"
+                style={{ lineHeight: 1.5 }}
+              >
+                {inputStr}
+              </pre>
+            </div>
+          )}
+          {/* Result */}
+          {hasResult && (
+            <div className={cn("px-3 py-2", inputStr && "border-t border-border/20")}>
+              <div className={cn(
+                "text-[9px] uppercase tracking-widest mb-1",
+                data.isError ? "text-destructive/60" : "text-muted-foreground/40"
+              )}>
+                {data.isError ? "Error" : "Result"}
+              </div>
+              <pre
+                className={cn(
+                  "font-mono text-[11px] whitespace-pre-wrap break-all overflow-x-auto thinking-scroll max-h-48",
+                  data.isError ? "text-destructive/80" : "text-muted-foreground/70"
+                )}
+                style={{ lineHeight: 1.5 }}
+              >
+                {data.result}
+              </pre>
+            </div>
+          )}
+          {/* Result preview when not expanded input */}
+          {!hasResult && resultPreview && (
+            <div className="px-3 py-2 border-t border-border/20">
+              <span className="font-mono text-[11px] text-muted-foreground/50 italic">{resultPreview}</span>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -386,10 +502,11 @@ export function ChatMessage({ role, content, thinking, streaming, activityStatus
 
     const entryIcon = (entry: LiveLogEntry) => {
       switch (entry.type) {
-        case "bash":   return <span className="text-[10px] font-mono font-bold opacity-80">$</span>;
-        case "write":  return <FileEdit  className="h-3 w-3 shrink-0" />;
-        case "read":   return <FileSearch className="h-3 w-3 shrink-0" />;
-        case "think":  return <Brain     className="h-3 w-3 shrink-0" />;
+        case "bash":      return <span className="text-[10px] font-mono font-bold opacity-80">$</span>;
+        case "write":     return <FileEdit  className="h-3 w-3 shrink-0" />;
+        case "read":      return <FileSearch className="h-3 w-3 shrink-0" />;
+        case "think":     return <Brain     className="h-3 w-3 shrink-0" />;
+        case "tool_call": return <Zap       className="h-3 w-3 shrink-0" />;
         case "output": return <ChevronRight className="h-3 w-3 shrink-0 opacity-50" />;
         default:       return <Wrench   className="h-3 w-3 shrink-0" />;
       }
@@ -466,6 +583,17 @@ export function ChatMessage({ role, content, thinking, streaming, activityStatus
               ) : (
                 liveLog!.map((entry, i) => {
                   const isLast = i === liveLog!.length - 1;
+                  // Structured tool call card
+                  if (entry.type === "tool_call") {
+                    return (
+                      <ToolCallCard
+                        key={i}
+                        entry={entry}
+                        isLast={isLast}
+                        agentColor={agentColor}
+                      />
+                    );
+                  }
                   return (
                     <div
                       key={i}
