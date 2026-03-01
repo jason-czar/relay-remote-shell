@@ -617,6 +617,8 @@ export default function Chat() {
   const activityTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [toolCalls, setToolCalls] = useState<string[]>([]);
   const [liveLog, setLiveLog] = useState<LiveLogEntry[]>([]);
+  // Tracks which message indices the user has already responded to (hides option buttons)
+  const [answeredMsgIndices, setAnsweredMsgIndices] = useState<Set<number>>(new Set());
   const liveLogAccRef = useRef<string>("");
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -762,7 +764,7 @@ export default function Chat() {
 
   // ── Load messages on conversation select ──────────────────────────────
   useEffect(() => {
-    if (!activeConvId) {setMessages([]);setDetectedPreviewPort(null);detectedPortRef.current=null;return;}
+    if (!activeConvId) {setMessages([]);setAnsweredMsgIndices(new Set());setDetectedPreviewPort(null);detectedPortRef.current=null;return;}
     supabase.
     from("chat_messages").
     select("id, role, content, created_at, raw_stdout").
@@ -1638,7 +1640,9 @@ export default function Chat() {
   // ── Option-select: inject stdin directly into the active PTY session ──────
   // This is the correct way to respond to agent prompts (tool approvals, yes/no, etc.)
   // The agent is literally waiting for keyboard input on the PTY — we send it as stdin.
-  const handleOptionSelect = useCallback((opt: string) => {
+  const handleOptionSelect = useCallback((opt: string, msgIndex: number) => {
+    // Mark this message as answered so its option buttons disappear
+    setAnsweredMsgIndices(prev => new Set([...prev, msgIndex]));
     const session = activeRelaySessionRef.current;
     if (session && session.ws.readyState === WebSocket.OPEN) {
       // Normalize: map friendly labels back to the single-char / short form the agent expects
@@ -2264,7 +2268,7 @@ export default function Chat() {
                     handleRegenerate :
                     undefined
                     }
-                    onOptionSelect={msg.role === "assistant" ? handleOptionSelect : undefined}
+                    onOptionSelect={msg.role === "assistant" && !answeredMsgIndices.has(i) ? (opt) => handleOptionSelect(opt, i) : undefined}
                     />
 
                   </div>
