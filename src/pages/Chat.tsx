@@ -158,6 +158,8 @@ interface ComposerBoxProps {
   onSend: () => void;
   disabled: boolean;
   sendDisabled: boolean;
+  onPreview?: () => void;
+  previewActive?: boolean;
   placeholder: string;
   attachedFiles: AttachedFile[];
   onRemoveFile: (idx: number) => void;
@@ -170,7 +172,7 @@ interface ComposerBoxProps {
   deviceId: string | null;
 }
 
-function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, onSend, disabled, sendDisabled, placeholder, attachedFiles, onRemoveFile, onFileSelect, agent, model, onSlashCommand, onAgentChange, onModelChange, isStreaming, onAbort, deviceId }: ComposerBoxProps) {
+function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, onSend, disabled, sendDisabled, placeholder, attachedFiles, onRemoveFile, onFileSelect, agent, model, onSlashCommand, onAgentChange, onModelChange, isStreaming, onAbort, deviceId, onPreview, previewActive }: ComposerBoxProps) {
   const [focused, setFocused] = useState(false);
   const [slashIdx, setSlashIdx] = useState(0);
   const [isDictating, setIsDictating] = useState(false);
@@ -403,6 +405,24 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
               <Mic size={18} />
             </button>
           </div>
+
+          {/* Preview button */}
+          {onPreview && deviceId && (
+            <button
+              type="button"
+              onClick={onPreview}
+              title="Open live preview"
+              className={cn(
+                "flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium transition-colors shrink-0",
+                previewActive
+                  ? "bg-primary/10 text-primary"
+                  : "text-muted-foreground hover:text-foreground hover:bg-accent"
+              )}
+            >
+              <Monitor className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Preview</span>
+            </button>
+          )}
 
           {/* Right: send button */}
           <div className="relative flex items-center justify-center">
@@ -2187,6 +2207,8 @@ export default function Chat() {
               <ComposerBox
                 textareaRef={textareaRef}
                 fileInputRef={fileInputRef}
+                onPreview={() => setPreviewPopoverOpen(true)}
+                previewActive={showPreview}
                 isStreaming={!!(thinking || streamingMsgIndex !== null)}
                 onAbort={handleAbort}
                 input={input}
