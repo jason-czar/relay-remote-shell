@@ -2,6 +2,8 @@ package main
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -35,8 +37,20 @@ func main() {
 	installAgent   := flag.Bool("install-agent",    false, "Register binary as a background service and start it")
 	uninstallAgent := flag.Bool("uninstall-agent",  false, "Stop and remove the background service")
 	statusAgent    := flag.Bool("status",           false, "Print service install/running status")
-	updateAgent    := flag.Bool("update",           false, "Download latest binary, replace self on disk, re-register service")
+	updateAgent       := flag.Bool("update",             false, "Download latest binary, replace self on disk, re-register service")
+	updateCheckAgent  := flag.Bool("self-update-check",  false, "Check whether a newer binary is available without downloading")
 	flag.Parse()
+
+	// --- self-update-check ---
+	if *updateCheckAgent {
+		if *apiURL == "" {
+			log.Fatal("--api is required for --self-update-check (e.g. https://xyz.supabase.co/functions/v1)")
+		}
+		if err := selfUpdateCheck(*apiURL); err != nil {
+			log.Fatalf("update check failed: %v", err)
+		}
+		return
+	}
 
 	// --- update ---
 	if *updateAgent {
@@ -585,3 +599,72 @@ func selfUpdate(apiURL string) error {
 	}
 	return nil
 }
+
+// ─── selfUpdateCheck ──────────────────────────────────────────────────────────
+// Compares the ETag (SHA-256) returned by the server with a SHA-256 hash of the
+// running binary.  Prints one of:
+//   update-available: true   (hashes differ or no local ETag to compare)
+//   update-available: false  (running binary matches server)
+//
+// The server is expected to return an ETag header whose value is a hex-encoded
+// SHA-256 of the binary, e.g. `"abc123..."` (with or without quotes).
+func selfUpdateCheck(apiURL string) error {
+	exe, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("cannot resolve executable: %w", err)
+	}
+	exe, err = filepath.EvalSymlinks(exe)
+	if err != nil {
+		return fmt.Errorf("cannot resolve symlinks: %w", err)
+	}
+
+	// 1. Compute SHA-256 of the running binary.
+	f, err := os.Open(exe)
+	if err != nil {
+		return fmt.Errorf("open binary: %w", err)
+	}
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		f.Close()
+		return fmt.Errorf("hash binary: %w", err)
+	}
+	f.Close()
+	localHash := hex.EncodeToString(h.Sum(nil))
+
+	// 2. HEAD request to the download endpoint – get ETag without downloading.
+	checkURL := fmt.Sprintf("%s/download-connector?os=%s&arch=%s", apiURL, runtime.GOOS, runtime.GOARCH)
+	req, err := http.NewRequest(http.MethodHead, checkURL, nil)
+	if err != nil {
+		return fmt.Errorf("build request: %w", err)
+	}
+	client := &http.Client{Timeout: 15 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("HEAD request failed: %w", err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("server returned HTTP %d", resp.StatusCode)
+	}
+
+	// 3. Extract ETag, strip surrounding quotes if present.
+	etag := resp.Header.Get("ETag")
+	if etag == "" {
+		// No ETag means we cannot compare – assume update available.
+		fmt.Printf("update-available: true\nreason: server did not return an ETag\nlocal-sha256: %s\n", localHash)
+		return nil
+	}
+	serverHash := etag
+	if len(serverHash) >= 2 && serverHash[0] == '"' && serverHash[len(serverHash)-1] == '"' {
+		serverHash = serverHash[1 : len(serverHash)-1]
+	}
+
+	// 4. Compare.
+	if serverHash == localHash {
+		fmt.Printf("update-available: false\nlocal-sha256:  %s\nserver-sha256: %s\n", localHash, serverHash)
+	} else {
+		fmt.Printf("update-available: true\nlocal-sha256:  %s\nserver-sha256: %s\n", localHash, serverHash)
+	}
+	return nil
+}
+

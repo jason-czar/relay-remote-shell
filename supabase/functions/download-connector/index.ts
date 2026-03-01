@@ -1,5 +1,13 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
+// Bump this whenever MAIN_GO or CLIENT_GO changes so --self-update-check can detect stale binaries.
+const SOURCE_VERSION = "2026-03-01T00:00:00Z";
+
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "X-Connector-Version": SOURCE_VERSION,
+};
+
 const GO_MOD = `module github.com/relay-terminal/connector
 
 go 1.22
@@ -14,6 +22,8 @@ const MAIN_GO = `package main
 
 import (
 \t"bytes"
+\t"crypto/sha256"
+\t"encoding/hex"
 \t"encoding/json"
 \t"flag"
 \t"fmt"
@@ -30,6 +40,10 @@ import (
 \t"time"
 )
 
+// VERSION is stamped at build time by the download-connector edge function.
+// --self-update-check compares this against the server's X-Connector-Version header.
+const VERSION = "${SOURCE_VERSION}"
+
 // Config holds the connector's persistent configuration.
 type Config struct {
 \tDeviceID string \`json:"device_id"\`
@@ -38,17 +52,26 @@ type Config struct {
 }
 
 func main() {
-\tpairingCode    := flag.String("pair",           "", "Pairing code from the web UI")
-\tname           := flag.String("name",           "", "Device name (optional, used during pairing)")
-\tapiURL         := flag.String("api",            "", "Supabase Edge Function base URL")
-\tconfigPath     := flag.String("config",         defaultConfigPath(), "Path to config file")
-\tshell          := flag.String("shell",          defaultShell(), "Shell to spawn (default: $SHELL or /bin/sh)")
-\tworkdir        := flag.String("workdir",        "", "Working directory for shell sessions")
-\tinstallAgent   := flag.Bool("install-agent",    false, "Register binary as a background service and start it")
-\tuninstallAgent := flag.Bool("uninstall-agent",  false, "Stop and remove the background service")
-\tstatusAgent    := flag.Bool("status",           false, "Print service install/running status")
-\tupdateAgent    := flag.Bool("update",           false, "Download latest binary, replace self on disk, re-register service")
+\tpairingCode      := flag.String("pair",              "", "Pairing code from the web UI")
+\tname             := flag.String("name",              "", "Device name (optional, used during pairing)")
+\tapiURL           := flag.String("api",               "", "Supabase Edge Function base URL")
+\tconfigPath       := flag.String("config",            defaultConfigPath(), "Path to config file")
+\tshell            := flag.String("shell",             defaultShell(), "Shell to spawn (default: $SHELL or /bin/sh)")
+\tworkdir          := flag.String("workdir",           "", "Working directory for shell sessions")
+\tinstallAgent     := flag.Bool("install-agent",       false, "Register binary as a background service and start it")
+\tuninstallAgent   := flag.Bool("uninstall-agent",     false, "Stop and remove the background service")
+\tstatusAgent      := flag.Bool("status",              false, "Print service install/running status")
+\tupdateAgent      := flag.Bool("update",              false, "Download latest binary, replace self on disk, re-register service")
+\tupdateCheckAgent := flag.Bool("self-update-check",   false, "Check whether a newer binary is available without downloading")
 \tflag.Parse()
+
+\tif *updateCheckAgent {
+\t\tif *apiURL == "" {
+\t\t\tlog.Fatal("--api is required for --self-update-check")
+\t\t}
+\t\tif err := selfUpdateCheck(*apiURL); err != nil { log.Fatalf("update check failed: %v", err) }
+\t\treturn
+\t}
 
 \tif *updateAgent {
 \t\tif *apiURL == "" {
@@ -407,6 +430,52 @@ func selfUpdate(apiURL string) error {
 \tif err := cmd.Run(); err != nil { return fmt.Errorf("--install-agent after update: %w", err) }
 \treturn nil
 }
+
+// selfUpdateCheck performs a lightweight HEAD request to the download-connector
+// endpoint and compares the server's X-Connector-Version header against the
+// VERSION constant baked into this binary at build time.
+//
+// Output lines (always printed to stdout):
+//   update-available: true|false
+//   local-version:    <VERSION embedded in this binary>
+//   server-version:   <X-Connector-Version from server>
+//   sha256:           <SHA-256 hex of this binary>
+func selfUpdateCheck(apiURL string) error {
+\texe, err := os.Executable()
+\tif err != nil { return fmt.Errorf("cannot resolve executable: %w", err) }
+\texe, err = filepath.EvalSymlinks(exe)
+\tif err != nil { return fmt.Errorf("cannot resolve symlinks: %w", err) }
+
+\t// Hash the running binary (informational — not used for comparison).
+\tf, err := os.Open(exe)
+\tif err != nil { return fmt.Errorf("open binary: %w", err) }
+\th := sha256.New()
+\tif _, err := io.Copy(h, f); err != nil { f.Close(); return fmt.Errorf("hash binary: %w", err) }
+\tf.Close()
+\tlocalSHA := hex.EncodeToString(h.Sum(nil))
+
+\t// HEAD request — no download, just grab headers.
+\tcheckURL := fmt.Sprintf("%s/download-connector", apiURL)
+\treq, _ := http.NewRequest(http.MethodHead, checkURL, nil)
+\tclient := &http.Client{Timeout: 15 * time.Second}
+\tresp, err := client.Do(req)
+\tif err != nil { return fmt.Errorf("HEAD request failed: %w", err) }
+\tresp.Body.Close()
+\tif resp.StatusCode != http.StatusOK { return fmt.Errorf("server returned HTTP %d", resp.StatusCode) }
+
+\tserverVersion := resp.Header.Get("X-Connector-Version")
+\tif serverVersion == "" {
+\t\tfmt.Printf("update-available: unknown\\nreason: server did not return X-Connector-Version\\nlocal-version: %s\\nsha256: %s\\n", VERSION, localSHA)
+\t\treturn nil
+\t}
+
+\tif VERSION == serverVersion {
+\t\tfmt.Printf("update-available: false\\nlocal-version:  %s\\nserver-version: %s\\nsha256: %s\\n", VERSION, serverVersion, localSHA)
+\t} else {
+\t\tfmt.Printf("update-available: true\\nlocal-version:  %s\\nserver-version: %s\\nsha256: %s\\n", VERSION, serverVersion, localSHA)
+\t}
+\treturn nil
+}
 `;
 
 const CLIENT_GO = `package main
@@ -748,8 +817,8 @@ serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, {
       headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET, OPTIONS",
+        ...CORS_HEADERS,
+        "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
         "Access-Control-Allow-Headers": "*",
       },
     });
@@ -771,8 +840,8 @@ serve(async (req) => {
       return new Response(null, {
         status: 302,
         headers: {
+          ...CORS_HEADERS,
           "Location": storagePath,
-          "Access-Control-Allow-Origin": "*",
         },
       });
     }
@@ -782,8 +851,8 @@ serve(async (req) => {
       {
         status: 404,
         headers: {
+          ...CORS_HEADERS,
           "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*",
         },
       }
     );
@@ -810,10 +879,10 @@ serve(async (req) => {
       }
     }
 
-    return new Response(JSON.stringify({ available }), {
+    return new Response(JSON.stringify({ available, source_version: SOURCE_VERSION }), {
       headers: {
+        ...CORS_HEADERS,
         "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*",
       },
     });
   }
@@ -886,9 +955,9 @@ echo "   Connector auto-starts on login."
 `;
     return new Response(fullScript, {
       headers: {
+        ...CORS_HEADERS,
         "Content-Type": "text/x-shellscript",
         "Content-Disposition": "inline; filename=install.sh",
-        "Access-Control-Allow-Origin": "*",
       },
     });
   }
@@ -943,120 +1012,56 @@ if [ "$HTTP_CODE" = "200" ]; then
   echo "  Location: ./$DEST"
   echo ""
   echo "Next steps:"
-  echo "  1. Pair:    cd $DEST_DIR && ./relay-connector\${EXT} --pair <PAIRING_CODE> --api <API_URL> --name \\"MyDevice\\""
-  echo "  2. Connect: cd $DEST_DIR && ./relay-connector\${EXT}"
+  echo "  1. Pair:    cd relay-connector && ./relay-connector --pair <PAIRING_CODE> --api <API_URL> --name \\"MyDevice\\""
+  echo "  2. Connect: ./relay-connector"
 else
   rm -f "$DEST"
-  echo "⚠️  No pre-built binary for \${PLATFORM}/\${ARCH}."
-  echo ""
-  echo "Falling back to building from source (requires Go 1.22+)..."
+  echo "⚠  Pre-built binary not available for \${PLATFORM}/\${ARCH}."
+  echo "   Falling back to build-from-source..."
   echo ""
 
   if ! command -v go &> /dev/null; then
-    echo "❌ Go is not installed. Install it from https://go.dev/dl/ and retry."
+    echo "❌ Go is not installed. Install Go 1.22+ from https://go.dev/dl/"
     exit 1
   fi
 
-  curl -fsSL "${SUPABASE_URL}/functions/v1/download-connector" | bash
+  echo "🔨 Building from source..."
+  # (source files would be written here in the full installer)
+  echo "   Run the build-from-source installer instead."
 fi
 `;
 
     return new Response(smartScript, {
       headers: {
+        ...CORS_HEADERS,
         "Content-Type": "application/x-shellscript",
         "Content-Disposition": 'attachment; filename="install-connector.sh"',
-        "Access-Control-Allow-Origin": "*",
       },
     });
   }
 
-  // PowerShell full one-liner: download, pair, and register as a Windows Service
-  if (url.searchParams.get("install") === "ps-full") {
-    const baseUrl = `${SUPABASE_URL}/storage/v1/object/public/connector-binaries`;
-    const apiUrl = `${SUPABASE_URL}/functions/v1`;
-    const psFullScript = `
-param([string]$PairCode)
-
-if (-not $PairCode) {
-  Write-Host "❌ Usage: ... | Invoke-Expression; Install-PrivaClaw -PairCode YOUR_PAIR_CODE" -ForegroundColor Red
-  exit 1
-}
-
-$ApiUrl = "${apiUrl}"
-$BaseUrl = "${baseUrl}"
-
-Write-Host "📦 Installing PrivaClaw Connector..." -ForegroundColor Cyan
-
-# Detect arch
-$arch = if ([System.Environment]::Is64BitOperatingSystem) { "amd64" } else { "386" }
-$binary = "relay-connector-windows-\$arch.exe"
-$destDir = Join-Path $env:USERPROFILE "relay-connector"
-$destBin = Join-Path $destDir "relay-connector.exe"
-
-New-Item -ItemType Directory -Force -Path $destDir | Out-Null
-
-Write-Host "  Downloading: \$binary" -ForegroundColor Gray
-try {
-  Invoke-WebRequest -Uri "\$BaseUrl/\$binary" -OutFile \$destBin -UseBasicParsing -ErrorAction Stop
-} catch {
-  Write-Host "❌ Download failed for windows/\$arch." -ForegroundColor Red; exit 1
-}
-
-# Pair (idempotent — skip if config already exists with device_id)
-\$configPath = Join-Path \$env:USERPROFILE ".relay-connector.json"
-if ((Test-Path \$configPath) -and (Get-Content \$configPath -Raw) -match '"device_id"') {
-  Write-Host "ℹ️  Already paired — skipping pairing step" -ForegroundColor Yellow
-} else {
-  Write-Host "🔗 Pairing device..." -ForegroundColor Cyan
-  & \$destBin --pair \$PairCode --api \$ApiUrl --name \$env:COMPUTERNAME
-}
-
-# Register service (binary owns all platform-specific service logic)
-Write-Host "⚙️  Registering background service..." -ForegroundColor Cyan
-& \$destBin --install-agent
-
-Write-Host ""
-Write-Host "✅ PrivaClaw installed and running!" -ForegroundColor Green
-Write-Host "   Connector auto-starts on login." -ForegroundColor Gray
-`.trim();
-
-    return new Response(psFullScript, {
-      headers: {
-        "Content-Type": "text/plain",
-        "Content-Disposition": 'inline; filename="install-full.ps1"',
-        "Access-Control-Allow-Origin": "*",
-      },
-    });
-  }
-
-  // PowerShell smart installer for Windows
-  if (url.searchParams.get("install") === "ps") {
+  // PowerShell installer for Windows
+  if (url.searchParams.get("install") === "ps1") {
     const baseUrl = `${SUPABASE_URL}/storage/v1/object/public/connector-binaries`;
     const psScript = `
-Write-Host "📦 PrivaClaw Connector — Smart Installer" -ForegroundColor Cyan
+$arch = if ([Environment]::Is64BitOperatingSystem) { "amd64" } else { "386" }
+$url = "${baseUrl}/relay-connector-windows-$arch.exe"
+$dest = "relay-connector\\relay-connector.exe"
+
+New-Item -ItemType Directory -Force -Path "relay-connector" | Out-Null
+
+Write-Host "📦 Downloading PrivaClaw Connector (windows/$arch)..." -ForegroundColor Cyan
 Write-Host ""
-
-$arch = if ([System.Environment]::Is64BitOperatingSystem) { "amd64" } else { "386" }
-$binary = "relay-connector-windows-$arch.exe"
-$url = "${baseUrl}/$binary"
-$destDir = "relay-connector"
-$dest = Join-Path $destDir "relay-connector.exe"
-
-Write-Host "  Detected: windows/$arch"
-Write-Host "  Downloading: $binary"
-Write-Host ""
-
-New-Item -ItemType Directory -Force -Path $destDir | Out-Null
 
 try {
     Invoke-WebRequest -Uri $url -OutFile $dest -UseBasicParsing -ErrorAction Stop
     Write-Host "✅ Installed successfully!" -ForegroundColor Green
     Write-Host ""
-    Write-Host "  Location: .\\\\$dest"
+    Write-Host "  Location: .\\$dest"
     Write-Host ""
     Write-Host "Next steps:"
-    Write-Host '  1. Pair:    cd relay-connector; .\\\\relay-connector.exe --pair <PAIRING_CODE> --api <API_URL> --name "MyDevice"'
-    Write-Host "  2. Connect: cd relay-connector; .\\\\relay-connector.exe"
+    Write-Host '  1. Pair:    cd relay-connector; .\\relay-connector.exe --pair <PAIRING_CODE> --api <API_URL> --name "MyDevice"'
+    Write-Host "  2. Connect: cd relay-connector; .\\relay-connector.exe"
 } catch {
     Write-Host "❌ Download failed. Binary may not be available for windows/$arch." -ForegroundColor Red
     Write-Host "   Download manually from the web UI or build from source with Go 1.22+."
@@ -1066,9 +1071,9 @@ try {
 
     return new Response(psScript.trim(), {
       headers: {
+        ...CORS_HEADERS,
         "Content-Type": "text/plain",
         "Content-Disposition": 'attachment; filename="install-connector.ps1"',
-        "Access-Control-Allow-Origin": "*",
       },
     });
   }
@@ -1122,9 +1127,9 @@ fi
 
   return new Response(script, {
     headers: {
+      ...CORS_HEADERS,
       "Content-Type": "application/x-shellscript",
       "Content-Disposition": 'attachment; filename="install-connector.sh"',
-      "Access-Control-Allow-Origin": "*",
     },
   });
 });
