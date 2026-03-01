@@ -762,7 +762,7 @@ export function ChatMessage({ role, content, thinking, streaming, activityStatus
         </div>
 
         {/* Interactive option buttons — shown when agent asks a question */}
-        {!streaming && onOptionSelect && hasOptions && (
+        {onOptionSelect && hasOptions && (
           <div className="mt-3 mb-1">
             {/* "Awaiting reply" badge */}
             <div className="flex items-center gap-1.5 mb-2">
