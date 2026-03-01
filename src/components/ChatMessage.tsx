@@ -194,12 +194,14 @@ function ResultPanel({ result, isError, hasBorder }: { result: string; isError: 
 
 // ── Tool call card ────────────────────────────────────────────────────────────
 
-function ToolCallCard({ entry, isLast, agentColor }: {
+function ToolCallCard({ entry, isLast, agentColor, forceOpen }: {
   entry: LiveLogEntry;
   isLast: boolean;
   agentColor: string;
+  forceOpen?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const effectiveOpen = forceOpen !== undefined ? forceOpen : open;
   const data = entry.toolCallData;
   const inProgress = data != null && data.startedAt !== undefined && data.durationMs === undefined;
   const [elapsed, setElapsed] = useState<number>(
@@ -265,7 +267,7 @@ function ToolCallCard({ entry, isLast, agentColor }: {
           {data.name}
         </span>
         {/* Input preview */}
-        {inputStr && !open && (
+        {inputStr && !effectiveOpen && (
           <span className="font-mono text-[10px] text-muted-foreground/50 truncate min-w-0">
             {inputStr.replace(/\n\s+/g, " ").slice(0, 80)}
           </span>
@@ -283,12 +285,12 @@ function ToolCallCard({ entry, isLast, agentColor }: {
               {durationLabel}
             </span>
           )}
-          {open ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+          {effectiveOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
         </span>
       </button>
 
       {/* Expanded detail */}
-      {open && (
+      {effectiveOpen && (
         <div className="border-t border-border/20">
           {/* Input */}
           {inputStr && (
@@ -324,6 +326,64 @@ function ToolCallCard({ entry, isLast, agentColor }: {
               <span className="font-mono text-[11px] text-muted-foreground/50 italic">{resultPreview}</span>
             </div>
           )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Completed tool calls section ─────────────────────────────────────────────
+
+function CompletedToolCallsSection({ entries, agent }: {
+  entries: LiveLogEntry[];
+  agent?: string;
+}) {
+  const [allOpen, setAllOpen] = useState(false);
+
+  const agentColor =
+    agent === "claude" ? "hsl(180 60% 45%)" :
+    agent === "codex"  ? "hsl(220 80% 65%)" :
+                         "hsl(280 65% 65%)";
+  const totalMs = entries.reduce((sum, e) => sum + (e.toolCallData?.durationMs ?? 0), 0);
+  const finishedCount = entries.filter(e => e.toolCallData?.durationMs !== undefined).length;
+  const totalLabel = totalMs < 1000 ? `${totalMs}ms` : `${(totalMs / 1000).toFixed(1)}s`;
+
+  return (
+    <div className="mt-3 space-y-1">
+      {entries.map((entry, i) => (
+        <ToolCallCard
+          key={i}
+          entry={entry}
+          isLast={false}
+          agentColor={agentColor}
+          forceOpen={allOpen ? true : undefined}
+        />
+      ))}
+      {finishedCount > 0 && (
+        <div className="flex items-center gap-2 pt-1.5 px-3">
+          <button
+            onClick={() => setAllOpen(v => !v)}
+            className={cn(
+              "flex items-center gap-1.5 px-2 py-1 rounded-full border transition-colors",
+              allOpen
+                ? "border-border/40 bg-white/[0.06] text-muted-foreground/70 hover:bg-white/[0.09]"
+                : "border-border/20 bg-white/[0.03] text-muted-foreground/50 hover:bg-white/[0.06] hover:border-border/30"
+            )}
+            title={allOpen ? "Collapse all tool cards" : "Expand all tool cards"}
+          >
+            <CheckCircle2 className="h-2.5 w-2.5 text-muted-foreground/30" />
+            <span className="text-[9px] font-mono">
+              {finishedCount} tool{finishedCount !== 1 ? "s" : ""}
+            </span>
+            <span className="text-muted-foreground/20 text-[9px]">·</span>
+            <span className="text-[9px] font-mono tabular-nums font-semibold">
+              {totalLabel} total
+            </span>
+            {allOpen
+              ? <ChevronDown className="h-2.5 w-2.5 text-muted-foreground/40" />
+              : <ChevronRight className="h-2.5 w-2.5 text-muted-foreground/40" />
+            }
+          </button>
         </div>
       )}
     </div>
@@ -925,47 +985,9 @@ export function ChatMessage({ role, content, thinking, streaming, activityStatus
           )}
 
           {/* Completed tool call cards — shown after streaming finishes */}
-          {completedToolCalls && completedToolCalls.length > 0 && (() => {
-            const agentColor =
-              agent === "claude" ? "hsl(180 60% 45%)" :
-              agent === "codex"  ? "hsl(220 80% 65%)" :
-                                   "hsl(280 65% 65%)";
-            const totalMs = completedToolCalls.reduce(
-              (sum, e) => sum + (e.toolCallData?.durationMs ?? 0), 0
-            );
-            const finishedCount = completedToolCalls.filter(
-              e => e.toolCallData?.durationMs !== undefined
-            ).length;
-            const totalLabel = totalMs < 1000
-              ? `${totalMs}ms`
-              : `${(totalMs / 1000).toFixed(1)}s`;
-            return (
-              <div className="mt-3 space-y-1">
-                {completedToolCalls.map((entry, i) => (
-                  <ToolCallCard
-                    key={i}
-                    entry={entry}
-                    isLast={false}
-                    agentColor={agentColor}
-                  />
-                ))}
-                {finishedCount > 0 && (
-                  <div className="flex items-center gap-2 pt-1.5 px-3">
-                    <div className="flex items-center gap-1.5 px-2 py-1 rounded-full border border-border/20 bg-white/[0.03]">
-                      <CheckCircle2 className="h-2.5 w-2.5 text-muted-foreground/30" />
-                      <span className="text-[9px] font-mono text-muted-foreground/40">
-                        {finishedCount} tool{finishedCount !== 1 ? "s" : ""}
-                      </span>
-                      <span className="text-muted-foreground/20 text-[9px]">·</span>
-                      <span className="text-[9px] font-mono tabular-nums font-semibold text-muted-foreground/60">
-                        {totalLabel} total
-                      </span>
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          })()}
+          {completedToolCalls && completedToolCalls.length > 0 && (
+            <CompletedToolCallsSection entries={completedToolCalls} agent={agent} />
+          )}
           {/* Tool-call chips — animated while streaming, faded when done */}
           {toolCalls && toolCalls.length > 0 && (
             <div className="flex flex-wrap gap-1 mt-2">
