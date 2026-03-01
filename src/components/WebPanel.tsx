@@ -426,9 +426,17 @@ export function WebPanel({ initialUrl = "", deviceId, deviceName, onClose }: Web
             className="h-6 text-xs bg-muted/50 border-none px-2"
           />
         </form>
-        {loading && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
-        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleReload} title="Reload">
-          <RotateCcw className="h-3 w-3" />
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7 shrink-0"
+          onClick={handleReload}
+          title="Reload"
+          disabled={loading}
+        >
+          {loading
+            ? <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+            : <RotateCcw className="h-3.5 w-3.5" />}
         </Button>
         {onClose && (
           <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive" onClick={onClose} title="Close">
