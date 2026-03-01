@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.invite-member]
 verify_jwt = false
+
+[functions.fetch-logs]
+verify_jwt = false
