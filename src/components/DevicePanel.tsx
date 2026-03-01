@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
-import { X, Terminal, Wifi, WifiOff, Plus, Copy, Check, Loader2, Info, AlertCircle, Trash2, Power, RefreshCw, PackageX, Activity } from "lucide-react";
+import { X, Terminal, Wifi, WifiOff, Plus, Copy, Check, Loader2, Info, AlertCircle, Trash2, Power, RefreshCw, PackageX, Activity, ArrowUpCircle } from "lucide-react";
 import type { Tables } from "@/integrations/supabase/types";
 
 const API_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
@@ -301,6 +301,12 @@ export function DevicePanel({ open, onClose, devices, selectedDeviceId, onSelect
   const [statusCheckLoading, setStatusCheckLoading] = useState(false);
   const [statusOutput, setStatusOutput] = useState<string | null>(null);
 
+  // Update agent state
+  const [updateAgentId, setUpdateAgentId] = useState<string | null>(null);
+  const [updateAgentLog, setUpdateAgentLog] = useState<string>("");
+  const [updateAgentDone, setUpdateAgentDone] = useState(false);
+
+
   const getOneLiner = useCallback((d: Tables<"devices">) => {
     if (!d.pairing_code) return "";
     return `curl -fsSL "${API_URL}/download-connector?install=full" | bash -s -- "${d.pairing_code}"`;
@@ -464,6 +470,28 @@ export function DevicePanel({ open, onClose, devices, selectedDeviceId, onSelect
     setStatusCheckLoading(false);
   }, [sendRelayCommand]);
 
+  // ── Update agent via relay ────────────────────────────────────────────────
+  const handleUpdateAgent = useCallback(async (deviceId: string) => {
+    setUpdateAgentId(deviceId);
+    setUpdateAgentLog("Connecting to device…\n");
+    setUpdateAgentDone(false);
+    try {
+      const cmd = `./relay-connector --update --api ${API_URL}\n`;
+      await sendRelayCommand(
+        deviceId,
+        cmd,
+        (chunk) => setUpdateAgentLog((prev) => prev + chunk),
+        (acc) => acc.includes("✅") && acc.includes("install-agent"),
+        60000, // allow up to 60s for download + reinstall
+      );
+      setUpdateAgentDone(true);
+    } catch (err: any) {
+      setUpdateAgentLog((prev) => prev + `\nError: ${err.message}`);
+      setUpdateAgentDone(true);
+    }
+  }, [sendRelayCommand]);
+
+
   return (
     <>
       {/* Backdrop */}
@@ -594,6 +622,27 @@ export function DevicePanel({ open, onClose, devices, selectedDeviceId, onSelect
                             : <Activity className="h-3.5 w-3.5" />}
                         </button>
                       )}
+                      {/* Update agent via relay — only for online devices */}
+                      {d.status === "online" && (
+                        <button
+                          onClick={() => {
+                            if (updateAgentId === d.id) { setUpdateAgentId(null); setUpdateAgentLog(""); setUpdateAgentDone(false); }
+                            else { handleUpdateAgent(d.id); }
+                          }}
+                          title="Update agent on device"
+                          disabled={updateAgentId === d.id && !updateAgentDone}
+                          className={cn(
+                            "w-6 h-6 flex items-center justify-center rounded-md transition-colors disabled:opacity-60",
+                            updateAgentId === d.id
+                              ? "bg-primary/15 text-primary"
+                              : "text-muted-foreground hover:text-primary hover:bg-primary/10"
+                          )}
+                        >
+                          {updateAgentId === d.id && !updateAgentDone
+                            ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            : <ArrowUpCircle className="h-3.5 w-3.5" />}
+                        </button>
+                      )}
                       {/* Uninstall agent */}
                       <button
                         onClick={() => { setConfirmUninstallId((prev) => prev === d.id ? null : d.id); setConfirmDeleteId(null); }}
@@ -701,6 +750,45 @@ export function DevicePanel({ open, onClose, devices, selectedDeviceId, onSelect
                         </div>
                         {statusOutput && (
                           <StatusOutputBlock raw={statusOutput} loading={statusCheckLoading && statusCheckId === d.id} />
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  {/* Update Agent progress panel */}
+                  {updateAgentId === d.id && (
+                    <div className="mt-1 mb-1 px-1 pb-1">
+                      <div className={cn(
+                        "rounded-lg border p-3 flex flex-col gap-2 transition-colors",
+                        updateAgentDone
+                          ? "border-status-online/30 bg-status-online/5"
+                          : "border-primary/20 bg-primary/5"
+                      )}>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5">
+                            {updateAgentDone
+                              ? <Check className="h-3 w-3 text-status-online shrink-0" />
+                              : <Loader2 className="h-3 w-3 text-primary animate-spin shrink-0" />}
+                            <p className="text-[11px] font-semibold text-foreground/80">
+                              {updateAgentDone ? "Update complete" : "Updating agent…"}
+                            </p>
+                          </div>
+                          {updateAgentDone && (
+                            <button
+                              onClick={() => { setUpdateAgentId(null); setUpdateAgentLog(""); setUpdateAgentDone(false); }}
+                              className="text-muted-foreground hover:text-foreground transition-colors"
+                              title="Dismiss"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          )}
+                        </div>
+                        <pre className="text-[10px] font-mono text-foreground/70 bg-muted/40 rounded p-2 overflow-x-auto max-h-36 whitespace-pre-wrap break-all [scrollbar-width:thin]">
+                          {updateAgentLog || "…"}
+                        </pre>
+                        {!updateAgentDone && (
+                          <p className="text-[10px] text-muted-foreground">
+                            Downloading latest binary and re-registering service on the device…
+                          </p>
                         )}
                       </div>
                     </div>
