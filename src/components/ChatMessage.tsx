@@ -157,6 +157,17 @@ function ToolCallCard({ entry, isLast, agentColor }: {
 }) {
   const [open, setOpen] = useState(false);
   const data = entry.toolCallData;
+  const inProgress = data != null && data.startedAt !== undefined && data.durationMs === undefined;
+  const [elapsed, setElapsed] = useState<number>(
+    inProgress && data?.startedAt ? Date.now() - data.startedAt : 0
+  );
+
+  useEffect(() => {
+    if (!inProgress || !data?.startedAt) return;
+    const id = setInterval(() => setElapsed(Date.now() - data.startedAt!), 100);
+    return () => clearInterval(id);
+  }, [inProgress, data?.startedAt]);
+
   if (!data) return null;
 
   const hasInput = data.input && Object.keys(data.input).length > 0;
@@ -171,12 +182,13 @@ function ToolCallCard({ entry, isLast, agentColor }: {
     ? data.result.length > 120 ? data.result.slice(0, 120) + "…" : data.result
     : null;
 
-  // Format duration
+  // Format duration — finalised or live elapsed
+  const formatMs = (ms: number) => ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`;
   const durationLabel = data.durationMs !== undefined
-    ? data.durationMs < 1000
-      ? `${data.durationMs}ms`
-      : `${(data.durationMs / 1000).toFixed(1)}s`
-    : null;
+    ? formatMs(data.durationMs)
+    : inProgress && elapsed > 0
+      ? formatMs(elapsed)
+      : null;
 
   return (
     <div
@@ -214,10 +226,12 @@ function ToolCallCard({ entry, isLast, agentColor }: {
         <span className="ml-auto shrink-0 flex items-center gap-1.5 text-muted-foreground/40">
           {durationLabel && (
             <span className={cn(
-              "text-[9px] font-mono tabular-nums px-1 py-0.5 rounded",
-              data.isError
-                ? "text-destructive/70 bg-destructive/10"
-                : "text-muted-foreground/50 bg-white/5"
+              "text-[9px] font-mono tabular-nums px-1 py-0.5 rounded transition-colors",
+              inProgress
+                ? "text-primary/80 bg-primary/10 animate-pulse"
+                : data.isError
+                  ? "text-destructive/70 bg-destructive/10"
+                  : "text-muted-foreground/50 bg-white/5"
             )}>
               {durationLabel}
             </span>
