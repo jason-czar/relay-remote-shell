@@ -71,10 +71,12 @@ export function PreviewPanel({
   }, [submittedUrl]);
 
   return (
-    <div className={cn(
-      "flex flex-col h-full bg-[hsl(0,0%,8%)] overflow-hidden transition-transform duration-300 ease-in-out",
-      activeTab === "chat" && "translate-y-full"
-    )}>
+    <div className="flex flex-col h-full bg-[hsl(0,0%,8%)] overflow-hidden">
+      {/* Main preview content — slides off-screen when chat tab is active (mobile only) */}
+      <div className={cn(
+        "flex-1 min-h-0 flex flex-col overflow-hidden transition-transform duration-300 ease-in-out",
+        onSwitchToChat && activeTab === "chat" ? "translate-y-full pointer-events-none" : "translate-y-0"
+      )}>
 
       {/* ── URL bar row ────────────────────────────────────────────── */}
       <div className="shrink-0 px-3 pt-3 pb-2">
@@ -143,9 +145,62 @@ export function PreviewPanel({
         )}
       </div>
 
-      {/* ── Bottom tab bar ─────────────────────────────────────────── */}
+      {/* ── Bottom tab bar / desktop close row ────────────────────── */}
+      {!onSwitchToChat && (
       <div className="shrink-0 px-3 py-2.5 flex items-center gap-2">
         {/* History / back button */}
+        <button
+          className="w-9 h-9 flex items-center justify-center rounded-full bg-[hsl(0,0%,16%)] text-muted-foreground hover:text-foreground transition-colors shrink-0"
+          title="Close preview"
+          onClick={onClose}
+        >
+          <X className="h-4 w-4" />
+        </button>
+
+        {/* More menu */}
+        <div className="relative shrink-0 ml-auto" ref={moreRef}>
+          <button
+            className="w-9 h-9 flex items-center justify-center rounded-full bg-[hsl(0,0%,16%)] text-muted-foreground hover:text-foreground transition-colors"
+            onClick={() => setMoreOpen(v => !v)}
+            title="More options"
+          >
+            <MoreHorizontal className="h-4 w-4" />
+          </button>
+
+          {moreOpen && (
+            <div className="absolute bottom-11 right-0 w-44 bg-[hsl(0,0%,15%)] border border-border/30 rounded-xl shadow-xl overflow-hidden z-50">
+              <button
+                className="w-full text-left px-4 py-2.5 text-sm text-foreground hover:bg-accent/40 transition-colors flex items-center gap-2"
+                onClick={() => { handleReload(); setMoreOpen(false); }}
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+                Reload
+              </button>
+              <button
+                className="w-full text-left px-4 py-2.5 text-sm text-foreground hover:bg-accent/40 transition-colors flex items-center gap-2"
+                onClick={() => { handleOpenExternal(); setMoreOpen(false); }}
+              >
+                <ArrowUpRight className="h-3.5 w-3.5" />
+                Open in new tab
+              </button>
+              <button
+                className="w-full text-left px-4 py-2.5 text-sm text-destructive hover:bg-destructive/10 transition-colors flex items-center gap-2"
+                onClick={() => { onClose(); setMoreOpen(false); }}
+              >
+                <X className="h-3.5 w-3.5" />
+                Close preview
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+      )}
+      </div>{/* end sliding content */}
+
+      {/* ── Mobile tab bar — always visible, outside the sliding panel ── */}
+      {onSwitchToChat && (
+      <div className="shrink-0 px-3 py-2.5 flex items-center gap-2 bg-[hsl(0,0%,8%)]">
+        {/* Close button */}
         <button
           className="w-9 h-9 flex items-center justify-center rounded-full bg-[hsl(0,0%,16%)] text-muted-foreground hover:text-foreground transition-colors shrink-0"
           title="Close preview"
@@ -220,6 +275,7 @@ export function PreviewPanel({
           )}
         </div>
       </div>
+      )}
     </div>
   );
 }
