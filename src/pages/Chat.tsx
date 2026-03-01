@@ -553,16 +553,30 @@ export default function Chat() {
   }, []);
 
   // Called for each live stdout chunk — promotes status based on content
-  const onChunkActivity = useCallback((chunk: string) => {
-    const { status, toolName } = parseChunkActivity(chunk);
-    if (status) setActivityStatus(status);
-    if (toolName) setToolCalls((prev) => prev.includes(toolName) ? prev : [...prev, toolName]);
-  }, []);
-
   const stopActivity = useCallback(() => {
     if (activityTimerRef.current) { clearInterval(activityTimerRef.current); activityTimerRef.current = null; }
     setActivityStatus(null);
     setToolCalls([]);
+  }, []);
+
+  const detectedPortRef = useRef<string | null>(null);
+  const [detectedPreviewPort, setDetectedPreviewPort] = useState<string | null>(null);
+
+  const onChunkActivity = useCallback((chunk: string) => {
+    const { status, toolName } = parseChunkActivity(chunk);
+    if (status) setActivityStatus(status);
+    if (toolName) setToolCalls(prev => [...prev, toolName]);
+    // Detect dev server port from stdout (Vite, Next, CRA, etc.)
+    const portMatch = chunk.match(
+      /(?:localhost|127\.0\.0\.1):(\d{4,5})|Local:\s+https?:\/\/(?:localhost|127\.0\.0\.1):(\d{4,5})/i
+    );
+    if (portMatch) {
+      const port = portMatch[1] ?? portMatch[2];
+      if (port && port !== detectedPortRef.current) {
+        detectedPortRef.current = port;
+        setDetectedPreviewPort(port);
+      }
+    }
   }, []);
   const prevMsgCountRef = useRef(0);
 
@@ -639,7 +653,7 @@ export default function Chat() {
 
   // ── Load messages on conversation select ──────────────────────────────
   useEffect(() => {
-    if (!activeConvId) {setMessages([]);return;}
+    if (!activeConvId) {setMessages([]);setDetectedPreviewPort(null);detectedPortRef.current=null;return;}
     supabase.
     from("chat_messages").
     select("id, role, content, created_at, raw_stdout").
@@ -1977,6 +1991,33 @@ export default function Chat() {
               )}
             </div>
           ) : (
+          <>
+          {/* Dev server detected banner */}
+          {detectedPreviewPort && !showPreview && (
+            <div className="animate-fade-in flex items-center gap-2 px-4 py-2 mx-4 mt-3 rounded-lg border border-primary/30 bg-primary/5 text-sm">
+              <Monitor className="h-3.5 w-3.5 text-primary shrink-0" />
+              <span className="flex-1 text-muted-foreground">Dev server detected on <span className="font-medium text-foreground">:{detectedPreviewPort}</span></span>
+              <Button
+                size="sm"
+                variant="default"
+                className="h-6 px-2.5 text-xs"
+                onClick={() => {
+                  setPreviewUrl(`http://127.0.0.1:${detectedPreviewPort}`);
+                  setPreviewInputPort(detectedPreviewPort);
+                  setShowPreview(true);
+                }}
+              >
+                Open Preview
+              </Button>
+              <button
+                onClick={() => { setDetectedPreviewPort(null); detectedPortRef.current = null; }}
+                className="text-muted-foreground hover:text-foreground transition-colors"
+                aria-label="Dismiss"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
           <div ref={scrollRef} onScroll={handleScroll} className={`flex-1 overflow-y-auto ${messages.length === 0 && !thinking ? "flex items-center justify-center" : "py-8 sm:py-10"}`}>
             <div key={activeConvId ?? "new"} className="max-w-[900px] mx-auto px-4 sm:px-8 animate-fade-in">
               {messages.length === 0 && !thinking &&
@@ -2082,7 +2123,7 @@ export default function Chat() {
               </div>
             </div>
           </div>
-          )} {/* end terminal/chat conditional */}
+          </>)} {/* end terminal/chat conditional */}
 
           {/* Jump-to-bottom FAB */}
           {isScrolledUp &&
