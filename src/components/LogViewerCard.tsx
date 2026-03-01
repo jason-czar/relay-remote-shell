@@ -50,6 +50,7 @@ export function LogViewerCard() {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [lastFetched, setLastFetched] = useState<Date | null>(null);
+  const [secondsUntilRefresh, setSecondsUntilRefresh] = useState(60);
   const [filterFn, setFilterFn] = useState<string>("all");
   const [filterLevel, setFilterLevel] = useState<string>("all");
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
@@ -84,6 +85,7 @@ export function LogViewerCard() {
       setLogs(result.logs ?? []);
       setFunctions(result.functions ?? []);
       setLastFetched(new Date());
+      setSecondsUntilRefresh(60);
     } catch (err) {
       console.error("Failed to fetch logs:", err);
     } finally {
@@ -93,7 +95,17 @@ export function LogViewerCard() {
 
   useEffect(() => {
     fetchLogs();
+    const interval = setInterval(fetchLogs, 60_000);
+    return () => clearInterval(interval);
   }, [fetchLogs]);
+
+  // Countdown ticker
+  useEffect(() => {
+    const ticker = setInterval(() => {
+      setSecondsUntilRefresh((s) => (s <= 1 ? 60 : s - 1));
+    }, 1000);
+    return () => clearInterval(ticker);
+  }, []);
 
   // Client-side filter on top of fetched data
   const displayed = logs.filter((l) => {
@@ -114,7 +126,9 @@ export function LogViewerCard() {
             Backend Function Logs
           </CardTitle>
           <CardDescription className="body-sm flex items-center gap-3 mt-1">
-            {lastFetched ? `Last fetched ${lastFetched.toLocaleTimeString()}` : "Loading…"}
+            {lastFetched
+              ? `Last fetched ${lastFetched.toLocaleTimeString()} · refreshes in ${secondsUntilRefresh}s`
+              : "Loading…"}
             {errorCount > 0 && (
               <Badge variant="destructive" className="text-xs px-1.5 py-0">{errorCount} error{errorCount > 1 ? "s" : ""}</Badge>
             )}
