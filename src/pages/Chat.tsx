@@ -1470,19 +1470,29 @@ export default function Chat() {
             }
           }
           // Primary: parse --output-format stream-json JSONL lines
-          // Each line is a JSON object; we want type:"assistant" content blocks.
+          // Each line is a JSON object; we want type:"assistant" content blocks
+          // and type:"thinking" blocks for the thinking panel.
           // Final line is type:"result" which carries session_id.
           const claudeJsonlTextParts: string[] = [];
+          const claudeJsonlThinkingParts: string[] = [];
           for (const line of cleaned.split("\n")) {
             const t = line.trim();
             if (!t.startsWith("{")) continue;
             try {
               const obj = JSON.parse(t) as Record<string, unknown>;
-              // Stream-json assistant message
+              // Stream-json thinking block: {"type":"thinking","thinking":"..."}
+              if (obj.type === "thinking" && typeof obj.thinking === "string") {
+                claudeJsonlThinkingParts.push(obj.thinking.trim());
+                continue;
+              }
+              // Stream-json assistant message — flat array in obj.message
               if (obj.type === "assistant" && Array.isArray(obj.message)) {
                 for (const block of obj.message as Record<string, unknown>[]) {
                   if (block.type === "text" && typeof block.text === "string") {
                     claudeJsonlTextParts.push(block.text);
+                  }
+                  if (block.type === "thinking" && typeof block.thinking === "string") {
+                    claudeJsonlThinkingParts.push((block.thinking as string).trim());
                   }
                 }
               }
@@ -1494,10 +1504,17 @@ export default function Chat() {
                     if (block.type === "text" && typeof block.text === "string") {
                       claudeJsonlTextParts.push(block.text);
                     }
+                    if (block.type === "thinking" && typeof block.thinking === "string") {
+                      claudeJsonlThinkingParts.push((block.thinking as string).trim());
+                    }
                   }
                 }
               }
             } catch { /* not JSON */ }
+          }
+          // Merge JSONL thinking with any XML <thinking> blocks (JSONL takes precedence / deduplicates)
+          if (claudeJsonlThinkingParts.length > 0) {
+            claudeThinking = claudeJsonlThinkingParts.join("\n\n");
           }
 
           if (claudeJsonlTextParts.length > 0) {
