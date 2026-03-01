@@ -15,6 +15,10 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Send, ChevronDown, Paperclip, X, FileText, Image, Plus, Monitor, Terminal, Loader2, WifiOff, Square, Mic, ArrowUp, RefreshCw, SquarePen } from "lucide-react";
+import { WebPanel } from "@/components/WebPanel";
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Input } from "@/components/ui/input";
 import { useDeviceModels, invalidateDeviceModelCache } from "@/hooks/useDeviceModels";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -563,6 +567,11 @@ export default function Chat() {
   const prevMsgCountRef = useRef(0);
 
   const [devicePanelOpen, setDevicePanelOpen] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState("");
+  const [previewInputPort, setPreviewInputPort] = useState("3000");
+  const [previewPopoverOpen, setPreviewPopoverOpen] = useState(false);
+  const [previewAutoDetecting, setPreviewAutoDetecting] = useState(false);
   const [devicesLoaded, setDevicesLoaded] = useState(false);
   const { health: relayHealth, refresh: refreshRelayHealth } = useRelayHealth(true);
 
@@ -1711,6 +1720,30 @@ export default function Chat() {
     }
   }, [agent, selectedDeviceId, sendViaRelay, handleNew, toast]);
 
+  // ── Live preview helper ───────────────────────────────────────────────
+  const handleOpenPreview = useCallback(async (port?: string) => {
+    const targetPort = port ?? previewInputPort;
+    setPreviewAutoDetecting(true);
+    setPreviewPopoverOpen(false);
+    try {
+      const detectCmd = `(\n  command -v lsof >/dev/null && lsof -iTCP -sTCP:LISTEN -n -P\n) || (\n  command -v ss >/dev/null && ss -ltn\n) || (\n  netstat -ltn 2>/dev/null\n) | grep -oE ':(3000|5173|8080|4200|8000|8888|4000|3001)\\b' | head -1 | tr -d ':'\n`;
+      const stdout = await sendViaRelay(detectCmd, false);
+      const detected = stdout.replace(/\x1b\[[\d;]*[a-zA-Z]/g, "").trim();
+      const finalPort = detected || targetPort;
+      if (!finalPort || isNaN(Number(finalPort))) { setPreviewAutoDetecting(false); return; }
+      setPreviewUrl(`http://127.0.0.1:${finalPort}`);
+      setPreviewInputPort(finalPort);
+      setShowPreview(true);
+    } catch {
+      const finalPort = targetPort;
+      if (!finalPort || isNaN(Number(finalPort))) { setPreviewAutoDetecting(false); return; }
+      setPreviewUrl(`http://127.0.0.1:${finalPort}`);
+      setShowPreview(true);
+    } finally {
+      setPreviewAutoDetecting(false);
+    }
+  }, [previewInputPort, sendViaRelay]);
+
   // ── Key handler ───────────────────────────────────────────────────────
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -1722,9 +1755,11 @@ export default function Chat() {
   return (
     <AppLayout>
       <div className="flex h-full overflow-hidden">
+        <ResizablePanelGroup direction="horizontal" className="flex-1 min-w-0">
+          <ResizablePanel defaultSize={showPreview ? 50 : 100} minSize={30}>
         {/* Main chat area — sidebar is now in AppSidebar */}
         <div
-          className={`flex flex-col flex-1 min-w-0 h-full relative transition-all duration-150 ${isDragOver ? "ring-2 ring-primary/40 ring-inset" : ""}`}
+          className={`flex flex-col h-full relative transition-all duration-150 ${isDragOver ? "ring-2 ring-primary/40 ring-inset" : ""}`}
           onDragOver={(e) => {e.preventDefault();setIsDragOver(true);}}
           onDragLeave={(e) => {if (!e.currentTarget.contains(e.relatedTarget as Node)) setIsDragOver(false);}}
           onDrop={(e) => {e.preventDefault();setIsDragOver(false);if (e.dataTransfer.files.length) processFiles(e.dataTransfer.files);}}>
@@ -1821,6 +1856,46 @@ export default function Chat() {
                   </Tooltip>
                 );
               })()}
+
+              {/* Preview button */}
+              {selectedDeviceId && (
+                <Popover open={previewPopoverOpen} onOpenChange={setPreviewPopoverOpen}>
+                  <PopoverTrigger asChild>
+                    <button
+                      className={cn(
+                        "hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium transition-colors",
+                        showPreview ? "bg-primary/10 text-primary" : "text-foreground/50 hover:text-foreground hover:bg-accent"
+                      )}
+                      title="Live preview"
+                    >
+                      {previewAutoDetecting
+                        ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        : <Monitor className="h-3.5 w-3.5" />}
+                      <span>{showPreview ? `Preview · :${previewInputPort}` : "Preview"}</span>
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent side="bottom" align="end" className="w-64 p-3">
+                    <p className="text-xs font-medium mb-2">Open live preview</p>
+                    <div className="flex gap-2 mb-2">
+                      <Input
+                        className="h-8 text-sm"
+                        placeholder="Port (e.g. 3000)"
+                        value={previewInputPort}
+                        onChange={e => setPreviewInputPort(e.target.value.replace(/\D/g, ""))}
+                        onKeyDown={e => e.key === "Enter" && handleOpenPreview()}
+                      />
+                      <Button size="sm" className="h-8 shrink-0" onClick={() => handleOpenPreview()}>Open</Button>
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {["3000","5173","8080","4200","8000"].map(p => (
+                        <button key={p} onClick={() => handleOpenPreview(p)}
+                          className="text-xs px-2 py-0.5 rounded-full border hover:bg-accent transition-colors">:{p}</button>
+                      ))}
+                    </div>
+                    <p className="text-[10px] text-muted-foreground mt-2">Auto-detects running dev server on your device.</p>
+                  </PopoverContent>
+                </Popover>
+              )}
 
               {/* Device pill — opens right panel */}
               <button
@@ -2105,6 +2180,22 @@ export default function Chat() {
           )} {/* end agent !== terminal */}
 
         </div>
+          </ResizablePanel>
+          {showPreview && (
+            <>
+              <ResizableHandle withHandle />
+              <ResizablePanel defaultSize={50} minSize={25}>
+                <WebPanel
+                  deviceId={selectedDeviceId}
+                  deviceName={devices.find(d => d.id === selectedDeviceId)?.name}
+                  initialUrl={previewUrl}
+                  onClose={() => { setShowPreview(false); setPreviewUrl(""); }}
+                />
+              </ResizablePanel>
+            </>
+          )}
+        </ResizablePanelGroup>
+      </div>
 
         {/* Agent switch confirmation */}
         <AlertDialog open={!!agentSwitchPending} onOpenChange={(open) => {if (!open) setAgentSwitchPending(null);}}>
@@ -2131,7 +2222,6 @@ export default function Chat() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
-      </div>
 
       {/* Device pairing wizard dialog */}
       <Dialog open={showWizard} onOpenChange={setShowWizard}>
