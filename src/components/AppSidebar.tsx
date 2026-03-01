@@ -303,7 +303,7 @@ export function AppSidebar() {
       </SidebarContent>
 
       {/* ── Footer ──────────────────────────────────────────────────────── */}
-      <SidebarFooter style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
+      <SidebarFooter style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 12px)" }}>
 
         {/* User row */}
         <Popover>
