@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
-import { X, Terminal, Wifi, WifiOff, Plus, Copy, Check, Loader2, Info, AlertCircle, Trash2, Power } from "lucide-react";
+import { X, Terminal, Wifi, WifiOff, Plus, Copy, Check, Loader2, Info, AlertCircle, Trash2, Power, RefreshCw } from "lucide-react";
 import type { Tables } from "@/integrations/supabase/types";
 
 const API_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
@@ -248,28 +248,24 @@ export function DevicePanel({ open, onClose, devices, selectedDeviceId, onSelect
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [disconnectingId, setDisconnectingId] = useState<string | null>(null);
   const [expandedOfflineId, setExpandedOfflineId] = useState<string | null>(null);
-  const [offlinePlatform, setOfflinePlatform] = useState<Platform>("unix");
-  const [offlineCopiedIdx, setOfflineCopiedIdx] = useState<number | null>(null);
+  const [reinstallDeviceId, setReinstallDeviceId] = useState<string | null>(null);
+  const [copiedReinstallId, setCopiedReinstallId] = useState<string | null>(null);
+  const [offlineCopiedId, setOfflineCopiedId] = useState<string | null>(null);
 
-  const getOfflineCommands = useCallback((d: Tables<"devices">) => {
-    if (!d.pairing_code) return [];
-    const unix = [
-      { label: "1. Install", cmd: `curl -fsSL "${API_URL}/download-connector?install=1" | bash` },
-      { label: "2. Pair", cmd: `cd ~/relay-connector && ./relay-connector --pair "${d.pairing_code}" --api "${API_URL}" --name "${d.name}"` },
-      { label: "3. Start", cmd: `cd ~/relay-connector && nohup ./relay-connector connect > relay.log 2>&1 &` },
-    ];
-    const win = [
-      { label: "1. Install", cmd: `$s=(Invoke-WebRequest "${API_URL}/download-connector?install=ps" -UseBasicParsing).Content; Invoke-Expression $s` },
-      { label: "2. Pair", cmd: `cd "$env:USERPROFILE\\relay-connector"; .\\relay-connector.exe --pair "${d.pairing_code}" --api "${API_URL}" --name "${d.name}"` },
-      { label: "3. Start", cmd: `Start-Process -FilePath "$env:USERPROFILE\\relay-connector\\relay-connector.exe" -ArgumentList "connect" -WindowStyle Hidden` },
-    ];
-    return offlinePlatform === "unix" ? unix : win;
-  }, [offlinePlatform]);
+  const getOneLiner = useCallback((d: Tables<"devices">) => {
+    if (!d.pairing_code) return "";
+    return `curl -fsSL "${API_URL}/download-connector?install=full" | bash -s -- "${d.pairing_code}"`;
+  }, []);
 
-  const copyOfflineCmd = useCallback((cmd: string, idx: number) => {
+  const copyOneLiner = useCallback((cmd: string, id: string, type: "reinstall" | "offline") => {
     navigator.clipboard.writeText(cmd);
-    setOfflineCopiedIdx(idx);
-    setTimeout(() => setOfflineCopiedIdx(null), 2000);
+    if (type === "reinstall") {
+      setCopiedReinstallId(id);
+      setTimeout(() => setCopiedReinstallId(null), 2000);
+    } else {
+      setOfflineCopiedId(id);
+      setTimeout(() => setOfflineCopiedId(null), 2000);
+    }
   }, []);
 
   // Reset state when panel closes
@@ -380,6 +376,21 @@ export function DevicePanel({ open, onClose, devices, selectedDeviceId, onSelect
 
                     {/* Actions */}
                     <div className="flex items-center gap-1 shrink-0">
+                      {/* Reinstall/Update — show for any device with a pairing code */}
+                      {d.pairing_code && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setReinstallDeviceId((prev) => prev === d.id ? null : d.id); setExpandedOfflineId(null); }}
+                          title="Reinstall / Update connector"
+                          className={cn(
+                            "w-6 h-6 flex items-center justify-center rounded-md transition-colors",
+                            reinstallDeviceId === d.id
+                              ? "bg-primary/15 text-primary"
+                              : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                          )}
+                        >
+                          <RefreshCw className="h-3.5 w-3.5" />
+                        </button>
+                      )}
                       {/* Disconnect — only meaningful when online */}
                       {d.status === "online" && (
                         <button
@@ -421,74 +432,70 @@ export function DevicePanel({ open, onClose, devices, selectedDeviceId, onSelect
                       )}
                     </div>
                   </div>
-                  {/* Offline expand — connection commands */}
+
+                  {/* Reinstall / Update panel */}
+                  {reinstallDeviceId === d.id && d.pairing_code && (
+                    <div className="mt-1 mb-1 px-1 pb-1">
+                      <div className="rounded-lg border border-border/50 bg-muted/30 p-3 flex flex-col gap-2">
+                        <div className="flex items-center gap-1.5">
+                          <RefreshCw className="h-3 w-3 text-muted-foreground shrink-0" />
+                          <p className="text-[11px] font-semibold text-foreground/80">Reinstall / Update connector</p>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground leading-relaxed">
+                          Run this on your machine. It will download the latest binary, re-pair if needed, and restart the background service.
+                        </p>
+                        <div className="relative rounded-lg bg-muted/60 border border-border/40 overflow-hidden">
+                          <pre className="px-2.5 py-2.5 pr-8 text-[10px] font-mono text-foreground/90 overflow-x-auto whitespace-pre-wrap break-all [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                            <code>{getOneLiner(d)}</code>
+                          </pre>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); copyOneLiner(getOneLiner(d), d.id, "reinstall"); }}
+                            className="absolute top-2 right-2 p-1 rounded hover:bg-accent/60 text-muted-foreground hover:text-foreground transition-colors"
+                            title="Copy"
+                          >
+                            {copiedReinstallId === d.id
+                              ? <Check className="h-3 w-3 text-primary" />
+                              : <Copy className="h-3 w-3" />}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Offline expand — reconnect via one-liner */}
                   {d.status === "offline" && expandedOfflineId === d.id && (
                     <div className="mt-1 mb-1 flex flex-col gap-2 px-1 pb-1">
-                      {/* Platform toggle */}
-                      <div className="flex gap-1 p-0.5 rounded-lg bg-muted/50 border border-border/40 self-start">
-                        {(["unix", "windows"] as Platform[]).map((p) => (
-                          <button
-                            key={p}
-                            onClick={(e) => { e.stopPropagation(); setOfflinePlatform(p); }}
-                            className={cn(
-                              "px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors",
-                              offlinePlatform === p
-                                ? "bg-background text-foreground shadow-sm"
-                                : "text-muted-foreground hover:text-foreground"
-                            )}
-                          >
-                            {p === "unix" ? "macOS / Linux" : "Windows"}
-                          </button>
-                        ))}
-                      </div>
-                      {/* Commands */}
-                      {getOfflineCommands(d).length > 0 ? getOfflineCommands(d).map((c, i) => (
-                        <div key={i} className="flex flex-col gap-0.5">
-                          <span className="text-[10px] text-muted-foreground font-medium px-0.5">{c.label}</span>
-                          <div className="flex items-center gap-1.5 rounded-lg bg-muted/40 border border-border/40 px-2.5 py-2">
-                            <code className="flex-1 text-[11px] text-foreground/80 font-mono truncate">{c.cmd}</code>
+                      {d.pairing_code ? (
+                        <>
+                          <p className="text-[11px] text-muted-foreground leading-relaxed px-0.5">
+                            Run this on your machine to reinstall and reconnect:
+                          </p>
+                          <div className="relative rounded-lg bg-muted/40 border border-border/40 overflow-hidden">
+                            <pre className="px-2.5 py-2.5 pr-8 text-[10px] font-mono text-foreground/90 overflow-x-auto whitespace-pre-wrap break-all [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                              <code>{getOneLiner(d)}</code>
+                            </pre>
                             <button
-                              onClick={(e) => { e.stopPropagation(); copyOfflineCmd(c.cmd, i); }}
-                              className="shrink-0 w-6 h-6 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                              onClick={(e) => { e.stopPropagation(); copyOneLiner(getOneLiner(d), d.id, "offline"); }}
+                              className="absolute top-2 right-2 p-1 rounded hover:bg-accent/60 text-muted-foreground hover:text-foreground transition-colors"
                               title="Copy"
                             >
-                              {offlineCopiedIdx === i
+                              {offlineCopiedId === d.id
                                 ? <Check className="h-3 w-3 text-primary" />
                                 : <Copy className="h-3 w-3" />}
                             </button>
                           </div>
-                        </div>
-                      )) : (
-                        <div className="flex flex-col gap-2">
-                          <p className="text-[11px] text-muted-foreground/70 px-0.5 leading-relaxed">
-                            This device has no pairing code stored. To reconnect, run the connector on your machine with:
-                          </p>
-                          {(() => {
-                            const reconnectCmd = offlinePlatform === "unix"
-                              ? `cd ~/relay-connector && nohup ./relay-connector connect > relay.log 2>&1 &`
-                              : `Start-Process -FilePath "$env:USERPROFILE\\relay-connector\\relay-connector.exe" -ArgumentList "connect" -WindowStyle Hidden`;
-                            return (
-                              <div className="flex flex-col gap-0.5">
-                                <span className="text-[10px] text-muted-foreground font-medium px-0.5">Start connector</span>
-                                <div className="flex items-center gap-1.5 rounded-lg bg-muted/40 border border-border/40 px-2.5 py-2">
-                                  <code className="flex-1 text-[11px] text-foreground/80 font-mono truncate">{reconnectCmd}</code>
-                                  <button
-                                    onClick={(e) => { e.stopPropagation(); copyOfflineCmd(reconnectCmd, 99); }}
-                                    className="shrink-0 w-6 h-6 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                                    title="Copy"
-                                  >
-                                    {offlineCopiedIdx === 99
-                                      ? <Check className="h-3 w-3 text-primary" />
-                                      : <Copy className="h-3 w-3" />}
-                                  </button>
-                                </div>
-                              </div>
-                            );
-                          })()}
-                          <p className="text-[10px] text-muted-foreground/50 px-0.5">
-                            Or delete this device and add it again to get fresh install &amp; pair commands.
-                          </p>
-                        </div>
+                          <div className="flex items-start gap-1.5 px-0.5">
+                            <Info className="h-3 w-3 text-muted-foreground shrink-0 mt-0.5" />
+                            <p className="text-[10px] text-muted-foreground leading-relaxed">
+                              <strong className="text-foreground/60">macOS:</strong> if blocked by Gatekeeper, first run{" "}
+                              <code className="font-mono bg-muted px-1 rounded">xattr -d com.apple.quarantine ~/relay-connector/relay-connector</code>
+                            </p>
+                          </div>
+                        </>
+                      ) : (
+                        <p className="text-[11px] text-muted-foreground/70 px-0.5 leading-relaxed">
+                          No pairing code stored. Delete this device and add it again to get a fresh install command.
+                        </p>
                       )}
                     </div>
                   )}
