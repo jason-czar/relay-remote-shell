@@ -17,6 +17,7 @@ import (
 \t"encoding/json"
 \t"flag"
 \t"fmt"
+\t"io"
 \t"log"
 \t"net/http"
 \t"os"
@@ -46,7 +47,16 @@ func main() {
 \tinstallAgent   := flag.Bool("install-agent",    false, "Register binary as a background service and start it")
 \tuninstallAgent := flag.Bool("uninstall-agent",  false, "Stop and remove the background service")
 \tstatusAgent    := flag.Bool("status",           false, "Print service install/running status")
+\tupdateAgent    := flag.Bool("update",           false, "Download latest binary, replace self on disk, re-register service")
 \tflag.Parse()
+
+\tif *updateAgent {
+\t\tif *apiURL == "" {
+\t\t\tlog.Fatal("--api is required for --update")
+\t\t}
+\t\tif err := selfUpdate(*apiURL); err != nil { log.Fatalf("update failed: %v", err) }
+\t\treturn
+\t}
 
 \tif *installAgent {
 \t\texe, err := os.Executable()
@@ -361,6 +371,41 @@ func loadConfig(path string) (*Config, error) {
 \t\treturn nil, err
 \t}
 \treturn &cfg, nil
+}
+
+func selfUpdate(apiURL string) error {
+\texe, err := os.Executable()
+\tif err != nil { return fmt.Errorf("cannot resolve executable: %w", err) }
+\texe, err = filepath.EvalSymlinks(exe)
+\tif err != nil { return fmt.Errorf("cannot resolve symlinks: %w", err) }
+
+\tdownloadURL := fmt.Sprintf("%s/download-connector?os=%s&arch=%s", apiURL, runtime.GOOS, runtime.GOARCH)
+\tfmt.Printf("⬇  Downloading latest binary from %s\\n", downloadURL)
+
+\tresp, err := http.Get(downloadURL)
+\tif err != nil { return fmt.Errorf("download request failed: %w", err) }
+\tdefer resp.Body.Close()
+\tif resp.StatusCode != http.StatusOK { return fmt.Errorf("download failed: HTTP %d", resp.StatusCode) }
+
+\tdir := filepath.Dir(exe)
+\ttmp, err := os.CreateTemp(dir, ".connector-update-*")
+\tif err != nil { return fmt.Errorf("create temp file: %w", err) }
+\ttmpName := tmp.Name()
+\tdefer func() { tmp.Close(); os.Remove(tmpName) }()
+
+\tif _, err := io.Copy(tmp, resp.Body); err != nil { return fmt.Errorf("write download: %w", err) }
+\tif err := tmp.Chmod(0755); err != nil { return fmt.Errorf("chmod: %w", err) }
+\ttmp.Close()
+
+\tif err := os.Rename(tmpName, exe); err != nil { return fmt.Errorf("replace binary: %w", err) }
+\tfmt.Printf("✅ Binary updated: %s\\n", exe)
+
+\tfmt.Println("🔄 Re-registering service...")
+\tcmd := exec.Command(exe, "--install-agent")
+\tcmd.Stdout = os.Stdout
+\tcmd.Stderr = os.Stderr
+\tif err := cmd.Run(); err != nil { return fmt.Errorf("--install-agent after update: %w", err) }
+\treturn nil
 }
 `;
 
