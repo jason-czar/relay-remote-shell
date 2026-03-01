@@ -305,6 +305,12 @@ export function DevicePanel({ open, onClose, devices, selectedDeviceId, onSelect
   const [updateAgentId, setUpdateAgentId] = useState<string | null>(null);
   const [updateAgentLog, setUpdateAgentLog] = useState<string>("");
   const [updateAgentDone, setUpdateAgentDone] = useState(false);
+  const updateLogRef = useRef<HTMLPreElement>(null);
+  useEffect(() => {
+    if (updateLogRef.current) {
+      updateLogRef.current.scrollTop = updateLogRef.current.scrollHeight;
+    }
+  }, [updateAgentLog]);
 
   // Version check state per device: null = unchecked, "checking" | "up-to-date" | "available" | "error"
   type VersionCheckStatus = "checking" | "up-to-date" | "available" | "error";
@@ -863,7 +869,7 @@ export function DevicePanel({ open, onClose, devices, selectedDeviceId, onSelect
                             </button>
                           )}
                         </div>
-                        <pre className="text-[10px] font-mono text-foreground/70 bg-muted/40 rounded p-2 overflow-x-auto max-h-36 whitespace-pre-wrap break-all [scrollbar-width:thin]">
+                        <pre ref={updateLogRef} className="text-[10px] font-mono text-foreground/70 bg-muted/40 rounded p-2 overflow-y-auto max-h-36 whitespace-pre-wrap break-all [scrollbar-width:thin]">
                           {updateAgentLog || "…"}
                         </pre>
                         {!updateAgentDone && (
