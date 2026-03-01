@@ -20,9 +20,12 @@ import (
 \t"log"
 \t"net/http"
 \t"os"
+\t"os/exec"
 \t"os/signal"
 \t"path/filepath"
+\t"runtime"
 \t"syscall"
+\t"text/template"
 \t"time"
 )
 
@@ -34,12 +37,33 @@ type Config struct {
 }
 
 func main() {
-\tpairingCode := flag.String("pair", "", "Pairing code from the web UI")
-\tname := flag.String("name", "", "Device name (optional, used during pairing)")
-\tapiURL := flag.String("api", "", "Supabase Edge Function base URL")
-\tconfigPath := flag.String("config", defaultConfigPath(), "Path to config file")
-\tshell := flag.String("shell", defaultShell(), "Shell to spawn (default: $SHELL or /bin/sh)")
+\tpairingCode    := flag.String("pair",           "", "Pairing code from the web UI")
+\tname           := flag.String("name",           "", "Device name (optional, used during pairing)")
+\tapiURL         := flag.String("api",            "", "Supabase Edge Function base URL")
+\tconfigPath     := flag.String("config",         defaultConfigPath(), "Path to config file")
+\tshell          := flag.String("shell",          defaultShell(), "Shell to spawn (default: $SHELL or /bin/sh)")
+\tworkdir        := flag.String("workdir",        "", "Working directory for shell sessions")
+\tinstallAgent   := flag.Bool("install-agent",    false, "Register binary as a background service and start it")
+\tuninstallAgent := flag.Bool("uninstall-agent",  false, "Stop and remove the background service")
+\tstatusAgent    := flag.Bool("status",           false, "Print service install/running status")
 \tflag.Parse()
+
+\tif *installAgent {
+\t\texe, err := os.Executable()
+\t\tif err != nil { log.Fatalf("Cannot resolve executable path: %v", err) }
+\t\texe, err = filepath.EvalSymlinks(exe)
+\t\tif err != nil { log.Fatalf("Cannot resolve symlinks: %v", err) }
+\t\tif err := installAgentService(exe); err != nil { log.Fatalf("install-agent failed: %v", err) }
+\t\treturn
+\t}
+\tif *uninstallAgent {
+\t\tif err := uninstallAgentService(); err != nil { log.Fatalf("uninstall-agent failed: %v", err) }
+\t\treturn
+\t}
+\tif *statusAgent {
+\t\tif err := agentStatus(); err != nil { log.Fatalf("status failed: %v", err) }
+\t\treturn
+\t}
 
 \tif *pairingCode != "" {
 \t\tif *apiURL == "" {
@@ -66,6 +90,7 @@ func main() {
 \tfmt.Printf("Connecting to relay: %s\\n", cfg.RelayURL)
 \tfmt.Printf("Device ID: %s\\n", cfg.DeviceID)
 \tfmt.Printf("Shell: %s\\n", *shell)
+\tif *workdir != "" { fmt.Printf("Workdir: %s\\n", *workdir) }
 
 \tsigCh := make(chan os.Signal, 1)
 \tsignal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
@@ -77,7 +102,7 @@ func main() {
 \tdelay := initialDelay
 
 \tfor {
-\t\tclient := NewRelayClient(cfg, *shell)
+\t\tclient := NewRelayClient(cfg, *shell, *workdir)
 
 \t\tgo func() {
 \t\t\tselect {
@@ -103,6 +128,180 @@ func main() {
 \t\t\tdelay = maxDelay
 \t\t}
 \t}
+}
+
+// ─── Service management ───────────────────────────────────────────────────────
+
+func installAgentService(exe string) error {
+\tswitch runtime.GOOS {
+\tcase "darwin":  return installAgentDarwin(exe)
+\tcase "linux":   return installAgentLinux(exe)
+\tcase "windows": return installAgentWindows(exe)
+\tdefault:        return fmt.Errorf("unsupported OS: %s", runtime.GOOS)
+\t}
+}
+func uninstallAgentService() error {
+\tswitch runtime.GOOS {
+\tcase "darwin":  return uninstallAgentDarwin()
+\tcase "linux":   return uninstallAgentLinux()
+\tcase "windows": return uninstallAgentWindows()
+\tdefault:        return fmt.Errorf("unsupported OS: %s", runtime.GOOS)
+\t}
+}
+func agentStatus() error {
+\tswitch runtime.GOOS {
+\tcase "darwin":  return agentStatusDarwin()
+\tcase "linux":   return agentStatusLinux()
+\tcase "windows": return agentStatusWindows()
+\tdefault:        return fmt.Errorf("unsupported OS: %s", runtime.GOOS)
+\t}
+}
+
+// ─── macOS ────────────────────────────────────────────────────────────────────
+
+const plistTmpl = \`<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.privaclaw.connector</string>
+  <key>ProgramArguments</key>
+  <array><string>{{.Exe}}</string></array>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>StandardOutPath</key><string>{{.Log}}</string>
+  <key>StandardErrorPath</key><string>{{.Log}}</string>
+</dict>
+</plist>\`
+
+func plistPath() string {
+\thome, _ := os.UserHomeDir()
+\treturn filepath.Join(home, "Library", "LaunchAgents", "com.privaclaw.connector.plist")
+}
+
+func installAgentDarwin(exe string) error {
+\thome, _ := os.UserHomeDir()
+\tlogPath := filepath.Join(home, "relay-connector", "relay.log")
+\tos.MkdirAll(filepath.Dir(logPath), 0755)
+\tos.MkdirAll(filepath.Dir(plistPath()), 0755)
+\tt, _ := template.New("p").Parse(plistTmpl)
+\tf, err := os.Create(plistPath())
+\tif err != nil { return err }
+\tdefer f.Close()
+\tt.Execute(f, struct{ Exe, Log string }{exe, logPath})
+\tuid := fmt.Sprintf("gui/%d", os.Getuid())
+\tlabel := "com.privaclaw.connector"
+\trun("launchctl", "bootout", uid+"/"+label)
+\tif err := runMust("launchctl", "bootstrap", uid, plistPath()); err != nil { return err }
+\trunMust("launchctl", "enable", uid+"/"+label)
+\trunMust("launchctl", "kickstart", "-k", uid+"/"+label)
+\tfmt.Printf("✅ Service installed (macOS LaunchAgent).\\n   Plist: %s\\n   Log:   %s\\n", plistPath(), logPath)
+\treturn nil
+}
+
+func uninstallAgentDarwin() error {
+\tuid := fmt.Sprintf("gui/%d", os.Getuid())
+\trun("launchctl", "bootout", uid+"/com.privaclaw.connector")
+\trun("launchctl", "disable", uid+"/com.privaclaw.connector")
+\tos.Remove(plistPath())
+\tfmt.Println("✅ Service uninstalled (macOS LaunchAgent removed).")
+\treturn nil
+}
+
+func agentStatusDarwin() error {
+\tif _, err := os.Stat(plistPath()); os.IsNotExist(err) { fmt.Println("installed: false"); return nil }
+\tfmt.Printf("installed: true\\nplist:     %s\\n", plistPath())
+\tout, _ := exec.Command("launchctl", "print", fmt.Sprintf("gui/%d/com.privaclaw.connector", os.Getuid())).CombinedOutput()
+\tif len(out) > 0 { fmt.Printf("running:   true\\n%s\\n", out) } else { fmt.Println("running:   false") }
+\treturn nil
+}
+
+// ─── Linux ────────────────────────────────────────────────────────────────────
+
+const unitTmpl = \`[Unit]
+Description=PrivaClaw Connector
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStart={{.Exe}}
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target\`
+
+func unitPath() string {
+\thome, _ := os.UserHomeDir()
+\treturn filepath.Join(home, ".config", "systemd", "user", "privaclaw-connector.service")
+}
+
+func installAgentLinux(exe string) error {
+\tos.MkdirAll(filepath.Dir(unitPath()), 0755)
+\tt, _ := template.New("u").Parse(unitTmpl)
+\tf, err := os.Create(unitPath())
+\tif err != nil { return err }
+\tdefer f.Close()
+\tt.Execute(f, struct{ Exe string }{exe})
+\trun("loginctl", "enable-linger", os.Getenv("USER"))
+\trunMust("systemctl", "--user", "daemon-reload")
+\trunMust("systemctl", "--user", "enable", "privaclaw-connector")
+\trunMust("systemctl", "--user", "restart", "privaclaw-connector")
+\tfmt.Printf("✅ Service installed (systemd --user).\\n   Unit: %s\\n", unitPath())
+\treturn nil
+}
+
+func uninstallAgentLinux() error {
+\trun("systemctl", "--user", "stop", "privaclaw-connector")
+\trun("systemctl", "--user", "disable", "privaclaw-connector")
+\tos.Remove(unitPath())
+\trun("systemctl", "--user", "daemon-reload")
+\tfmt.Println("✅ Service uninstalled (systemd unit removed).")
+\treturn nil
+}
+
+func agentStatusLinux() error {
+\tif _, err := os.Stat(unitPath()); os.IsNotExist(err) { fmt.Println("installed: false"); return nil }
+\tfmt.Printf("installed: true\\nunit:      %s\\n", unitPath())
+\tout, _ := exec.Command("systemctl", "--user", "status", "privaclaw-connector").CombinedOutput()
+\tfmt.Printf("%s\\n", out)
+\treturn nil
+}
+
+// ─── Windows ─────────────────────────────────────────────────────────────────
+
+const taskName = "PrivaClawConnector"
+
+func installAgentWindows(exe string) error {
+\trun("schtasks", "/Delete", "/TN", taskName, "/F")
+\tif err := runMust("schtasks", "/Create", "/TN", taskName, "/TR", exe, "/SC", "ONLOGON",
+\t\t"/RU", os.Getenv("USERNAME"), "/RL", "LIMITED", "/F"); err != nil { return err }
+\trunMust("schtasks", "/Run", "/TN", taskName)
+\tfmt.Printf("✅ Service installed (Windows Scheduled Task: %s).\\n", taskName)
+\treturn nil
+}
+
+func uninstallAgentWindows() error {
+\trun("schtasks", "/End", "/TN", taskName)
+\tif err := runMust("schtasks", "/Delete", "/TN", taskName, "/F"); err != nil { return err }
+\tfmt.Println("✅ Service uninstalled (Scheduled Task removed).")
+\treturn nil
+}
+
+func agentStatusWindows() error {
+\tout, err := exec.Command("schtasks", "/Query", "/TN", taskName, "/FO", "LIST").CombinedOutput()
+\tif err != nil { fmt.Println("installed: false"); return nil }
+\tfmt.Printf("installed: true\\n%s\\n", out)
+\treturn nil
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+func run(name string, args ...string) { _ = exec.Command(name, args...).Run() }
+
+func runMust(name string, args ...string) error {
+\tout, err := exec.Command(name, args...).CombinedOutput()
+\tif err != nil { return fmt.Errorf("%s %v: %w\\n%s", name, args, err, out) }
+\treturn nil
 }
 
 func pairDevice(apiURL, code, name string) (*Config, error) {
@@ -632,71 +831,9 @@ else
   "$FULL_BINARY" --pair "$PAIR_CODE" --api "$API_URL" --name "$(hostname)"
 fi
 
-# Ensure log directory exists
-mkdir -p "$DEST_DIR"
-FULL_LOG="$DEST_DIR/relay.log"
-
-# Register service
-if [ "$PLATFORM" = "darwin" ]; then
-  PLIST="$HOME/Library/LaunchAgents/com.privaclaw.connector.plist"
-  mkdir -p "$HOME/Library/LaunchAgents"
-
-  cat > "$PLIST" << PLISTEOF
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>Label</key>
-  <string>com.privaclaw.connector</string>
-  <key>ProgramArguments</key>
-  <array>
-    <string>$FULL_BINARY</string>
-  </array>
-  <key>RunAtLoad</key>
-  <true/>
-  <key>KeepAlive</key>
-  <true/>
-  <key>StandardOutPath</key>
-  <string>$FULL_LOG</string>
-  <key>StandardErrorPath</key>
-  <string>$FULL_LOG</string>
-</dict>
-</plist>
-PLISTEOF
-
-  USER_ID=$(id -u)
-  # Only bootout if already registered (prevents noise on fresh install)
-  launchctl print "gui/$USER_ID" 2>/dev/null | grep -q "com.privaclaw.connector" && \\
-    launchctl bootout "gui/$USER_ID" "$PLIST" 2>/dev/null || true
-  launchctl bootstrap "gui/$USER_ID" "$PLIST"
-  launchctl enable "gui/$USER_ID/com.privaclaw.connector"
-  launchctl kickstart -k "gui/$USER_ID/com.privaclaw.connector"
-
-elif [ "$PLATFORM" = "linux" ]; then
-  SERVICE_DIR="$HOME/.config/systemd/user"
-  mkdir -p "$SERVICE_DIR"
-
-  cat > "$SERVICE_DIR/privaclaw-connector.service" << SVCEOF
-[Unit]
-Description=PrivaClaw Connector
-After=network-online.target
-Wants=network-online.target
-
-[Service]
-ExecStart=$FULL_BINARY
-Restart=always
-RestartSec=5
-
-[Install]
-WantedBy=default.target
-SVCEOF
-
-  # Enable linger so service persists across logout
-  loginctl enable-linger "$USER" 2>/dev/null || true
-  systemctl --user daemon-reload
-  systemctl --user enable privaclaw-connector
-  systemctl --user start privaclaw-connector
-fi
+# Register service (binary owns all platform-specific service logic)
+echo "⚙️  Registering background service..."
+"$FULL_BINARY" --install-agent
 
 echo ""
 echo "✅ PrivaClaw installed and running!"
@@ -810,7 +947,6 @@ $arch = if ([System.Environment]::Is64BitOperatingSystem) { "amd64" } else { "38
 $binary = "relay-connector-windows-\$arch.exe"
 $destDir = Join-Path $env:USERPROFILE "relay-connector"
 $destBin = Join-Path $destDir "relay-connector.exe"
-$logFile = Join-Path $destDir "relay.log"
 
 New-Item -ItemType Directory -Force -Path $destDir | Out-Null
 
@@ -830,19 +966,9 @@ if ((Test-Path \$configPath) -and (Get-Content \$configPath -Raw) -match '"devic
   & \$destBin --pair \$PairCode --api \$ApiUrl --name \$env:COMPUTERNAME
 }
 
-# Register as a Windows scheduled task that runs at login (no admin required)
-\$taskName = "PrivaClawConnector"
-\$action = New-ScheduledTaskAction -Execute \$destBin
-\$trigger = New-ScheduledTaskTrigger -AtLogOn -User \$env:USERNAME
-\$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)
-
-# Remove existing task if present (idempotent)
-Unregister-ScheduledTask -TaskName \$taskName -Confirm:\$false -ErrorAction SilentlyContinue
-
-Register-ScheduledTask -TaskName \$taskName -Action \$action -Trigger \$trigger -Settings \$settings -RunLevel Limited -Force | Out-Null
-
-# Start immediately
-Start-ScheduledTask -TaskName \$taskName
+# Register service (binary owns all platform-specific service logic)
+Write-Host "⚙️  Registering background service..." -ForegroundColor Cyan
+& \$destBin --install-agent
 
 Write-Host ""
 Write-Host "✅ PrivaClaw installed and running!" -ForegroundColor Green
