@@ -407,7 +407,8 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
             </button>
           </div>
 
-          {/* Preview button */}
+          {/* Right: preview + send */}
+          <div className="flex items-center gap-2">
           {onPreview && deviceId && (
             <button
               type="button"
@@ -423,8 +424,6 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
               <Monitor size={18} />
             </button>
           )}
-
-          {/* Right: send button */}
           <div className="relative flex items-center justify-center">
             {/* Pulse ring while streaming */}
             {isStreaming &&
