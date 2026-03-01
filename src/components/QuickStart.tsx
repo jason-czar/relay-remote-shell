@@ -20,7 +20,9 @@ export function QuickStart({ userId, projectId, onDeviceOnline }: QuickStartProp
   const [createError, setCreateError] = useState<string | null>(null);
   
   const [online, setOnline] = useState(false);
-  const [platform, setPlatform] = useState<Platform>("unix");
+  const [platform, setPlatform] = useState<Platform>(
+    navigator.userAgent.includes("Win") ? "windows" : "unix"
+  );
 
   const handleDeviceOnline = useCallback(
     (dev: Tables<"devices">) => onDeviceOnline(dev),
