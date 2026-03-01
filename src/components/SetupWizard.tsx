@@ -58,9 +58,13 @@ export function SetupWizard({ projectId, onComplete, onSkip, existingDevice }: S
     setCreating(true);
 
     const pairingCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const { data: { user } } = await supabase.auth.getUser();
+    const insertPayload = projectId
+      ? { project_id: projectId, name: deviceName.trim(), pairing_code: pairingCode }
+      : { user_id: user?.id, name: deviceName.trim(), pairing_code: pairingCode };
     const { data, error } = await supabase
       .from("devices")
-      .insert({ project_id: projectId || null, name: deviceName.trim(), pairing_code: pairingCode })
+      .insert(insertPayload)
       .select()
       .single();
 
