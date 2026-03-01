@@ -1,5 +1,5 @@
 import {
-  Settings, LogOut, Sun, Moon,
+  Settings, Sun, Moon,
   Plus, Search, Trash2, Pencil, Check, X, RefreshCw,
 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -344,13 +344,6 @@ export function AppSidebar() {
           {!collapsed && (
             <div className="flex items-center gap-0.5 shrink-0">
               <button
-                onClick={() => navigate("/settings?tab=profile")}
-                className="p-1.5 rounded-md text-muted-foreground/60 hover:text-foreground hover:bg-accent/60 transition-colors"
-                title="Profile settings"
-              >
-                <Settings className="h-4 w-4" />
-              </button>
-              <button
                 onClick={toggleTheme}
                 className="p-1.5 rounded-md text-muted-foreground/60 hover:text-foreground hover:bg-accent/60 transition-colors"
                 title={theme === "dark" ? "Light mode" : "Dark mode"}
@@ -358,11 +351,11 @@ export function AppSidebar() {
                 {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
               </button>
               <button
-                onClick={handleSignOut}
-                className="p-1.5 rounded-md text-muted-foreground/60 hover:text-destructive hover:bg-destructive/10 transition-colors"
-                title="Sign out"
+                onClick={() => navigate("/settings?tab=profile")}
+                className="p-1.5 rounded-md text-muted-foreground/60 hover:text-foreground hover:bg-accent/60 transition-colors"
+                title="Profile settings"
               >
-                <LogOut className="h-4 w-4" />
+                <Settings className="h-4 w-4" />
               </button>
             </div>
           )}
