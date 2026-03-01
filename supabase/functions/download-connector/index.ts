@@ -788,6 +788,76 @@ fi
     });
   }
 
+  // PowerShell full one-liner: download, pair, and register as a Windows Service
+  if (url.searchParams.get("install") === "ps-full") {
+    const baseUrl = `${SUPABASE_URL}/storage/v1/object/public/connector-binaries`;
+    const apiUrl = `${SUPABASE_URL}/functions/v1`;
+    const psFullScript = `
+param([string]$PairCode)
+
+if (-not $PairCode) {
+  Write-Host "❌ Usage: ... | Invoke-Expression; Install-PrivaClaw -PairCode YOUR_PAIR_CODE" -ForegroundColor Red
+  exit 1
+}
+
+$ApiUrl = "${apiUrl}"
+$BaseUrl = "${baseUrl}"
+
+Write-Host "📦 Installing PrivaClaw Connector..." -ForegroundColor Cyan
+
+# Detect arch
+$arch = if ([System.Environment]::Is64BitOperatingSystem) { "amd64" } else { "386" }
+$binary = "relay-connector-windows-\$arch.exe"
+$destDir = Join-Path $env:USERPROFILE "relay-connector"
+$destBin = Join-Path $destDir "relay-connector.exe"
+$logFile = Join-Path $destDir "relay.log"
+
+New-Item -ItemType Directory -Force -Path $destDir | Out-Null
+
+Write-Host "  Downloading: \$binary" -ForegroundColor Gray
+try {
+  Invoke-WebRequest -Uri "\$BaseUrl/\$binary" -OutFile \$destBin -UseBasicParsing -ErrorAction Stop
+} catch {
+  Write-Host "❌ Download failed for windows/\$arch." -ForegroundColor Red; exit 1
+}
+
+# Pair (idempotent — skip if config already exists with device_id)
+\$configPath = Join-Path \$env:USERPROFILE ".relay-connector.json"
+if ((Test-Path \$configPath) -and (Get-Content \$configPath -Raw) -match '"device_id"') {
+  Write-Host "ℹ️  Already paired — skipping pairing step" -ForegroundColor Yellow
+} else {
+  Write-Host "🔗 Pairing device..." -ForegroundColor Cyan
+  & \$destBin --pair \$PairCode --api \$ApiUrl --name \$env:COMPUTERNAME
+}
+
+# Register as a Windows scheduled task that runs at login (no admin required)
+\$taskName = "PrivaClawConnector"
+\$action = New-ScheduledTaskAction -Execute \$destBin
+\$trigger = New-ScheduledTaskTrigger -AtLogOn -User \$env:USERNAME
+\$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)
+
+# Remove existing task if present (idempotent)
+Unregister-ScheduledTask -TaskName \$taskName -Confirm:\$false -ErrorAction SilentlyContinue
+
+Register-ScheduledTask -TaskName \$taskName -Action \$action -Trigger \$trigger -Settings \$settings -RunLevel Limited -Force | Out-Null
+
+# Start immediately
+Start-ScheduledTask -TaskName \$taskName
+
+Write-Host ""
+Write-Host "✅ PrivaClaw installed and running!" -ForegroundColor Green
+Write-Host "   Connector auto-starts on login." -ForegroundColor Gray
+`.trim();
+
+    return new Response(psFullScript, {
+      headers: {
+        "Content-Type": "text/plain",
+        "Content-Disposition": 'inline; filename="install-full.ps1"',
+        "Access-Control-Allow-Origin": "*",
+      },
+    });
+  }
+
   // PowerShell smart installer for Windows
   if (url.searchParams.get("install") === "ps") {
     const baseUrl = `${SUPABASE_URL}/storage/v1/object/public/connector-binaries`;

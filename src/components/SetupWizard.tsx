@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { StatusBadge } from "@/components/StatusBadge";
 import { useToast } from "@/hooks/use-toast";
 import { Check, Copy, Monitor, Terminal, ChevronRight, Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import type { Tables } from "@/integrations/supabase/types";
 
 interface SetupWizardProps {
@@ -27,6 +28,7 @@ export function SetupWizard({ projectId, onComplete, onSkip, existingDevice }: S
   const [creating, setCreating] = useState(false);
   const [device, setDevice] = useState<Tables<"devices"> | null>(existingDevice || null);
   const [copied, setCopied] = useState(false);
+  const [platform, setPlatform] = useState<"unix" | "windows">("unix");
 
   // Poll for device pairing + online status on step 2
   useEffect(() => {
@@ -78,10 +80,14 @@ export function SetupWizard({ projectId, onComplete, onSkip, existingDevice }: S
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // Single one-liner: install, pair, and register as a background service
+  // Single one-liner per platform
   const cmdFull = device?.pairing_code
     ? `curl -fsSL "${API_URL}/download-connector?install=full" | bash -s -- "${device.pairing_code}"`
     : "";
+  const cmdWin = device?.pairing_code
+    ? `$s=(Invoke-WebRequest "${API_URL}/download-connector?install=ps-full" -UseBasicParsing).Content; Invoke-Expression $s; Install-PrivaClaw -PairCode "${device.pairing_code}"`
+    : "";
+  const activeCmd = platform === "unix" ? cmdFull : cmdWin;
 
   const steps = [
     { num: 1, label: "Name Device" },
@@ -157,7 +163,7 @@ export function SetupWizard({ projectId, onComplete, onSkip, existingDevice }: S
         </Card>
       )}
 
-      {/* Step 2: Run the 3 commands */}
+      {/* Step 2: Run the command */}
       {step === 2 && device && (
         <Card>
           <CardContent className="pt-6 space-y-5">
@@ -176,44 +182,73 @@ export function SetupWizard({ projectId, onComplete, onSkip, existingDevice }: S
               </div>
             </div>
 
+            {/* Platform toggle */}
+            <div className="flex items-center gap-1 p-1 rounded-lg bg-muted/50 border border-border/40 self-start w-fit">
+              {(["unix", "windows"] as const).map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => setPlatform(p)}
+                  className={cn(
+                    "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-150",
+                    platform === p ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {p === "unix" ? <><span>🍎</span> macOS / Linux</> : <><span>🪟</span> Windows</>}
+                </button>
+              ))}
+            </div>
+
             <div className="space-y-1">
               <p className="text-xs text-muted-foreground font-medium">Run this on your machine</p>
               <div className="relative">
                 <pre className="bg-muted rounded-lg p-3 pr-10 text-sm font-mono overflow-x-auto whitespace-pre-wrap break-all">
-                  <code>{cmdFull}</code>
+                  <code>{activeCmd}</code>
                 </pre>
                 <Button
                   size="icon"
                   variant="ghost"
                   className="absolute top-1.5 right-1.5 h-7 w-7"
-                  onClick={() => copyToClipboard(cmdFull)}
+                  onClick={() => copyToClipboard(activeCmd)}
                 >
                   {copied ? <Check className="h-3.5 w-3.5 text-primary" /> : <Copy className="h-3.5 w-3.5" />}
                 </Button>
               </div>
             </div>
 
-            {/* macOS Gatekeeper note */}
-            <div className="rounded-lg border border-border bg-muted/40 p-3 flex gap-2.5">
-              <span className="text-base shrink-0 mt-0.5">⚠️</span>
-              <div className="space-y-1 min-w-0">
-                <p className="text-xs font-semibold text-foreground">macOS: blocked by Gatekeeper?</p>
-                <p className="text-xs text-muted-foreground">If macOS prevents the binary from running, clear the quarantine attribute first:</p>
-                <div className="relative mt-1">
-                  <pre className="bg-muted rounded-md p-2 pr-9 text-xs font-mono overflow-x-auto whitespace-pre">
-                    <code>xattr -d com.apple.quarantine ~/relay-connector/relay-connector</code>
-                  </pre>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="absolute top-1 right-1 h-6 w-6"
-                    onClick={() => copyToClipboard("xattr -d com.apple.quarantine ~/relay-connector/relay-connector")}
-                  >
-                    <Copy className="h-3 w-3" />
-                  </Button>
+            {/* Platform-specific notes */}
+            {platform === "unix" ? (
+              <div className="rounded-lg border border-border bg-muted/40 p-3 flex gap-2.5">
+                <span className="text-base shrink-0 mt-0.5">⚠️</span>
+                <div className="space-y-1 min-w-0">
+                  <p className="text-xs font-semibold text-foreground">macOS: blocked by Gatekeeper?</p>
+                  <p className="text-xs text-muted-foreground">If macOS prevents the binary from running, clear the quarantine attribute first:</p>
+                  <div className="relative mt-1">
+                    <pre className="bg-muted rounded-md p-2 pr-9 text-xs font-mono overflow-x-auto whitespace-pre">
+                      <code>xattr -d com.apple.quarantine ~/relay-connector/relay-connector</code>
+                    </pre>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="absolute top-1 right-1 h-6 w-6"
+                      onClick={() => copyToClipboard("xattr -d com.apple.quarantine ~/relay-connector/relay-connector")}
+                    >
+                      <Copy className="h-3 w-3" />
+                    </Button>
+                  </div>
                 </div>
               </div>
-            </div>
+            ) : (
+              <div className="rounded-lg border border-border bg-muted/40 p-3 flex gap-2.5">
+                <span className="text-base shrink-0 mt-0.5">ℹ️</span>
+                <div className="space-y-1 min-w-0">
+                  <p className="text-xs font-semibold text-foreground">Run in PowerShell (not CMD)</p>
+                  <p className="text-xs text-muted-foreground">
+                    Open <strong>PowerShell</strong> (not Command Prompt) and paste the command. The connector will be registered as a Scheduled Task that auto-starts at login — no admin rights required.
+                  </p>
+                </div>
+              </div>
+            )}
 
             <div className="flex items-center gap-2 text-sm">
               <span className="text-muted-foreground">Pairing code:</span>
