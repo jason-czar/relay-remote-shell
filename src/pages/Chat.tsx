@@ -2153,24 +2153,24 @@ export default function Chat() {
   // ── Live preview helper ───────────────────────────────────────────────
   const handleOpenPreview = useCallback(async (port?: string) => {
     const targetPort = port ?? previewInputPort;
-    setPreviewAutoDetecting(true);
+    // Open immediately with the target port — no waiting
+    setPreviewUrl(`http://127.0.0.1:${targetPort}`);
+    setPreviewInputPort(targetPort);
+    setShowPreview(true);
+    setPreviewTab("preview");
     setPreviewPopoverOpen(false);
+    // Auto-detect in the background and silently update port if different
     try {
+      setPreviewAutoDetecting(true);
       const detectCmd = `(\n  command -v lsof >/dev/null && lsof -iTCP -sTCP:LISTEN -n -P\n) || (\n  command -v ss >/dev/null && ss -ltn\n) || (\n  netstat -ltn 2>/dev/null\n) | grep -oE ':(3000|5173|8080|4200|8000|8888|4000|3001)\\b' | head -1 | tr -d ':'\n`;
       const stdout = await sendViaRelay(detectCmd, false);
       const detected = stdout.replace(/\x1b\[[\d;]*[a-zA-Z]/g, "").trim();
-      const finalPort = detected || targetPort;
-      if (!finalPort || isNaN(Number(finalPort))) { setPreviewAutoDetecting(false); return; }
-      setPreviewUrl(`http://127.0.0.1:${finalPort}`);
-      setPreviewInputPort(finalPort);
-      setShowPreview(true);
-      setPreviewTab("preview");
+      if (detected && detected !== targetPort && !isNaN(Number(detected))) {
+        setPreviewUrl(`http://127.0.0.1:${detected}`);
+        setPreviewInputPort(detected);
+      }
     } catch {
-      const finalPort = targetPort;
-      if (!finalPort || isNaN(Number(finalPort))) { setPreviewAutoDetecting(false); return; }
-      setPreviewUrl(`http://127.0.0.1:${finalPort}`);
-      setShowPreview(true);
-      setPreviewTab("preview");
+      // silently ignore — preview is already open with targetPort
     } finally {
       setPreviewAutoDetecting(false);
     }
