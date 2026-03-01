@@ -30,6 +30,7 @@ import { QuickStart } from "@/components/QuickStart";
 import { DevicePanel } from "@/components/DevicePanel";
 import { useRelayHealth } from "@/hooks/useRelayHealth";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface AttachedFile {
   name: string;
@@ -691,10 +692,12 @@ export default function Chat() {
   }, []);
   const prevMsgCountRef = useRef(0);
 
+  const isMobile = useIsMobile();
   const [devicePanelOpen, setDevicePanelOpen] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [previewUrl, setPreviewUrl] = useState("");
   const [previewInputPort, setPreviewInputPort] = useState("3000");
+  const [previewTab, setPreviewTab] = useState<"chat" | "preview">("preview");
   const [previewPopoverOpen, setPreviewPopoverOpen] = useState(false);
   const [previewAutoDetecting, setPreviewAutoDetecting] = useState(false);
   const [devicesLoaded, setDevicesLoaded] = useState(false);
@@ -1912,11 +1915,13 @@ export default function Chat() {
       setPreviewUrl(`http://127.0.0.1:${finalPort}`);
       setPreviewInputPort(finalPort);
       setShowPreview(true);
+      setPreviewTab("preview");
     } catch {
       const finalPort = targetPort;
       if (!finalPort || isNaN(Number(finalPort))) { setPreviewAutoDetecting(false); return; }
       setPreviewUrl(`http://127.0.0.1:${finalPort}`);
       setShowPreview(true);
+      setPreviewTab("preview");
     } finally {
       setPreviewAutoDetecting(false);
     }
@@ -2390,7 +2395,7 @@ export default function Chat() {
 
         </div>
           </ResizablePanel>
-          {showPreview && (
+          {showPreview && !isMobile && (
             <>
               <ResizableHandle withHandle />
               <ResizablePanel defaultSize={50} minSize={25}>
@@ -2407,6 +2412,21 @@ export default function Chat() {
             </>
           )}
         </ResizablePanelGroup>
+
+        {/* Mobile full-screen preview overlay */}
+        {showPreview && isMobile && (
+          <div className="absolute inset-0 z-30 flex flex-col">
+            <PreviewPanel
+              deviceId={selectedDeviceId}
+              deviceName={devices.find(d => d.id === selectedDeviceId)?.name}
+              initialUrl={previewUrl}
+              onClose={() => { setShowPreview(false); setPreviewUrl(""); setPreviewTab("preview"); }}
+              activeTab={previewTab}
+              onSwitchToChat={() => setPreviewTab("chat")}
+              onTabChange={(tab) => setPreviewTab(tab)}
+            />
+          </div>
+        )}
       </div>
 
         {/* Agent switch confirmation */}
