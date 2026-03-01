@@ -933,6 +933,12 @@ if [ "$HTTP_CODE" != "200" ]; then
 fi
 chmod +x "$BINARY_PATH"
 
+# Remove macOS Gatekeeper quarantine flag (prevents Killed: 9)
+if [[ "$(uname)" == "Darwin" ]]; then
+  echo "🔓 Removing macOS quarantine..."
+  xattr -d com.apple.quarantine "$BINARY_PATH" 2>/dev/null || true
+fi
+
 # Resolve absolute path (POSIX-safe, no realpath dependency)
 FULL_BINARY="$(cd "$(dirname "$BINARY_PATH")"; pwd)/$(basename "$BINARY_PATH")"
 
