@@ -164,7 +164,7 @@ interface ChatMessageProps {
  * Returns an array of option strings, or empty array if none detected.
  */
 function extractInteractiveOptions(content: string): string[] {
-  const options: string[] = [];
+  let options: string[] = [];
 
   // Pattern 1: numbered list items like "1. Yes" / "1) Approve"
   const numberedMatches = content.matchAll(/^\s*(?:\d+[.)]\s+)(.+)$/gm);
@@ -175,7 +175,7 @@ function extractInteractiveOptions(content: string): string[] {
   if (options.length >= 2) return options;
 
   // Pattern 2: lettered list items like "a. Yes" / "b) No"
-  options.length = 0;
+  options = [];
   const letteredMatches = content.matchAll(/^\s*[a-zA-Z][.)]\s+(.+)$/gm);
   for (const m of letteredMatches) {
     const opt = m[1].trim();
@@ -183,15 +183,22 @@ function extractInteractiveOptions(content: string): string[] {
   }
   if (options.length >= 2) return options;
 
-  // Pattern 3: approval-style yes/no/approve/deny keywords asked inline
+  // Pattern 3: inline parenthesised options after a question mark
+  // e.g. "Should I proceed? (yes/no)" or "Which one? (approve / deny / skip)"
+  const parenAfterQ = content.match(/\?\s*\(([^)]{2,80})\)\s*$/m);
+  if (parenAfterQ) {
+    const inner = parenAfterQ[1];
+    // Split on / or comma
+    const parts = inner.split(/[\/,]/).map(s => s.trim()).filter(s => s.length > 0 && s.length < 60);
+    if (parts.length >= 2) return parts.map(p => p.charAt(0).toUpperCase() + p.slice(1));
+  }
+
+  // Pattern 4: approval-style yes/no/approve/deny keywords asked inline
   // e.g. "Do you want to proceed? (yes/no)" or "Approve or deny?"
-  const approvalKeywords = /\b(yes|no|approve|deny|allow|reject|proceed|cancel|continue|skip|abort|confirm|decline)\b/gi;
   const approvalLine = content.split("\n").find(
-    (line) => approvalKeywords.test(line) && /[/?]/.test(line)
+    (line) => /\b(yes|no|approve|deny|allow|reject|proceed|cancel|continue|skip|abort|confirm|decline)\b/i.test(line) && /[/?]/.test(line)
   );
   if (approvalLine) {
-    // Reset regex
-    approvalKeywords.lastIndex = 0;
     const kws = [...new Set([...approvalLine.matchAll(/\b(yes|no|approve|deny|allow|reject|proceed|cancel|continue|skip|abort|confirm|decline)\b/gi)].map(m => {
       const w = m[1];
       return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
@@ -199,8 +206,20 @@ function extractInteractiveOptions(content: string): string[] {
     if (kws.length >= 2) return kws;
   }
 
-  // Pattern 4: explicit "options:" / "choices:" header followed by dash list items
-  options.length = 0;
+  // Pattern 5: markdown bold options — **Yes** or **No** anywhere in the message
+  // Works for "Would you like to **Approve** or **Deny** this?" style
+  options = [];
+  const boldMatches = content.matchAll(/\*\*([^*]{1,60})\*\*/g);
+  for (const m of boldMatches) {
+    const opt = m[1].trim();
+    // Only treat as an option if it's a short word/phrase (not a heading or emphasis)
+    if (opt.length > 0 && opt.length < 50 && !/[.!]$/.test(opt)) options.push(opt);
+  }
+  // Only surface bold options if the message contains a question mark (it's asking something)
+  if (options.length >= 2 && content.includes("?")) return options;
+
+  // Pattern 6: explicit "options:" / "choices:" header followed by dash list items
+  options = [];
   if (/^\s*(?:options?|choices?)\s*:/im.test(content)) {
     const dashMatches = content.matchAll(/^\s*[-•*]\s+(.+)$/gm);
     for (const m of dashMatches) {
@@ -212,6 +231,7 @@ function extractInteractiveOptions(content: string): string[] {
 
   return [];
 }
+
 
 function CodeBlock({ language, value }: { language: string; value: string }) {
   const [copied, setCopied] = useState(false);
