@@ -302,23 +302,6 @@ export function AppSidebar() {
 
       {/* ── Footer ──────────────────────────────────────────────────────── */}
       <SidebarFooter style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
-        <SidebarMenu>
-
-          {/* Settings link (direct) */}
-          <SidebarMenuItem>
-            <SidebarMenuButton asChild tooltip="Settings">
-              <NavLink
-                to="/settings"
-                end={false}
-                className="hover:bg-accent/50 text-sm font-medium"
-                activeClassName="bg-accent text-foreground font-medium"
-              >
-                <Settings className="h-4 w-4 shrink-0" />
-                <span className="flex-1 text-sm">Settings</span>
-              </NavLink>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
 
         {/* User row */}
         <div className={cn(
