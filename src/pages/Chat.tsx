@@ -530,6 +530,7 @@ function parseChunkForLog(chunk: string, acc: string): LiveLogEntry | null {
             id: typeof obj.id === "string" ? obj.id : undefined,
             name: friendlyToolName(name),
             input: rawInput && Object.keys(rawInput).length > 0 ? rawInput : undefined,
+            startedAt: Date.now(),
           },
         };
       }
@@ -735,6 +736,9 @@ export default function Chat() {
               ...updated[realIdx].toolCallData!,
               result: entry.toolCallData!.result,
               isError: entry.toolCallData!.isError,
+              durationMs: updated[realIdx].toolCallData?.startedAt
+                ? Date.now() - updated[realIdx].toolCallData!.startedAt!
+                : undefined,
             },
           };
           return updated;

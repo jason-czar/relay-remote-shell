@@ -22,6 +22,8 @@ export type LiveLogEntry = {
     input?: Record<string, unknown>;
     result?: string;
     isError?: boolean;
+    startedAt?: number;   // Date.now() when tool_use was received
+    durationMs?: number;  // set when tool_result is received
   };
 };
 
@@ -169,6 +171,13 @@ function ToolCallCard({ entry, isLast, agentColor }: {
     ? data.result.length > 120 ? data.result.slice(0, 120) + "…" : data.result
     : null;
 
+  // Format duration
+  const durationLabel = data.durationMs !== undefined
+    ? data.durationMs < 1000
+      ? `${data.durationMs}ms`
+      : `${(data.durationMs / 1000).toFixed(1)}s`
+    : null;
+
   return (
     <div
       className={cn(
@@ -202,7 +211,17 @@ function ToolCallCard({ entry, isLast, agentColor }: {
             {inputStr.replace(/\n\s+/g, " ").slice(0, 80)}
           </span>
         )}
-        <span className="ml-auto shrink-0 text-muted-foreground/40">
+        <span className="ml-auto shrink-0 flex items-center gap-1.5 text-muted-foreground/40">
+          {durationLabel && (
+            <span className={cn(
+              "text-[9px] font-mono tabular-nums px-1 py-0.5 rounded",
+              data.isError
+                ? "text-destructive/70 bg-destructive/10"
+                : "text-muted-foreground/50 bg-white/5"
+            )}>
+              {durationLabel}
+            </span>
+          )}
           {open ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
         </span>
       </button>
