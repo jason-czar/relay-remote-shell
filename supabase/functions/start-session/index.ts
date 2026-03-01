@@ -64,14 +64,25 @@ Deno.serve(async (req) => {
 
     const { device_id } = parsed.data;
 
-    // Verify device exists and user has access
-    const { data: device, error: devErr } = await supabaseUser
+    // Verify device exists using admin client, then check access via RLS function
+    const { data: device, error: devErr } = await supabaseAdmin
       .from("devices")
       .select("*")
       .eq("id", device_id)
       .single();
 
     if (devErr || !device) {
+      return json({ error: "Device not found or access denied" }, 404);
+    }
+
+    // Verify the user has access to this device via RLS function
+    const { data: hasAccess } = await supabaseUser
+      .rpc("is_device_in_user_project", { _device_id: device_id });
+
+    // Also allow direct ownership
+    const isOwner = device.user_id === user.id;
+
+    if (!hasAccess && !isOwner) {
       return json({ error: "Device not found or access denied" }, 404);
     }
 
