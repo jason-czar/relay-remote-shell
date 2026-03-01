@@ -2687,8 +2687,8 @@ export default function Chat() {
                     "Send prompts directly to Claude Code running on your device."}
                       </p>
 
-                      {/* Open Project + Clone Repo actions — claude & codex only */}
-                      {(agent === "claude" || agent === "codex") && selectedDeviceId && (
+                      {/* Open Project + Clone Repo actions — claude, codex & openclaw */}
+                      {(agent === "claude" || agent === "codex" || agent === "openclaw") && selectedDeviceId && (
                         <div className="flex gap-3 mb-6 animate-fade-in" style={{ animationDelay: "280ms", animationFillMode: "both" }}>
                           <button
                             onClick={() => {
