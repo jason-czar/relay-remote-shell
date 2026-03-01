@@ -195,8 +195,9 @@ function extractInteractiveOptions(content: string): string[] {
 
   // Pattern 4: approval-style yes/no/approve/deny keywords asked inline
   // e.g. "Do you want to proceed? (yes/no)" or "Approve or deny?"
+  // Also matches sentences containing "approve" without ? (e.g. "needs your explicit approval")
   const approvalLine = content.split("\n").find(
-    (line) => /\b(yes|no|approve|deny|allow|reject|proceed|cancel|continue|skip|abort|confirm|decline)\b/i.test(line) && /[/?]/.test(line)
+    (line) => /\b(yes|no|approve|deny|allow|reject|proceed|cancel|continue|skip|abort|confirm|decline)\b/i.test(line) && (/[/?]/.test(line) || /\b(approv|explicit approval|approve the|allow the|deny the|reject the|confirm the)\b/i.test(line))
   );
   if (approvalLine) {
     const kws = [...new Set([...approvalLine.matchAll(/\b(yes|no|approve|deny|allow|reject|proceed|cancel|continue|skip|abort|confirm|decline)\b/gi)].map(m => {
@@ -204,6 +205,16 @@ function extractInteractiveOptions(content: string): string[] {
       return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
     }))];
     if (kws.length >= 2) return kws;
+    // If only one keyword found (e.g. just "approve"), provide a default Approve/Deny pair
+    if (kws.length === 1 || /\b(approv|explicit approval)\b/i.test(approvalLine)) {
+      return ["Approve", "Deny"];
+    }
+  }
+
+  // Pattern 4b: message contains "approve" or "allow" + "tool"/"command"/"action" — always show Approve/Deny
+  if (/\b(approve|allow)\b.{0,60}\b(tool|command|action|operation|request)\b/i.test(content) ||
+      /\b(tool|command|action|operation|request)\b.{0,60}\b(approve|allow|approval)\b/i.test(content)) {
+    return ["Approve", "Deny"];
   }
 
   // Pattern 5: markdown bold options — **Yes** or **No** anywhere in the message
@@ -566,7 +577,7 @@ export function ChatMessage({ role, content, thinking, streaming, activityStatus
   }
 
   // Assistant — hover actions
-  const interactiveOpts = !streaming ? extractInteractiveOptions(content) : [];
+  const interactiveOpts = extractInteractiveOptions(content);
   const hasOptions = interactiveOpts.length > 0;
 
   return (
