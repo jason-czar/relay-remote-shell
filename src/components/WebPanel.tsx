@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Globe, X, RotateCcw, Loader2, AlertCircle, ChevronLeft, ChevronRight, Bookmark, BookmarkCheck, Trash2 } from "lucide-react";
+import { Globe, X, RotateCcw, Loader2, AlertCircle, ChevronLeft, ChevronRight, Bookmark, BookmarkCheck, Trash2, Pencil, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 
@@ -271,6 +271,8 @@ export function WebPanel({ initialUrl = "", deviceId, deviceName, onClose }: Web
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
   const [bookmarksOpen, setBookmarksOpen] = useState(false);
   const isBookmarked = bookmarks.some(b => b.url === loadedUrl);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
 
   // Load bookmarks on mount
   useEffect(() => {
@@ -300,6 +302,19 @@ export function WebPanel({ initialUrl = "", deviceId, deviceName, onClose }: Web
   const handleDeleteBookmark = async (id: string) => {
     await supabase.from("web_bookmarks").delete().eq("id", id);
     setBookmarks(prev => prev.filter(b => b.id !== id));
+  };
+
+  const startRename = (bm: { id: string; title: string }) => {
+    setRenamingId(bm.id);
+    setRenameValue(bm.title);
+  };
+
+  const commitRename = async (id: string) => {
+    const trimmed = renameValue.trim();
+    if (!trimmed) { setRenamingId(null); return; }
+    await supabase.from("web_bookmarks").update({ title: trimmed }).eq("id", id);
+    setBookmarks(prev => prev.map(b => b.id === id ? { ...b, title: trimmed } : b));
+    setRenamingId(null);
   };
 
   const relayHttpUrl = (import.meta.env.VITE_RELAY_URL || "wss://relay.privaclaw.com")
@@ -562,21 +577,50 @@ export function WebPanel({ initialUrl = "", deviceId, deviceName, onClose }: Web
               <ul className="max-h-72 overflow-y-auto divide-y divide-border">
                 {bookmarks.map(bm => (
                   <li key={bm.id} className="flex items-center gap-2 px-3 py-2 hover:bg-accent/50 group">
-                    <button
-                      className="flex-1 text-left min-w-0"
-                      onClick={() => { navigateTo(bm.url); setBookmarksOpen(false); }}
-                    >
-                      <p className="text-xs font-medium text-foreground truncate">{bm.title || bm.url}</p>
-                      <p className="text-[10px] text-muted-foreground truncate">{bm.url}</p>
-                    </button>
-                    <Button
-                      variant="ghost" size="icon"
-                      className="h-6 w-6 shrink-0 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive"
-                      onClick={() => handleDeleteBookmark(bm.id)}
-                      title="Remove"
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
+                    {renamingId === bm.id ? (
+                      <form
+                        className="flex-1 flex items-center gap-1 min-w-0"
+                        onSubmit={e => { e.preventDefault(); commitRename(bm.id); }}
+                      >
+                        <Input
+                          autoFocus
+                          value={renameValue}
+                          onChange={e => setRenameValue(e.target.value)}
+                          onBlur={() => commitRename(bm.id)}
+                          onKeyDown={e => e.key === "Escape" && setRenamingId(null)}
+                          className="h-6 text-xs px-2 bg-muted/60 border-border flex-1 min-w-0"
+                        />
+                        <Button type="submit" variant="ghost" size="icon" className="h-6 w-6 shrink-0 text-primary">
+                          <Check className="h-3 w-3" />
+                        </Button>
+                      </form>
+                    ) : (
+                      <>
+                        <button
+                          className="flex-1 text-left min-w-0"
+                          onClick={() => { navigateTo(bm.url); setBookmarksOpen(false); }}
+                        >
+                          <p className="text-xs font-medium text-foreground truncate">{bm.title || bm.url}</p>
+                          <p className="text-[10px] text-muted-foreground truncate">{bm.url}</p>
+                        </button>
+                        <Button
+                          variant="ghost" size="icon"
+                          className="h-6 w-6 shrink-0 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground"
+                          onClick={() => startRename(bm)}
+                          title="Rename"
+                        >
+                          <Pencil className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          variant="ghost" size="icon"
+                          className="h-6 w-6 shrink-0 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive"
+                          onClick={() => handleDeleteBookmark(bm.id)}
+                          title="Remove"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </>
+                    )}
                   </li>
                 ))}
               </ul>
