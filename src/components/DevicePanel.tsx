@@ -257,6 +257,13 @@ export function DevicePanel({ open, onClose, devices, selectedDeviceId, onSelect
     return `curl -fsSL "${API_URL}/download-connector?install=full" | bash -s -- "${d.pairing_code}"`;
   }, []);
 
+  const getWinOneLiner = useCallback((d: Tables<"devices">) => {
+    if (!d.pairing_code) return "";
+    return `$s=(Invoke-WebRequest "${API_URL}/download-connector?install=ps-full" -UseBasicParsing).Content; Invoke-Expression "$s ${d.pairing_code}"`;
+  }, []);
+
+  const [reinstallPlatform, setReinstallPlatform] = useState<Record<string, "unix" | "windows">>({});
+
   const copyOneLiner = useCallback((cmd: string, id: string, type: "reinstall" | "offline") => {
     navigator.clipboard.writeText(cmd);
     if (type === "reinstall") {
@@ -444,12 +451,29 @@ export function DevicePanel({ open, onClose, devices, selectedDeviceId, onSelect
                         <p className="text-[10px] text-muted-foreground leading-relaxed">
                           Run this on your machine. It will download the latest binary, re-pair if needed, and restart the background service.
                         </p>
+                        {/* Platform tabs */}
+                        <div className="flex gap-1 mb-1">
+                          {(["unix", "windows"] as const).map(p => (
+                            <button
+                              key={p}
+                              onClick={() => setReinstallPlatform(prev => ({ ...prev, [d.id]: p }))}
+                              className={cn(
+                                "px-2 py-0.5 rounded text-[10px] font-medium transition-colors",
+                                (reinstallPlatform[d.id] ?? "unix") === p
+                                  ? "bg-primary/15 text-primary"
+                                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                              )}
+                            >
+                              {p === "unix" ? "macOS / Linux" : "Windows"}
+                            </button>
+                          ))}
+                        </div>
                         <div className="relative rounded-lg bg-muted/60 border border-border/40 overflow-hidden">
                           <pre className="px-2.5 py-2.5 pr-8 text-[10px] font-mono text-foreground/90 overflow-x-auto whitespace-pre-wrap break-all [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                            <code>{getOneLiner(d)}</code>
+                            <code>{(reinstallPlatform[d.id] ?? "unix") === "unix" ? getOneLiner(d) : getWinOneLiner(d)}</code>
                           </pre>
                           <button
-                            onClick={(e) => { e.stopPropagation(); copyOneLiner(getOneLiner(d), d.id, "reinstall"); }}
+                            onClick={(e) => { e.stopPropagation(); copyOneLiner((reinstallPlatform[d.id] ?? "unix") === "unix" ? getOneLiner(d) : getWinOneLiner(d), d.id, "reinstall"); }}
                             className="absolute top-2 right-2 p-1 rounded hover:bg-accent/60 text-muted-foreground hover:text-foreground transition-colors"
                             title="Copy"
                           >
