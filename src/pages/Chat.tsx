@@ -1177,10 +1177,38 @@ export default function Chat() {
   }, []);
 
 
-  // ── Parse claude session id from stdout ───────────────────────────────
+  // ── Parse Claude/Claude Code session id from stdout ─────────────────
   const extractClaudeSessionId = (stdout: string): string | null => {
     const match = stdout.match(/Session ID:\s*(\S+)/i) ?? stdout.match(/"session_id"\s*:\s*"([^"]+)"/);
     return match ? match[1] : null;
+  };
+
+  // ── Parse Codex session id from JSONL stdout ──────────────────────────
+  // Codex JSONL lines contain objects with "id" fields like:
+  //   {"id":"rs_<sessionHex>...","type":"reasoning",...}
+  //   {"id":"msg_<sessionHex>...","type":"message",...}
+  // The session ID Codex accepts for --resume is the hex portion shared
+  // across all JSONL objects in a single run (after the rs_/msg_ prefix).
+  // We prefer the explicit "session_id" field if present, then fall back
+  // to extracting from the first rs_ or msg_ id.
+  const extractCodexSessionId = (stdout: string): string | null => {
+    // 1. Explicit session_id field in any JSONL line
+    const explicit = stdout.match(/"session_id"\s*:\s*"([^"]+)"/);
+    if (explicit) return explicit[1];
+
+    // 2. Full id value from first reasoning or message object (Codex accepts full id for --resume)
+    const lines = stdout.split("\n");
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed.startsWith("{")) continue;
+      try {
+        const obj = JSON.parse(trimmed) as Record<string, unknown>;
+        if (typeof obj.id === "string" && (obj.type === "reasoning" || obj.type === "message")) {
+          return obj.id as string;
+        }
+      } catch { /* not valid JSON, skip */ }
+    }
+    return null;
   };
 
   // ── Extract working directory from OSC 7 sequences in stdout ─────────
@@ -1452,7 +1480,9 @@ export default function Chat() {
           trim();
 
           if (!convData?.claude_session_id && (convData?.agent === "claude" || convData?.agent === "codex")) {
-            const sessionId = extractClaudeSessionId(stdout);
+            const sessionId = convData.agent === "codex"
+              ? extractCodexSessionId(stdout)
+              : extractClaudeSessionId(stdout);
             if (sessionId) {
               await supabase.from("chat_conversations").update({ claude_session_id: sessionId }).eq("id", jobConvId);
               // Update local cache so the resume badge shows immediately
@@ -1801,7 +1831,7 @@ export default function Chat() {
             responseText = codexParts.join("\n").trim();
             // Capture session ID from first Codex reply
             if (!convData?.claude_session_id) {
-              const sessionId = extractClaudeSessionId(stdout);
+              const sessionId = extractCodexSessionId(stdout);
               if (sessionId) {
                 await supabase.from("chat_conversations").update({ claude_session_id: sessionId }).eq("id", jobConvId);
                 setConversations(prev => prev.map(c => c.id === jobConvId ? { ...c, claude_session_id: sessionId } : c));
