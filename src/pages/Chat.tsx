@@ -2460,7 +2460,12 @@ export default function Chat() {
 
         {/* Mobile full-screen preview overlay */}
         {showPreview && isMobile && (
-          <div className="absolute inset-0 z-30 flex flex-col">
+          <div className={cn(
+            "absolute inset-0 z-30 flex flex-col",
+            // When chat tab is active, let pointer events fall through to chat underneath
+            // except the tab bar itself (handled inside PreviewPanel with pointer-events-auto)
+            previewTab === "chat" ? "pointer-events-none" : ""
+          )}>
             <PreviewPanel
               deviceId={selectedDeviceId}
               deviceName={devices.find(d => d.id === selectedDeviceId)?.name}

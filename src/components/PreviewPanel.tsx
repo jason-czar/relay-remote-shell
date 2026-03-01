@@ -71,7 +71,11 @@ export function PreviewPanel({
   }, [submittedUrl]);
 
   return (
-    <div className="flex flex-col h-full bg-[hsl(0,0%,8%)] overflow-hidden">
+    <div className={cn(
+      "flex flex-col h-full bg-[hsl(0,0%,8%)]",
+      // When chat tab active, don't clip — chat content underneath must show through
+      onSwitchToChat && activeTab === "chat" ? "overflow-visible" : "overflow-hidden"
+    )}>
       {/* Main preview content — slides off-screen when chat tab is active (mobile only) */}
       <div className={cn(
         "flex-1 min-h-0 flex flex-col overflow-hidden transition-transform duration-300 ease-in-out",
@@ -199,7 +203,7 @@ export function PreviewPanel({
 
       {/* ── Mobile tab bar — always visible, outside the sliding panel ── */}
       {onSwitchToChat && (
-      <div className="shrink-0 px-3 py-2.5 flex items-center gap-2 bg-[hsl(0,0%,8%)]">
+      <div className="shrink-0 px-3 py-2.5 flex items-center gap-2 bg-[hsl(0,0%,8%)] pointer-events-auto">
         {/* Close button */}
         <button
           className="w-9 h-9 flex items-center justify-center rounded-full bg-[hsl(0,0%,16%)] text-muted-foreground hover:text-foreground transition-colors shrink-0"
