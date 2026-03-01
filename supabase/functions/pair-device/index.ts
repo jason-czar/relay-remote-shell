@@ -79,9 +79,17 @@ Deno.serve(async (req) => {
       .gte("created_at", windowStart);
 
     if (countErr) {
-      console.error("Rate limit check failed:", countErr.message);
+      console.error("[pair-device] Rate limit check failed", {
+        ip: clientIp,
+        error: countErr.message,
+      });
       // Fail open — don't block if rate limit check errors
     } else if ((count ?? 0) >= MAX_ATTEMPTS_PER_IP) {
+      console.warn("[pair-device] Rate limit exceeded", {
+        ip: clientIp,
+        attempted_code: pairing_code.toUpperCase(),
+        count,
+      });
       return json(
         { error: "Too many pairing attempts. Please try again later." },
         429
@@ -116,6 +124,11 @@ Deno.serve(async (req) => {
       .single();
 
     if (findErr || !device) {
+      console.error("[pair-device] Invalid or expired pairing code", {
+        ip: clientIp,
+        attempted_code: pairing_code.toUpperCase(),
+        error: findErr?.message ?? "not found",
+      });
       return json({ error: "Invalid or expired pairing code" }, 404);
     }
 
@@ -136,6 +149,11 @@ Deno.serve(async (req) => {
       .eq("id", device.id);
 
     if (updateErr) {
+      console.error("[pair-device] Device update failed", {
+        device_id: device.id,
+        ip: clientIp,
+        error: updateErr.message,
+      });
       return json({ error: "Failed to pair device" }, 500);
     }
 
