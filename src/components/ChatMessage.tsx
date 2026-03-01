@@ -950,13 +950,17 @@ export function ChatMessage({ role, content, thinking, streaming, activityStatus
                   />
                 ))}
                 {finishedCount > 0 && (
-                  <div className="flex items-center gap-1.5 pt-1 px-1">
-                    <span className="text-[9px] font-mono text-muted-foreground/40">
-                      {finishedCount} tool{finishedCount !== 1 ? "s" : ""} ·
-                    </span>
-                    <span className="text-[9px] font-mono tabular-nums text-muted-foreground/50 bg-white/5 px-1 py-0.5 rounded">
-                      {totalLabel} total
-                    </span>
+                  <div className="flex items-center gap-2 pt-1.5 px-3">
+                    <div className="flex items-center gap-1.5 px-2 py-1 rounded-full border border-border/20 bg-white/[0.03]">
+                      <CheckCircle2 className="h-2.5 w-2.5 text-muted-foreground/30" />
+                      <span className="text-[9px] font-mono text-muted-foreground/40">
+                        {finishedCount} tool{finishedCount !== 1 ? "s" : ""}
+                      </span>
+                      <span className="text-muted-foreground/20 text-[9px]">·</span>
+                      <span className="text-[9px] font-mono tabular-nums font-semibold text-muted-foreground/60">
+                        {totalLabel} total
+                      </span>
+                    </div>
                   </div>
                 )}
               </div>
