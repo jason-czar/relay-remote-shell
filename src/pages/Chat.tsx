@@ -15,7 +15,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Send, ChevronDown, Paperclip, X, FileText, Image, Plus, Monitor, Terminal, Loader2, WifiOff, Square, Mic, ArrowUp, RefreshCw, SquarePen } from "lucide-react";
-import { WebPanel } from "@/components/WebPanel";
+import { PreviewPanel } from "@/components/PreviewPanel";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
@@ -2386,11 +2386,14 @@ export default function Chat() {
             <>
               <ResizableHandle withHandle />
               <ResizablePanel defaultSize={50} minSize={25}>
-                <WebPanel
+                <PreviewPanel
                   deviceId={selectedDeviceId}
                   deviceName={devices.find(d => d.id === selectedDeviceId)?.name}
                   initialUrl={previewUrl}
                   onClose={() => { setShowPreview(false); setPreviewUrl(""); }}
+                  activeTab="preview"
+                  onSwitchToChat={() => setShowPreview(false)}
+                  onTabChange={(tab) => { if (tab === "chat") setShowPreview(false); }}
                 />
               </ResizablePanel>
             </>
