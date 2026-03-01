@@ -2241,6 +2241,21 @@ export default function Chat() {
                 if (!sessionId || agent === "terminal") return null;
                 const short = sessionId.slice(0, 8);
                 const agentLabel = agent === "openclaw" ? "OpenClaw" : agent === "codex" ? "Codex" : "Claude";
+                // Session age from conversation's last update time
+                const sessionAge = (() => {
+                  const ts = activeConv?.updated_at;
+                  if (!ts) return null;
+                  const diff = (Date.now() - new Date(ts).getTime()) / 1000;
+                  if (diff < 60) return "just now";
+                  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+                  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+                  return `${Math.floor(diff / 86400)}d ago`;
+                })();
+                const isStale = (() => {
+                  const ts = activeConv?.updated_at;
+                  if (!ts) return false;
+                  return (Date.now() - new Date(ts).getTime()) > 6 * 3600 * 1000; // >6h
+                })();
                 const handleClearSession = async () => {
                   if (!activeConvId) return;
                   const field = agent === "openclaw" ? "openclaw_session_id" : "claude_session_id";
@@ -2260,7 +2275,17 @@ export default function Chat() {
                           <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" className="shrink-0 opacity-70">
                             <path d="M1.5 1.5A.5.5 0 0 1 2 1h12a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.128.334L10 8.692V13.5a.5.5 0 0 1-.342.474l-3 1A.5.5 0 0 1 6 14.5V8.692L1.628 3.834A.5.5 0 0 1 1.5 3.5z"/>
                           </svg>
-                          <span>Resuming · <span className="font-mono opacity-80">{short}…</span></span>
+                          <div className="flex flex-col leading-none gap-[2px]">
+                            <span>Resuming · <span className="font-mono opacity-80">{short}…</span></span>
+                            {sessionAge && (
+                              <span className={cn(
+                                "text-[9px] font-mono",
+                                isStale ? "text-[hsl(38_90%_58%)]" : "opacity-45"
+                              )}>
+                                {isStale ? "⚠ " : ""}{sessionAge}
+                              </span>
+                            )}
+                          </div>
                         </div>
                         {/* Divider */}
                         <div className="w-px h-4 bg-primary/20 self-center" />

@@ -8,6 +8,7 @@ export interface Conversation {
   agent: string;
   model: string;
   created_at: string;
+  updated_at?: string;
   workdir?: string | null;
   device_id?: string | null;
   device_status?: "online" | "offline" | null;
@@ -145,14 +146,14 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     if (!user) return;
     supabase
     .from("chat_conversations")
-      .select("id, title, agent, model, created_at, device_id, claude_session_id, openclaw_session_id, devices(workdir, status)")
+      .select("id, title, agent, model, created_at, updated_at, device_id, claude_session_id, openclaw_session_id, devices(workdir, status)")
       .eq("user_id", user.id)
       .order("updated_at", { ascending: false })
       .then(({ data }) => {
         if (data) {
           const mapped = (data as unknown as Array<{
             id: string; title: string; agent: string; model: string;
-            created_at: string; device_id: string | null;
+            created_at: string; updated_at: string; device_id: string | null;
             devices: { workdir: string | null; status: string | null } | null;
           }>).map(({ devices, ...rest }) => ({
             ...rest,
@@ -364,13 +365,13 @@ print(json.dumps({'claude':read_sessions(h('~/.claude/sessions')),'codex':read_s
       // Refresh sidebar
       const { data } = await supabase
         .from("chat_conversations")
-        .select("id, title, agent, model, created_at, device_id, claude_session_id, openclaw_session_id, devices(workdir, status)")
+        .select("id, title, agent, model, created_at, updated_at, device_id, claude_session_id, openclaw_session_id, devices(workdir, status)")
         .eq("user_id", user.id)
         .order("updated_at", { ascending: false });
       if (data) {
         const mapped = (data as unknown as Array<{
           id: string; title: string; agent: string; model: string;
-          created_at: string; device_id: string | null;
+          created_at: string; updated_at: string; device_id: string | null;
           devices: { workdir: string | null; status: string | null } | null;
         }>).map(({ devices, ...rest }) => ({
           ...rest,
