@@ -78,12 +78,10 @@ export function SetupWizard({ projectId, onComplete, onSkip, existingDevice }: S
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // Three separate commands
-  const cmd1 = `curl -fsSL "${API_URL}/download-connector?install=1" | bash`;
-  const cmd2 = device?.pairing_code
-    ? `cd ~/relay-connector && ./relay-connector --pair "${device.pairing_code}" --api "${API_URL}" --name "${device.name || "MyDevice"}"`
+  // Single one-liner: install, pair, and register as a background service
+  const cmdFull = device?.pairing_code
+    ? `curl -fsSL "${API_URL}/download-connector?install=full" | bash -s -- "${device.pairing_code}"`
     : "";
-  const cmd3 = `cd ~/relay-connector && nohup ./relay-connector connect >/dev/null 2>&1 &`;
 
   const steps = [
     { num: 1, label: "Name Device" },
@@ -168,9 +166,9 @@ export function SetupWizard({ projectId, onComplete, onSkip, existingDevice }: S
                 <Terminal className="h-5 w-5 text-primary" />
               </div>
               <div>
-                <h3 className="font-semibold">Run these commands on your machine</h3>
+                <h3 className="font-semibold">Run this command on your machine</h3>
                 <p className="text-sm text-muted-foreground">
-                  Three steps: install, pair, and start the connector.{" "}
+                  One command — installs, pairs, and registers as a background service.{" "}
                   <a href="/docs" target="_blank" rel="noopener noreferrer" className="text-primary underline-offset-2 hover:underline">
                     Need help?
                   </a>
@@ -178,28 +176,22 @@ export function SetupWizard({ projectId, onComplete, onSkip, existingDevice }: S
               </div>
             </div>
 
-            {[
-              { label: "1. Install the connector", cmd: cmd1 },
-              { label: "2. Pair this device", cmd: cmd2 },
-              { label: "3. Start in background", cmd: cmd3 },
-            ].map(({ label, cmd }, i) => (
-              <div key={i} className="space-y-1">
-                <p className="text-xs text-muted-foreground font-medium">{label}</p>
-                <div className="relative">
-                  <pre className="bg-muted rounded-lg p-3 pr-10 text-sm font-mono overflow-x-auto whitespace-pre">
-                    <code>{cmd}</code>
-                  </pre>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="absolute top-1.5 right-1.5 h-7 w-7"
-                    onClick={() => copyToClipboard(cmd)}
-                  >
-                    <Copy className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground font-medium">Run this on your machine</p>
+              <div className="relative">
+                <pre className="bg-muted rounded-lg p-3 pr-10 text-sm font-mono overflow-x-auto whitespace-pre-wrap break-all">
+                  <code>{cmdFull}</code>
+                </pre>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="absolute top-1.5 right-1.5 h-7 w-7"
+                  onClick={() => copyToClipboard(cmdFull)}
+                >
+                  {copied ? <Check className="h-3.5 w-3.5 text-primary" /> : <Copy className="h-3.5 w-3.5" />}
+                </Button>
               </div>
-            ))}
+            </div>
 
             {/* macOS Gatekeeper note */}
             <div className="rounded-lg border border-border bg-muted/40 p-3 flex gap-2.5">
