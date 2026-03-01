@@ -589,6 +589,13 @@ func selfUpdate(apiURL string) error {
 	}
 	fmt.Printf("✅ Binary updated: %s\n", exe)
 
+	// Remove macOS Gatekeeper quarantine flag so the new binary isn't killed on exec.
+	if runtime.GOOS == "darwin" {
+		fmt.Println("🔓 Removing macOS quarantine...")
+		// Ignore errors: attribute may not exist (idempotent).
+		_ = exec.Command("xattr", "-d", "com.apple.quarantine", exe).Run()
+	}
+
 	// Re-register the service with the new binary.
 	fmt.Println("🔄 Re-registering service...")
 	cmd := exec.Command(exe, "--install-agent")
