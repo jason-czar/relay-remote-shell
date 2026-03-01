@@ -705,6 +705,7 @@ export default function Chat() {
   const streamIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const abortStreamRef = useRef(false);
   const pendingAutoSendRef = useRef<string | null>(null);
+  const pendingCloneInfoRef = useRef<{ url: string; dest: string } | null>(null);
   const [isScrolledUp, setIsScrolledUp] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
 
@@ -759,6 +760,10 @@ export default function Chat() {
   const handleCloneRepo = useCallback(() => {
     if (!cloneUrl.trim() || !selectedDeviceId) return;
     const cloneCmd = `git clone ${cloneUrl.trim()}${cloneDir.trim() ? ` ${cloneDir.trim()}` : ""}`;
+    // Derive the repo folder name for later workdir update
+    const urlPart = cloneUrl.trim().replace(/\.git$/, "").replace(/\/$/, "");
+    const repoName = urlPart.split("/").pop() || "";
+    pendingCloneInfoRef.current = { url: cloneUrl.trim(), dest: cloneDir.trim() || repoName };
     setCloneRepoOpen(false);
     setCloneUrl(""); setCloneDir("");
     setInput(cloneCmd);
@@ -1919,6 +1924,25 @@ export default function Chat() {
       setTimeout(() => handleSend(), 80);
     }
   }, [input]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── After clone finishes, update workdir to the cloned folder ────────────
+  const prevIsStreamingRef = useRef(false);
+  useEffect(() => {
+    const currentlyStreaming = !!(thinking || streamingMsgIndex !== null);
+    const wasStreaming = prevIsStreamingRef.current;
+    prevIsStreamingRef.current = currentlyStreaming;
+    if (wasStreaming && !currentlyStreaming && pendingCloneInfoRef.current && selectedDeviceId) {
+      const { dest } = pendingCloneInfoRef.current;
+      pendingCloneInfoRef.current = null;
+      if (!dest) return;
+      const currentDevice = devices.find((d) => d.id === selectedDeviceId);
+      const base = currentDevice?.workdir || "~";
+      const clonedPath = dest.startsWith("/") ? dest : `${base}/${dest}`;
+      supabase.from("devices").update({ workdir: clonedPath }).eq("id", selectedDeviceId).then(() => {
+        toast({ title: "Working directory updated", description: `Now in ${clonedPath}` });
+      });
+    }
+  }, [thinking, streamingMsgIndex]); // eslint-disable-line react-hooks/exhaustive-deps
 
 
   // ── Abort streaming ────────────────────────────────────────────────────
