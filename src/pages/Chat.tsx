@@ -1166,19 +1166,33 @@ export default function Chat() {
       }
       return `codex${modelPart} -q "${escaped}"\n`;
     } else {
-      // claude
+      // claude — use stream-json so we get session_id in the result line
       const modelPart = modelFlag ? ` ${modelFlag}` : "";
       if (conv.claude_session_id) {
-        // Use --resume <id> for exact session targeting (synced or previously started)
-        return `claude --resume ${conv.claude_session_id}${modelPart} -p "${escaped}"\n`;
+        return `claude --resume ${conv.claude_session_id}${modelPart} --output-format stream-json -p "${escaped}"\n`;
       }
-      return `claude${modelPart} -p "${escaped}"\n`;
+      return `claude${modelPart} --output-format stream-json -p "${escaped}"\n`;
     }
   }, []);
 
 
   // ── Parse Claude/Claude Code session id from stdout ─────────────────
+  // Claude with --output-format stream-json emits a final line:
+  //   {"type":"result","session_id":"<id>",...}
+  // Also handle legacy "Session ID: <id>" text format as fallback.
   const extractClaudeSessionId = (stdout: string): string | null => {
+    // 1. JSONL result line (stream-json mode) — most reliable
+    for (const line of stdout.split("\n")) {
+      const t = line.trim();
+      if (!t.startsWith("{")) continue;
+      try {
+        const obj = JSON.parse(t) as Record<string, unknown>;
+        if (obj.type === "result" && typeof obj.session_id === "string" && obj.session_id) {
+          return obj.session_id;
+        }
+      } catch { /* skip */ }
+    }
+    // 2. Legacy text format or any session_id field in JSON
     const match = stdout.match(/Session ID:\s*(\S+)/i) ?? stdout.match(/"session_id"\s*:\s*"([^"]+)"/);
     return match ? match[1] : null;
   };
@@ -1455,46 +1469,83 @@ export default function Chat() {
               claudeThinking = parts.join("\n\n");
             }
           }
-          responseText = cleaned.
-          split("\n").
-          filter((line) => {
+          // Primary: parse --output-format stream-json JSONL lines
+          // Each line is a JSON object; we want type:"assistant" content blocks.
+          // Final line is type:"result" which carries session_id.
+          const claudeJsonlTextParts: string[] = [];
+          for (const line of cleaned.split("\n")) {
             const t = line.trim();
-            if (!t) return false;
-            // Shell prompt characters (→ U+2192, ➜ U+279C, ❯ U+276F, and ASCII variants)
-            if (/^[%$#>→➜❯]\s*$/.test(t)) return false;
-            if (/^[%$#>→➜❯]\s/.test(t)) return false;
-            if (/^Restored session:/i.test(t)) return false;
-            // claude/cclaude command echo (with optional extra leading char from shell)
-            if (/^c?claude\s+(-p|-c|--print|--resume)/i.test(t)) return false;
-            if (/^\[[\d;?<>!]*[a-zA-Z]/.test(t)) return false;
-            if (/^[=\-\+\*~\s]+$/.test(t)) return false;
-            // Shell hostname / path lines emitted by prompt (e.g. "user@host ~ %")
-            if (/\w+@\w+/.test(t) && /[~\/]/.test(t)) return false;
-            // Residual OSC/title fragments
-            if (/^\]\d+;/.test(t)) return false;
-            // Bracketed paste mode sequences
-            if (/^\?2004[hl]$/.test(t)) return false;
-            return true;
-          }).
-          join("\n").
-          trim();
+            if (!t.startsWith("{")) continue;
+            try {
+              const obj = JSON.parse(t) as Record<string, unknown>;
+              // Stream-json assistant message
+              if (obj.type === "assistant" && Array.isArray(obj.message)) {
+                for (const block of obj.message as Record<string, unknown>[]) {
+                  if (block.type === "text" && typeof block.text === "string") {
+                    claudeJsonlTextParts.push(block.text);
+                  }
+                }
+              }
+              // Some versions nest content inside obj.message.content
+              if (obj.type === "assistant") {
+                const msg = obj.message as Record<string, unknown> | undefined;
+                if (msg && Array.isArray(msg.content)) {
+                  for (const block of msg.content as Record<string, unknown>[]) {
+                    if (block.type === "text" && typeof block.text === "string") {
+                      claudeJsonlTextParts.push(block.text);
+                    }
+                  }
+                }
+              }
+            } catch { /* not JSON */ }
+          }
 
-          if (!convData?.claude_session_id && (convData?.agent === "claude" || convData?.agent === "codex")) {
-            const sessionId = convData.agent === "codex"
-              ? extractCodexSessionId(stdout)
-              : extractClaudeSessionId(stdout);
-            if (sessionId) {
-              await supabase.from("chat_conversations").update({ claude_session_id: sessionId }).eq("id", jobConvId);
-              // Update local cache so the resume badge shows immediately
-              setConversations(prev => prev.map(c => c.id === jobConvId ? { ...c, claude_session_id: sessionId } : c));
-            }
+          if (claudeJsonlTextParts.length > 0) {
+            responseText = claudeJsonlTextParts.join("").trim();
+          } else {
+            // Fallback: plain-text stripping (non-JSON output or very old claude versions)
+            responseText = cleaned.
+            split("\n").
+            filter((line) => {
+              const t = line.trim();
+              if (!t) return false;
+              if (/^[%$#>→➜❯]\s*$/.test(t)) return false;
+              if (/^[%$#>→➜❯]\s/.test(t)) return false;
+              if (/^Restored session:/i.test(t)) return false;
+              if (/^c?claude\s+(-p|-c|--print|--resume|--output)/i.test(t)) return false;
+              if (/^\[[\d;?<>!]*[a-zA-Z]/.test(t)) return false;
+              if (/^[=\-\+\*~\s]+$/.test(t)) return false;
+              if (/\w+@\w+/.test(t) && /[~\/]/.test(t)) return false;
+              if (/^\]\d+;/.test(t)) return false;
+              if (/^\?2004[hl]$/.test(t)) return false;
+              // Skip raw JSON lines (stream-json noise if JSONL parser above missed them)
+              if (t.startsWith("{") && t.endsWith("}")) return false;
+              return true;
+            }).
+            join("\n").
+            trim();
           }
-          // Extract cwd from OSC 7 shell escape and persist to device
-          const detectedCwd = extractCwd(stdout);
-          if (detectedCwd && convData?.device_id) {
-            await supabase.from("devices").update({ workdir: detectedCwd }).eq("id", convData.device_id);
-            setConversations((prev) => prev.map((c) => c.id === jobConvId ? { ...c, workdir: detectedCwd } : c));
+        }
+
+        // ── Session ID capture (all agents) ─────────────────────────────────
+        if (!convData?.claude_session_id && (convData?.agent === "claude" || convData?.agent === "codex")) {
+          const sessionId = convData.agent === "codex"
+            ? extractCodexSessionId(stdout)
+            : extractClaudeSessionId(stdout);
+          if (sessionId) {
+            console.log(`[Chat] Captured ${convData.agent} session ID:`, sessionId);
+            await supabase.from("chat_conversations").update({ claude_session_id: sessionId }).eq("id", jobConvId);
+            setConversations(prev => prev.map(c => c.id === jobConvId ? { ...c, claude_session_id: sessionId } : c));
+          } else {
+            console.warn(`[Chat] No session ID found in ${convData.agent} stdout. Length: ${stdout.length}`);
           }
+        }
+
+        // ── Extract cwd from OSC 7 shell escape and persist to device ───────
+        const detectedCwd = extractCwd(stdout);
+        if (detectedCwd && convData?.device_id) {
+          await supabase.from("devices").update({ workdir: detectedCwd }).eq("id", convData.device_id);
+          setConversations((prev) => prev.map((c) => c.id === jobConvId ? { ...c, workdir: detectedCwd } : c));
         }
 
         // ── Auto-retry on empty response ────────────────────────────────────
@@ -1829,33 +1880,51 @@ export default function Chat() {
               } catch {/* skip */}
             }
             responseText = codexParts.join("\n").trim();
-            // Capture session ID from first Codex reply
-            if (!convData?.claude_session_id) {
-              const sessionId = extractCodexSessionId(stdout);
-              if (sessionId) {
-                await supabase.from("chat_conversations").update({ claude_session_id: sessionId }).eq("id", jobConvId);
-                setConversations(prev => prev.map(c => c.id === jobConvId ? { ...c, claude_session_id: sessionId } : c));
-              }
-            }
           } else {
-            responseText = cleaned.split("\n").filter((line) => {
+            // Claude: JSONL stream-json primary, plain-text fallback
+            const claudeParts: string[] = [];
+            for (const line of cleaned.split("\n")) {
               const t = line.trim();
-              if (!t) return false;
-              if (/^[%$#>→]\s*$/.test(t)) return false;
-              if (/^[%$#>→]\s/.test(t)) return false;
-              if (/^Restored session:/i.test(t)) return false;
-              if (/^claude\s+(-p|-c|--print|--resume)/i.test(t)) return false;
-              if (/^\[[\d;?<>!]*[a-zA-Z]/.test(t)) return false;
-              if (/^[=\-\+\*~\s]+$/.test(t)) return false;
-              return true;
-            }).join("\n").trim();
-            // Capture claude_session_id from first reply if not yet stored
-            if (!convData?.claude_session_id) {
-              const claudeId = extractClaudeSessionId(stdout);
-              if (claudeId) {
-                await supabase.from("chat_conversations").update({ claude_session_id: claudeId }).eq("id", jobConvId);
-                setConversations(prev => prev.map(c => c.id === jobConvId ? { ...c, claude_session_id: claudeId } : c));
-              }
+              if (!t.startsWith("{")) continue;
+              try {
+                const obj = JSON.parse(t) as Record<string, unknown>;
+                if (obj.type === "assistant") {
+                  const msg = obj.message as Record<string, unknown> | undefined;
+                  const content = msg?.content ?? obj.message;
+                  if (Array.isArray(content)) {
+                    for (const block of content as Record<string, unknown>[]) {
+                      if (block.type === "text" && typeof block.text === "string") claudeParts.push(block.text);
+                    }
+                  }
+                }
+              } catch {/* not JSON */}
+            }
+            if (claudeParts.length > 0) {
+              responseText = claudeParts.join("").trim();
+            } else {
+              responseText = cleaned.split("\n").filter((line) => {
+                const t = line.trim();
+                if (!t) return false;
+                if (/^[%$#>→➜❯]\s*$/.test(t)) return false;
+                if (/^[%$#>→➜❯]\s/.test(t)) return false;
+                if (/^Restored session:/i.test(t)) return false;
+                if (/^c?claude\s+(-p|-c|--print|--resume|--output)/i.test(t)) return false;
+                if (/^\[[\d;?<>!]*[a-zA-Z]/.test(t)) return false;
+                if (/^[=\-\+\*~\s]+$/.test(t)) return false;
+                if (t.startsWith("{") && t.endsWith("}")) return false;
+                return true;
+              }).join("\n").trim();
+            }
+          }
+          // ── Session ID capture for regenerate path (all agents) ────────────
+          if (!convData?.claude_session_id && (convData?.agent === "claude" || convData?.agent === "codex")) {
+            const sessionId = convData.agent === "codex"
+              ? extractCodexSessionId(stdout)
+              : extractClaudeSessionId(stdout);
+            if (sessionId) {
+              console.log(`[Chat] Regen: captured ${convData.agent} session ID:`, sessionId);
+              await supabase.from("chat_conversations").update({ claude_session_id: sessionId }).eq("id", jobConvId);
+              setConversations(prev => prev.map(c => c.id === jobConvId ? { ...c, claude_session_id: sessionId } : c));
             }
           }
           responseText = responseText.trim() || EMPTY_RESPONSE_TEXT;
