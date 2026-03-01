@@ -3051,10 +3051,24 @@ export default function Chat() {
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground flex items-center gap-1.5">
-                <KeyRound size={13} className="text-muted-foreground" />
-                GitHub token <span className="text-muted-foreground font-normal">(for private repos)</span>
-              </label>
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium text-foreground flex items-center gap-1.5">
+                  <KeyRound size={13} className="text-muted-foreground" />
+                  GitHub token <span className="text-muted-foreground font-normal">(for private repos)</span>
+                </label>
+                {cloneToken && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCloneToken("");
+                      try { localStorage.removeItem("gh-clone-token"); } catch {/* */}
+                    }}
+                    className="text-xs text-destructive hover:text-destructive/80 transition-colors"
+                  >
+                    Clear token
+                  </button>
+                )}
+              </div>
               <div className="relative">
                 <Input
                   type={showCloneToken ? "text" : "password"}
@@ -3074,7 +3088,7 @@ export default function Chat() {
                 </button>
               </div>
               <p className="text-xs text-muted-foreground leading-snug">
-                Your token is stored only in your browser and injected into the clone URL on your device. It is never sent to any server.
+                Your token is stored only in your browser and never sent to any server. For best security, use a <span className="font-medium text-foreground">fine-grained personal access token</span> scoped to <span className="font-medium text-foreground">Contents: Read-only</span> on the target repository.
               </p>
             </div>
           </div>
