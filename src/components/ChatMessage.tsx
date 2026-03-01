@@ -727,6 +727,21 @@ export function ChatMessage({ role, content, thinking, streaming, activityStatus
               ))}
             </div>
           )}
+          {/* Live activity log — shown during streaming reveal (faded) to recap what ran */}
+          {streaming && liveLog && liveLog.length > 0 && (
+            <div className="mt-2 rounded-lg overflow-hidden border border-border/20" style={{ background: "hsl(0 0% 5%)" }}>
+              <div className="max-h-32 overflow-y-auto thinking-scroll py-1 space-y-0">
+                {liveLog.map((entry, i) => (
+                  <div key={i} className="flex items-start gap-2 px-3 py-0.5 font-mono text-[11px] opacity-50">
+                    <span className="shrink-0 text-muted-foreground/50 mt-[1px]">
+                      {entry.type === "bash" ? <span className="font-bold">$</span> : entry.type === "write" ? <FileEdit className="h-2.5 w-2.5" /> : entry.type === "read" ? <FileSearch className="h-2.5 w-2.5" /> : <Wrench className="h-2.5 w-2.5" />}
+                    </span>
+                    <span className="text-muted-foreground/50 truncate">{entry.label}{entry.detail ? ` ${entry.detail}` : ""}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           {/* Streaming progress bar */}
           {streaming && (
             <div className="mt-2 h-[2px] w-full rounded-full overflow-hidden bg-border/30">

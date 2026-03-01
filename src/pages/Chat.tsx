@@ -1292,9 +1292,27 @@ export default function Chat() {
         let openclawThinking = "";
 
         if (convData?.agent === "openclaw") {
-          const jsonBlocks = cleaned.match(/\{[\s\S]*?\}/g) ?? [];
-          const greedyMatch = cleaned.match(/\{[\s\S]*\}/);
-          const candidates = greedyMatch ? [...jsonBlocks, greedyMatch[0]] : jsonBlocks;
+          // Extract all top-level JSON objects from cleaned output (handles multiple objects)
+          const extractJsonObjects = (s: string): string[] => {
+            const results: string[] = [];
+            let i = s.indexOf("{");
+            while (i >= 0 && i < s.length) {
+              let depth = 0; let inStr = false; let esc = false;
+              let j = i;
+              for (; j < s.length; j++) {
+                const c = s[j];
+                if (esc) { esc = false; continue; }
+                if (c === "\\" && inStr) { esc = true; continue; }
+                if (c === '"') { inStr = !inStr; continue; }
+                if (inStr) continue;
+                if (c === "{") depth++;
+                else if (c === "}") { depth--; if (depth === 0) { results.push(s.slice(i, j + 1)); break; } }
+              }
+              i = s.indexOf("{", j + 1);
+            }
+            return results;
+          };
+          const candidates = extractJsonObjects(cleaned);
           for (let i = candidates.length - 1; i >= 0; i--) {
             try {
               const parsed = JSON.parse(candidates[i]);
@@ -1454,35 +1472,46 @@ export default function Chat() {
             const retryStdout = await sendViaRelay(command, convData?.agent === "openclaw", onChunkActivity);
             const retryCleaned = stripAnsi(retryStdout);
 
-            if (convData?.agent === "openclaw") {
-              const jsonBlocks = retryCleaned.match(/\{[\s\S]*?\}/g) ?? [];
-              const greedyMatch = retryCleaned.match(/\{[\s\S]*\}/);
-              const candidates = greedyMatch ? [...jsonBlocks, greedyMatch[0]] : jsonBlocks;
-              for (let i = candidates.length - 1; i >= 0; i--) {
-                try {
-                  const parsed = JSON.parse(candidates[i]);
-                  const payloadText = parsed?.payloads?.[0]?.text;
-                  if (payloadText) { responseText = String(payloadText); break; }
-                  const fallback = parsed.content ?? parsed.message ?? parsed.response ?? parsed.text ?? parsed.result;
-                  if (fallback && typeof fallback === "string") { responseText = fallback; break; }
-                } catch {/* try next */}
-              }
-            } else if (convData?.agent === "codex") {
-              const retryParts: string[] = [];
-              for (const line of retryCleaned.split("\n")) {
-                const t = line.trim();
-                if (!t || !t.startsWith("{")) continue;
-                try {
-                  const obj = JSON.parse(t);
-                  if (obj.type === "message" && obj.role === "assistant" && Array.isArray(obj.content)) {
-                    for (const part of obj.content) {
-                      if (part.type === "output_text" && typeof part.text === "string") retryParts.push(part.text);
-                    }
+        if (convData?.agent === "openclaw") {
+            // Re-use proper object extractor for retry
+            const extractObjs = (s: string): string[] => {
+              const res: string[] = []; let i = s.indexOf("{");
+              while (i >= 0) { let d = 0; let inStr = false; let esc = false; let j = i;
+                for (; j < s.length; j++) { const c = s[j]; if (esc) { esc=false; continue; } if (c==="\\"&&inStr) { esc=true; continue; } if (c==='"') { inStr=!inStr; continue; } if (inStr) continue; if (c==="{") d++; else if (c==="}") { d--; if (d===0) { res.push(s.slice(i,j+1)); break; } } } i = s.indexOf("{", j+1); }
+              return res;
+            };
+            for (const candidate of extractObjs(retryCleaned).reverse()) {
+              try {
+                const parsed = JSON.parse(candidate);
+                if (Array.isArray(parsed?.payloads)) {
+                  const textPayload = parsed.payloads.find((p: { type: string; text?: string }) => p.type === "text" && p.text);
+                  if (textPayload?.text) { responseText = String(textPayload.text); break; }
+                }
+                const payloadText = parsed?.payloads?.[0]?.text;
+                if (payloadText) { responseText = String(payloadText); break; }
+                const fallback = parsed.content ?? parsed.message ?? parsed.response ?? parsed.text ?? parsed.result;
+                if (fallback && typeof fallback === "string") { responseText = fallback; break; }
+              } catch {/* try next */}
+            }
+          } else if (convData?.agent === "codex") {
+            // Use proper JSONL parser (same as primary path)
+            const retryTextParts: string[] = [];
+            for (const line of retryCleaned.split("\n")) {
+              const t = line.trim();
+              if (!t || !t.startsWith("{")) continue;
+              try {
+                const obj = JSON.parse(t);
+                if (obj.type === "message" && obj.role === "assistant" && Array.isArray(obj.content)) {
+                  for (const part of obj.content) {
+                    if (part.type === "output_text" && typeof part.text === "string") retryTextParts.push(part.text);
                   }
-                } catch {/* skip */}
-              }
-              responseText = retryParts.join("\n").trim();
-            } else {
+                } else if (obj.type === "text" && typeof obj.text === "string") {
+                  retryTextParts.push(obj.text);
+                }
+              } catch {/* skip */}
+            }
+            responseText = retryTextParts.join("\n").trim();
+          } else {
               responseText = retryCleaned.split("\n").filter((line) => {
                 const t = line.trim();
                 if (!t) return false;
@@ -1729,13 +1758,21 @@ export default function Chat() {
           const cleaned = stripAnsi(stdout);
           const { data: convData } = await supabase.from("chat_conversations").select("agent, openclaw_session_id, claude_session_id").eq("id", jobConvId).single();
           let responseText = "";
+          // Shared JSON object extractor (same as primary send path)
+          const extractObjs = (s: string): string[] => {
+            const res: string[] = []; let idx = s.indexOf("{");
+            while (idx >= 0) { let d = 0; let inStr = false; let esc = false; let j = idx;
+              for (; j < s.length; j++) { const c = s[j]; if (esc) { esc=false; continue; } if (c==="\\"&&inStr) { esc=true; continue; } if (c==='"') { inStr=!inStr; continue; } if (inStr) continue; if (c==="{") d++; else if (c==="}") { d--; if (d===0) { res.push(s.slice(idx,j+1)); break; } } } idx = s.indexOf("{", j+1); }
+            return res;
+          };
           if (convData?.agent === "openclaw") {
-            const jsonBlocks = cleaned.match(/\{[\s\S]*?\}/g) ?? [];
-            const greedyMatch = cleaned.match(/\{[\s\S]*\}/);
-            const candidates = greedyMatch ? [...jsonBlocks, greedyMatch[0]] : jsonBlocks;
-            for (let i = candidates.length - 1; i >= 0; i--) {
+            for (const candidate of extractObjs(cleaned).reverse()) {
               try {
-                const parsed = JSON.parse(candidates[i]);
+                const parsed = JSON.parse(candidate);
+                if (Array.isArray(parsed?.payloads)) {
+                  const tp = parsed.payloads.find((p: { type: string; text?: string }) => p.type === "text" && p.text);
+                  if (tp?.text) { responseText = String(tp.text); break; }
+                }
                 const payloadText = parsed?.payloads?.[0]?.text;
                 if (payloadText) {responseText = String(payloadText);break;}
                 const fallback = parsed.content ?? parsed.message ?? parsed.response ?? parsed.text ?? parsed.result;
@@ -1743,16 +1780,23 @@ export default function Chat() {
               } catch {/* next */}
             }
           } else if (convData?.agent === "codex") {
-            responseText = cleaned.split("\n").filter((line) => {
+            // Proper JSONL parser for Codex -q output
+            const codexParts: string[] = [];
+            for (const line of cleaned.split("\n")) {
               const t = line.trim();
-              if (!t) return false;
-              if (/^[%$#>→]\s*$/.test(t)) return false;
-              if (/^[%$#>→]\s/.test(t)) return false;
-              if (/^codex\s+/i.test(t)) return false;
-              if (/^\[[\d;?<>!]*[a-zA-Z]/.test(t)) return false;
-              if (/^[=\-\+\*~\s]+$/.test(t)) return false;
-              return true;
-            }).join("\n").trim();
+              if (!t || !t.startsWith("{")) continue;
+              try {
+                const obj = JSON.parse(t);
+                if (obj.type === "message" && obj.role === "assistant" && Array.isArray(obj.content)) {
+                  for (const part of obj.content) {
+                    if (part.type === "output_text" && typeof part.text === "string") codexParts.push(part.text);
+                  }
+                } else if (obj.type === "text" && typeof obj.text === "string") {
+                  codexParts.push(obj.text);
+                }
+              } catch {/* skip */}
+            }
+            responseText = codexParts.join("\n").trim();
             // Capture session ID from first Codex reply
             if (!convData?.claude_session_id) {
               const sessionId = extractClaudeSessionId(stdout);
@@ -2268,6 +2312,7 @@ export default function Chat() {
                     streaming={streamingMsgIndex === i}
                     activityStatus={streamingMsgIndex === i ? activityStatus : undefined}
                     toolCalls={streamingMsgIndex === i ? toolCalls : (msg.role === "assistant" ? toolCallsMapRef.current.get(i) : undefined)}
+                    liveLog={streamingMsgIndex === i ? liveLog : undefined}
                     rawStdout={msg.role === "assistant" ? rawStdoutMapRef.current.get(i) : undefined}
                     thinkingContent={msg.role === "assistant" ? thinkingMapRef.current.get(i) : undefined}
                     thinkingDurationMs={msg.role === "assistant" ? thinkingDurationMapRef.current.get(i) : undefined}
