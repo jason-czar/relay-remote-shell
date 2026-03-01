@@ -29,7 +29,7 @@ export function SetupWizard({ projectId, onComplete, onSkip, existingDevice }: S
   const [device, setDevice] = useState<Tables<"devices"> | null>(existingDevice || null);
   const [copied, setCopied] = useState(false);
   const [platform, setPlatform] = useState<"unix" | "windows">(
-    navigator.userAgent.includes("Win") ? "windows" : "unix"
+    navigator.platform.startsWith("Win") ? "windows" : "unix"
   );
 
   // Poll for device pairing + online status on step 2

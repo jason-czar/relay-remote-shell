@@ -262,7 +262,7 @@ export function DevicePanel({ open, onClose, devices, selectedDeviceId, onSelect
     return `$s=(Invoke-WebRequest "${API_URL}/download-connector?install=ps-full" -UseBasicParsing).Content; Invoke-Expression "$s ${d.pairing_code}"`;
   }, []);
 
-  const isWindows = navigator.userAgent.includes("Win");
+  const isWindows = navigator.platform.startsWith("Win");
   const [reinstallPlatform, setReinstallPlatform] = useState<Record<string, "unix" | "windows">>({});
   const [offlinePlatform, setOfflinePlatform] = useState<Record<string, "unix" | "windows">>({});
 
