@@ -709,6 +709,22 @@ export default function Chat() {
   const [isScrolledUp, setIsScrolledUp] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
 
+  // ── Recent projects (workdir history per device) ─────────────────────────
+  const getRecentProjects = useCallback((deviceId: string): string[] => {
+    try {
+      const raw = localStorage.getItem(`recent-projects-${deviceId}`);
+      return raw ? (JSON.parse(raw) as string[]) : [];
+    } catch { return []; }
+  }, []);
+
+  const addRecentProject = useCallback((deviceId: string, path: string) => {
+    try {
+      const existing = getRecentProjects(deviceId).filter((p) => p !== path);
+      const updated = [path, ...existing].slice(0, 8);
+      localStorage.setItem(`recent-projects-${deviceId}`, JSON.stringify(updated));
+    } catch {/* */}
+  }, [getRecentProjects]);
+
   // ── Open Project folder browser ───────────────────────────────────────────
   const browseFolderViaRelay = useCallback(async (path: string) => {
     if (!selectedDeviceId) return;
@@ -752,6 +768,7 @@ export default function Chat() {
   const handleOpenProject = useCallback(async (chosenPath: string) => {
     if (!selectedDeviceId) return;
     await supabase.from("devices").update({ workdir: chosenPath }).eq("id", selectedDeviceId);
+    addRecentProject(selectedDeviceId, chosenPath);
     setOpenProjectOpen(false);
     setInput(`I'm working in ${chosenPath}. Give me an overview of the project structure.`);
     setTimeout(() => textareaRef.current?.focus(), 100);
@@ -2658,7 +2675,12 @@ export default function Chat() {
                       {(agent === "claude" || agent === "codex") && selectedDeviceId && (
                         <div className="flex gap-3 mb-6 animate-fade-in" style={{ animationDelay: "280ms", animationFillMode: "both" }}>
                           <button
-                            onClick={() => { setFolderPath(""); setFolderItems([]); setOpenProjectOpen(true); browseFolderViaRelay("~"); }}
+                            onClick={() => {
+                              setFolderPath(""); setFolderItems([]); setOpenProjectOpen(true); browseFolderViaRelay("~");
+                              // seed current workdir into recents
+                              const dev = devices.find((d) => d.id === selectedDeviceId);
+                              if (dev?.workdir && selectedDeviceId) addRecentProject(selectedDeviceId, dev.workdir);
+                            }}
                             className="flex items-center gap-2.5 px-5 py-3 rounded-xl border-2 border-border/40 bg-card hover:border-foreground/25 hover:bg-accent/40 transition-all duration-150 text-sm font-medium text-foreground/80 hover:text-foreground"
                           >
                             <FolderOpen size={16} className="text-primary/70" />
@@ -2913,10 +2935,36 @@ export default function Chat() {
 
       {/* ── Open Project Dialog ─────────────────────────────────────────────── */}
       <Dialog open={openProjectOpen} onOpenChange={setOpenProjectOpen}>
-        <DialogContent className="max-w-lg max-h-[80vh] flex flex-col">
+        <DialogContent className="max-w-lg max-h-[85vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2"><FolderOpen size={18} className="text-primary/70" /> Open project</DialogTitle>
           </DialogHeader>
+
+          {/* Recent projects */}
+          {selectedDeviceId && (() => {
+            const recents = getRecentProjects(selectedDeviceId);
+            if (recents.length === 0) return null;
+            return (
+              <div className="mb-1">
+                <p className="text-xs font-medium text-muted-foreground mb-1.5 px-1">Recent</p>
+                <div className="space-y-0.5">
+                  {recents.map((p) => (
+                    <button
+                      key={p}
+                      onClick={() => handleOpenProject(p)}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm text-left hover:bg-accent transition-colors group"
+                    >
+                      <FolderOpen size={14} className="text-primary/60 shrink-0" />
+                      <span className="font-mono truncate flex-1">{p}</span>
+                      <ChevronRight size={12} className="ml-auto text-muted-foreground/40 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </button>
+                  ))}
+                </div>
+                <div className="border-t border-border/30 mt-2 mb-2" />
+              </div>
+            );
+          })()}
+
           <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-accent/30 border border-border/30 text-xs text-muted-foreground font-mono overflow-x-auto whitespace-nowrap mb-2">
             <button onClick={() => browseFolderViaRelay("~")} className="hover:text-foreground transition-colors"><Home size={12} /></button>
             {folderPath.split("/").filter(Boolean).map((part, i, arr) => (
@@ -2929,7 +2977,7 @@ export default function Chat() {
               </span>
             ))}
           </div>
-          <div className="flex-1 overflow-y-auto space-y-0.5 min-h-0 max-h-[340px]">
+          <div className="flex-1 overflow-y-auto space-y-0.5 min-h-0 max-h-[280px]">
             {folderLoading ? (
               <div className="flex items-center justify-center py-10 text-muted-foreground"><Loader2 size={18} className="animate-spin mr-2" /> Listing folders…</div>
             ) : folderItems.length === 0 ? (
