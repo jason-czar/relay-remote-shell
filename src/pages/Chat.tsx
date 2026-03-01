@@ -14,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Send, ChevronDown, Paperclip, X, FileText, Image, Plus, Monitor, Terminal, Loader2, WifiOff, Square, Mic, ArrowUp, RefreshCw, SquarePen } from "lucide-react";
+import { Send, ChevronDown, Paperclip, X, FileText, Image, Plus, Monitor, Terminal, Loader2, WifiOff, Square, Mic, ArrowUp, RefreshCw, SquarePen, FolderOpen, GitFork, ChevronRight, Home } from "lucide-react";
 import { PreviewPanel } from "@/components/PreviewPanel";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -686,14 +686,85 @@ export default function Chat() {
   const gitFetchedForRef = useRef<string | null>(null);
   const [gitRefreshTick, setGitRefreshTick] = useState(0);
 
+  // ── Open Project dialog ───────────────────────────────────────────────
+  const [openProjectOpen, setOpenProjectOpen] = useState(false);
+  const [folderPath, setFolderPath] = useState<string>("");
+  const [folderItems, setFolderItems] = useState<{ name: string; isDir: boolean }[]>([]);
+  const [folderLoading, setFolderLoading] = useState(false);
+
+  // ── Clone Repo dialog ────────────────────────────────────────────────
+  const [cloneRepoOpen, setCloneRepoOpen] = useState(false);
+  const [cloneUrl, setCloneUrl] = useState("");
+  const [cloneDir, setCloneDir] = useState("");
+  const [cloning, setCloning] = useState(false);
+
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const streamIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const abortStreamRef = useRef(false);
+  const pendingAutoSendRef = useRef<string | null>(null);
   const [isScrolledUp, setIsScrolledUp] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+
+  // ── Open Project folder browser ───────────────────────────────────────────
+  const browseFolderViaRelay = useCallback(async (path: string) => {
+    if (!selectedDeviceId) return;
+    setFolderLoading(true);
+    try {
+      const cmd = `python3 -c "import os,json; base=os.path.expanduser('${path || "~"}'); entries=[{'name':e,'isDir':os.path.isdir(os.path.join(base,e))} for e in sorted(os.listdir(base)) if not e.startswith('.')]; print(json.dumps({'path':os.path.abspath(base),'entries':entries}))" 2>/dev/null\n`;
+      const { data: sesData } = await supabase.functions.invoke("start-session", { body: { device_id: selectedDeviceId } });
+      if (!sesData?.session_id) return;
+      const relayUrl = import.meta.env.VITE_RELAY_URL || "wss://relay.privaclaw.com";
+      const { data: { session: authSession } } = await supabase.auth.getSession();
+      const jwt = authSession?.access_token;
+      if (!jwt) return;
+      await new Promise<void>((resolve) => {
+        const ws = new WebSocket(`${relayUrl}/session`);
+        let buf = ""; let done = false;
+        const finish = () => { if (!done) { done = true; ws.close(); supabase.functions.invoke("end-session", { body: { session_id: sesData.session_id } }).catch(() => {}); resolve(); } };
+        ws.onopen = () => ws.send(JSON.stringify({ type: "auth", data: { token: jwt, session_id: sesData.session_id, device_id: selectedDeviceId } }));
+        ws.onmessage = (e) => {
+          try {
+            const msg = JSON.parse(e.data);
+            if (msg.type === "auth_ok") { ws.send(JSON.stringify({ type: "session_start", data: { session_id: sesData.session_id, cols: 220, rows: 50 } })); setTimeout(() => ws.send(JSON.stringify({ type: "stdin", data: { session_id: sesData.session_id, data_b64: btoa(cmd) } })), 1500); setTimeout(finish, 6000); }
+            else if (msg.type === "stdout") { const d = (msg.data as { data_b64?: string })?.data_b64; if (d) { try { buf += decodeURIComponent(escape(atob(d))); } catch { buf += atob(d); } } }
+          } catch {/* */}
+        };
+        ws.onclose = () => {
+          const clean = buf.replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, "").replace(/\x1b\[[\x30-\x3f]*[\x20-\x2f]*[\x40-\x7e]/g, "").replace(/\x1b[^[\]]/g, "");
+          const s = clean.indexOf("{"); const end = clean.lastIndexOf("}");
+          if (s !== -1 && end !== -1) {
+            try {
+              const parsed = JSON.parse(clean.slice(s, end + 1)) as { path: string; entries: { name: string; isDir: boolean }[] };
+              setFolderPath(parsed.path);
+              setFolderItems(parsed.entries);
+            } catch {/* */}
+          }
+          finish();
+        };
+      });
+    } catch {/* */} finally { setFolderLoading(false); }
+  }, [selectedDeviceId]);
+
+  const handleOpenProject = useCallback(async (chosenPath: string) => {
+    if (!selectedDeviceId) return;
+    await supabase.from("devices").update({ workdir: chosenPath }).eq("id", selectedDeviceId);
+    setOpenProjectOpen(false);
+    setInput(`I'm working in ${chosenPath}. Give me an overview of the project structure.`);
+    setTimeout(() => textareaRef.current?.focus(), 100);
+  }, [selectedDeviceId]);
+
+  const handleCloneRepo = useCallback(() => {
+    if (!cloneUrl.trim() || !selectedDeviceId) return;
+    const cloneCmd = `git clone ${cloneUrl.trim()}${cloneDir.trim() ? ` ${cloneDir.trim()}` : ""}`;
+    setCloneRepoOpen(false);
+    setCloneUrl(""); setCloneDir("");
+    setInput(cloneCmd);
+    pendingAutoSendRef.current = cloneCmd;
+    setTimeout(() => textareaRef.current?.focus(), 100);
+  }, [cloneUrl, cloneDir, selectedDeviceId]);
 
   // ── Activity status helpers ───────────────────────────────────────────────
   const startActivity = useCallback(() => {
@@ -1841,6 +1912,15 @@ export default function Chat() {
     runJob();
   }, [input, attachedFiles, selectedDeviceId, activeConvId, agent, createConversation, buildCommand, sendViaRelay, toast, addJob, removeJob]);
 
+  // ── Auto-send pending clone command ────────────────────────────────────────
+  useEffect(() => {
+    if (pendingAutoSendRef.current && input === pendingAutoSendRef.current) {
+      pendingAutoSendRef.current = null;
+      setTimeout(() => handleSend(), 80);
+    }
+  }, [input]); // eslint-disable-line react-hooks/exhaustive-deps
+
+
   // ── Abort streaming ────────────────────────────────────────────────────
   const handleAbort = useCallback(() => {
     // Send Ctrl+C (\x03) to the active PTY session so the agent process actually terminates
@@ -2550,6 +2630,26 @@ export default function Chat() {
                     "Send prompts directly to Claude Code running on your device."}
                       </p>
 
+                      {/* Open Project + Clone Repo actions — claude & codex only */}
+                      {(agent === "claude" || agent === "codex") && selectedDeviceId && (
+                        <div className="flex gap-3 mb-6 animate-fade-in" style={{ animationDelay: "280ms", animationFillMode: "both" }}>
+                          <button
+                            onClick={() => { setFolderPath(""); setFolderItems([]); setOpenProjectOpen(true); browseFolderViaRelay("~"); }}
+                            className="flex items-center gap-2.5 px-5 py-3 rounded-xl border-2 border-border/40 bg-card hover:border-foreground/25 hover:bg-accent/40 transition-all duration-150 text-sm font-medium text-foreground/80 hover:text-foreground"
+                          >
+                            <FolderOpen size={16} className="text-primary/70" />
+                            Open project
+                          </button>
+                          <button
+                            onClick={() => { setCloneUrl(""); setCloneDir(""); setCloneRepoOpen(true); }}
+                            className="flex items-center gap-2.5 px-5 py-3 rounded-xl border-2 border-border/40 bg-card hover:border-foreground/25 hover:bg-accent/40 transition-all duration-150 text-sm font-medium text-foreground/80 hover:text-foreground"
+                          >
+                            <GitFork size={16} className="text-primary/70" />
+                            Clone repo
+                          </button>
+                        </div>
+                      )}
+
                       {/* Starter prompt cards */}
                       <div className="grid grid-cols-2 gap-2.5 w-full max-w-lg mx-auto animate-fade-in" style={{ animationDelay: "340ms", animationFillMode: "both" }}>
                         {(agent === "openclaw" ? [
@@ -2786,6 +2886,91 @@ export default function Chat() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+      {/* ── Open Project Dialog ─────────────────────────────────────────────── */}
+      <Dialog open={openProjectOpen} onOpenChange={setOpenProjectOpen}>
+        <DialogContent className="max-w-lg max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><FolderOpen size={18} className="text-primary/70" /> Open project</DialogTitle>
+          </DialogHeader>
+          <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-accent/30 border border-border/30 text-xs text-muted-foreground font-mono overflow-x-auto whitespace-nowrap mb-2">
+            <button onClick={() => browseFolderViaRelay("~")} className="hover:text-foreground transition-colors"><Home size={12} /></button>
+            {folderPath.split("/").filter(Boolean).map((part, i, arr) => (
+              <span key={i} className="flex items-center gap-1">
+                <ChevronRight size={10} className="opacity-40" />
+                <button
+                  onClick={() => browseFolderViaRelay("/" + arr.slice(0, i + 1).join("/"))}
+                  className="hover:text-foreground transition-colors"
+                >{part}</button>
+              </span>
+            ))}
+          </div>
+          <div className="flex-1 overflow-y-auto space-y-0.5 min-h-0 max-h-[340px]">
+            {folderLoading ? (
+              <div className="flex items-center justify-center py-10 text-muted-foreground"><Loader2 size={18} className="animate-spin mr-2" /> Listing folders…</div>
+            ) : folderItems.length === 0 ? (
+              <div className="py-10 text-center text-sm text-muted-foreground">Empty directory</div>
+            ) : folderItems.map(({ name, isDir }) => (
+              <button
+                key={name}
+                onClick={() => isDir ? browseFolderViaRelay(`${folderPath}/${name}`) : undefined}
+                onDoubleClick={() => isDir && handleOpenProject(`${folderPath}/${name}`)}
+                disabled={!isDir}
+                className={cn(
+                  "w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm text-left transition-colors",
+                  isDir ? "hover:bg-accent cursor-pointer" : "opacity-40 cursor-default"
+                )}
+              >
+                {isDir ? <FolderOpen size={14} className="text-primary/60 shrink-0" /> : <FileText size={14} className="text-muted-foreground/50 shrink-0" />}
+                <span className="truncate font-mono">{name}</span>
+                {isDir && <ChevronRight size={12} className="ml-auto text-muted-foreground/40 shrink-0" />}
+              </button>
+            ))}
+          </div>
+          <div className="flex gap-2 pt-3 border-t border-border/30">
+            <Button variant="outline" size="sm" onClick={() => setOpenProjectOpen(false)} className="flex-1">Cancel</Button>
+            <Button size="sm" onClick={() => handleOpenProject(folderPath)} disabled={!folderPath} className="flex-1">
+              Open <span className="font-mono text-xs ml-1 opacity-70 truncate max-w-[120px]">{folderPath.split("/").pop()}</span>
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Clone Repo Dialog ───────────────────────────────────────────────── */}
+      <Dialog open={cloneRepoOpen} onOpenChange={setCloneRepoOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><GitFork size={18} className="text-primary/70" /> Clone repository</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-foreground">Repository URL</label>
+              <Input
+                placeholder="https://github.com/user/repo.git"
+                value={cloneUrl}
+                onChange={(e) => setCloneUrl(e.target.value)}
+                autoFocus
+                onKeyDown={(e) => e.key === "Enter" && !cloning && cloneUrl.trim() && handleCloneRepo()}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-foreground">Destination folder <span className="text-muted-foreground font-normal">(optional)</span></label>
+              <Input
+                placeholder="my-project (leave blank for default)"
+                value={cloneDir}
+                onChange={(e) => setCloneDir(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && !cloning && cloneUrl.trim() && handleCloneRepo()}
+              />
+            </div>
+          </div>
+          <div className="flex gap-2 pt-1">
+            <Button variant="outline" onClick={() => setCloneRepoOpen(false)} className="flex-1">Cancel</Button>
+            <Button onClick={handleCloneRepo} disabled={!cloneUrl.trim() || cloning || !selectedDeviceId} className="flex-1">
+              {cloning ? <><Loader2 size={14} className="animate-spin mr-1.5" />Cloning…</> : "Clone"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Device pairing wizard dialog */}
       <Dialog open={showWizard} onOpenChange={setShowWizard}>
