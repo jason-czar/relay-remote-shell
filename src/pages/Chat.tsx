@@ -1626,6 +1626,14 @@ export default function Chat() {
 
   // ── Abort streaming ────────────────────────────────────────────────────
   const handleAbort = useCallback(() => {
+    // Send Ctrl+C (\x03) to the active PTY session so the agent process actually terminates
+    const session = activeRelaySessionRef.current;
+    if (session && session.ws.readyState === WebSocket.OPEN) {
+      session.ws.send(JSON.stringify({
+        type: "stdin",
+        data: { session_id: session.sessionId, data_b64: btoa("\x03") },
+      }));
+    }
     abortStreamRef.current = true;
     if (streamIntervalRef.current) {
       clearInterval(streamIntervalRef.current);
