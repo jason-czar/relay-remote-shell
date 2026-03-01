@@ -344,6 +344,13 @@ export function AppSidebar() {
           {!collapsed && (
             <div className="flex items-center gap-0.5 shrink-0">
               <button
+                onClick={() => navigate("/settings?tab=profile")}
+                className="p-1.5 rounded-md text-muted-foreground/60 hover:text-foreground hover:bg-accent/60 transition-colors"
+                title="Profile settings"
+              >
+                <Settings className="h-4 w-4" />
+              </button>
+              <button
                 onClick={toggleTheme}
                 className="p-1.5 rounded-md text-muted-foreground/60 hover:text-foreground hover:bg-accent/60 transition-colors"
                 title={theme === "dark" ? "Light mode" : "Dark mode"}
