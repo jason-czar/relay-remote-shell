@@ -534,6 +534,7 @@ export default function Chat() {
     return localStorage.getItem("chat-device-id") ?? "";
   });
   const [input, setInput] = useState("");
+  const pendingSendRef = useRef<string | null>(null);
   const [thinking, setThinking] = useState(false);
   const [agentSwitchPending, setAgentSwitchPending] = useState<"openclaw" | "claude" | "codex" | "terminal" | null>(null);
   const [streamingMsgIndex, setStreamingMsgIndex] = useState<number | null>(null);
@@ -1538,6 +1539,15 @@ export default function Chat() {
     setTimeout(() => textareaRef.current?.focus(), 50);
   }, [stopActivity]);
 
+  // ── Option-select: fire handleSend after input state settles ────────────
+  useEffect(() => {
+    if (pendingSendRef.current !== null && input === pendingSendRef.current) {
+      pendingSendRef.current = null;
+      handleSend();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [input]);
+
   // ── Regenerate ─────────────────────────────────────────────────────────
   const handleRegenerate = useCallback(async () => {
     // Find the last user message
@@ -2124,14 +2134,19 @@ export default function Chat() {
                     thinkingDurationMs={msg.role === "assistant" ? thinkingDurationMapRef.current.get(i) : undefined}
                     createdAt={msg.created_at}
                     agent={(agent as string) === "terminal" ? "openclaw" : agent as "openclaw" | "claude" | "codex"}
-                    onRegenerate={
+                     onRegenerate={
                     msg.role === "assistant" &&
                     !thinking &&
                     streamingMsgIndex === null &&
                     (i === messages.length - 1 || msg.content === EMPTY_RESPONSE_TEXT) ?
                     handleRegenerate :
                     undefined
-                    } />
+                    }
+                    onOptionSelect={msg.role === "assistant" && !thinking && streamingMsgIndex === null ? (opt) => {
+                      pendingSendRef.current = opt;
+                      setInput(opt);
+                    } : undefined}
+                    />
 
                   </div>
                 )}
