@@ -415,13 +415,14 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
               onClick={onPreview}
               title="Open live preview"
               className={cn(
-                "flex items-center justify-center h-10 w-10 rounded-full transition-colors",
+                "flex items-center gap-1.5 h-10 px-4 rounded-full transition-colors text-[15px] font-medium",
                 previewActive
-                  ? "bg-primary/20 text-foreground"
-                  : "bg-[hsl(0,0%,22%)] text-foreground/70 hover:text-foreground hover:bg-[hsl(0,0%,28%)]"
+                  ? "bg-foreground text-background hover:opacity-80"
+                  : "bg-foreground text-background hover:opacity-80"
               )}
             >
-              <Monitor size={18} />
+              <Monitor size={16} />
+              <span>Preview</span>
             </button>
           )}
           <div className="relative flex items-center justify-center">
