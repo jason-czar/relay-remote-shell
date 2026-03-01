@@ -14,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Send, ChevronDown, Paperclip, X, FileText, Image, Plus, Monitor, Terminal, Loader2, WifiOff, Square, Mic, ArrowUp, RefreshCw, SquarePen, FolderOpen, GitFork, ChevronRight, Home } from "lucide-react";
+import { Send, ChevronDown, Paperclip, X, FileText, Image, Plus, Monitor, Terminal, Loader2, WifiOff, Square, Mic, ArrowUp, RefreshCw, SquarePen, FolderOpen, GitFork, ChevronRight, Home, Eye, EyeOff, KeyRound } from "lucide-react";
 import { PreviewPanel } from "@/components/PreviewPanel";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -696,6 +696,10 @@ export default function Chat() {
   const [cloneRepoOpen, setCloneRepoOpen] = useState(false);
   const [cloneUrl, setCloneUrl] = useState("");
   const [cloneDir, setCloneDir] = useState("");
+  const [cloneToken, setCloneToken] = useState(() => {
+    try { return localStorage.getItem("gh-clone-token") ?? ""; } catch { return ""; }
+  });
+  const [showCloneToken, setShowCloneToken] = useState(false);
   const [cloning, setCloning] = useState(false);
 
 
@@ -776,7 +780,19 @@ export default function Chat() {
 
   const handleCloneRepo = useCallback(() => {
     if (!cloneUrl.trim() || !selectedDeviceId) return;
-    const cloneCmd = `git clone ${cloneUrl.trim()}${cloneDir.trim() ? ` ${cloneDir.trim()}` : ""}`;
+    // Build authenticated URL if a GitHub token is provided
+    let effectiveUrl = cloneUrl.trim();
+    if (cloneToken.trim() && effectiveUrl.startsWith("https://")) {
+      try {
+        const u = new URL(effectiveUrl);
+        u.username = cloneToken.trim();
+        u.password = "x-oauth-basic";
+        effectiveUrl = u.toString();
+      } catch {/* use original url */}
+    }
+    // Persist token for next time (stored only locally)
+    try { localStorage.setItem("gh-clone-token", cloneToken); } catch {/* */}
+    const cloneCmd = `git clone ${effectiveUrl}${cloneDir.trim() ? ` ${cloneDir.trim()}` : ""}`;
     // Derive the repo folder name for later workdir update
     const urlPart = cloneUrl.trim().replace(/\.git$/, "").replace(/\/$/, "");
     const repoName = urlPart.split("/").pop() || "";
@@ -786,7 +802,7 @@ export default function Chat() {
     setInput(cloneCmd);
     pendingAutoSendRef.current = cloneCmd;
     setTimeout(() => textareaRef.current?.focus(), 100);
-  }, [cloneUrl, cloneDir, selectedDeviceId]);
+  }, [cloneUrl, cloneDir, cloneToken, selectedDeviceId]);
 
   // ── Activity status helpers ───────────────────────────────────────────────
   const startActivity = useCallback(() => {
@@ -3033,6 +3049,33 @@ export default function Chat() {
                 onChange={(e) => setCloneDir(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && !cloning && cloneUrl.trim() && handleCloneRepo()}
               />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-foreground flex items-center gap-1.5">
+                <KeyRound size={13} className="text-muted-foreground" />
+                GitHub token <span className="text-muted-foreground font-normal">(for private repos)</span>
+              </label>
+              <div className="relative">
+                <Input
+                  type={showCloneToken ? "text" : "password"}
+                  placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
+                  value={cloneToken}
+                  onChange={(e) => setCloneToken(e.target.value)}
+                  className="pr-9 font-mono text-xs"
+                  onKeyDown={(e) => e.key === "Enter" && !cloning && cloneUrl.trim() && handleCloneRepo()}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowCloneToken((v) => !v)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  tabIndex={-1}
+                >
+                  {showCloneToken ? <EyeOff size={14} /> : <Eye size={14} />}
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground leading-snug">
+                Your token is stored only in your browser and injected into the clone URL on your device. It is never sent to any server.
+              </p>
             </div>
           </div>
           <div className="flex gap-2 pt-1">
