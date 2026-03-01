@@ -468,6 +468,7 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
       {dictateError &&
       <p className="text-xs text-destructive mt-1 pl-3">{dictateError}</p>
       }
+    </div>
     </div>);
 
 }
