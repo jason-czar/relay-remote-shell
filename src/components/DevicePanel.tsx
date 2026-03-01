@@ -306,6 +306,10 @@ export function DevicePanel({ open, onClose, devices, selectedDeviceId, onSelect
   const [updateAgentLog, setUpdateAgentLog] = useState<string>("");
   const [updateAgentDone, setUpdateAgentDone] = useState(false);
 
+  // Version check state per device: null = unchecked, "checking" | "up-to-date" | "available" | "error"
+  type VersionCheckStatus = "checking" | "up-to-date" | "available" | "error";
+  const [versionChecks, setVersionChecks] = useState<Record<string, VersionCheckStatus>>({});
+
 
   const getOneLiner = useCallback((d: Tables<"devices">) => {
     if (!d.pairing_code) return "";
@@ -485,9 +489,36 @@ export function DevicePanel({ open, onClose, devices, selectedDeviceId, onSelect
         60000, // allow up to 60s for download + reinstall
       );
       setUpdateAgentDone(true);
+      // After a successful update, mark version as up-to-date
+      setVersionChecks((prev) => ({ ...prev, [deviceId]: "up-to-date" }));
     } catch (err: any) {
       setUpdateAgentLog((prev) => prev + `\nError: ${err.message}`);
       setUpdateAgentDone(true);
+    }
+  }, [sendRelayCommand]);
+
+  // ── Self-update-check via relay ───────────────────────────────────────────
+  const handleVersionCheck = useCallback(async (deviceId: string) => {
+    setVersionChecks((prev) => ({ ...prev, [deviceId]: "checking" }));
+    try {
+      let output = "";
+      await sendRelayCommand(
+        deviceId,
+        `./relay-connector --self-update-check --api ${API_URL}\n`,
+        (chunk) => { output += chunk; },
+        (acc) => acc.includes("update-available:"),
+        20000,
+      );
+      const match = output.match(/update-available:\s*(true|false|unknown)/i);
+      if (!match) {
+        setVersionChecks((prev) => ({ ...prev, [deviceId]: "error" }));
+      } else if (match[1] === "false") {
+        setVersionChecks((prev) => ({ ...prev, [deviceId]: "up-to-date" }));
+      } else {
+        setVersionChecks((prev) => ({ ...prev, [deviceId]: "available" }));
+      }
+    } catch {
+      setVersionChecks((prev) => ({ ...prev, [deviceId]: "error" }));
     }
   }, [sendRelayCommand]);
 
@@ -624,24 +655,74 @@ export function DevicePanel({ open, onClose, devices, selectedDeviceId, onSelect
                       )}
                       {/* Update agent via relay — only for online devices */}
                       {d.status === "online" && (
-                        <button
-                          onClick={() => {
-                            if (updateAgentId === d.id) { setUpdateAgentId(null); setUpdateAgentLog(""); setUpdateAgentDone(false); }
-                            else { handleUpdateAgent(d.id); }
-                          }}
-                          title="Update agent on device"
-                          disabled={updateAgentId === d.id && !updateAgentDone}
-                          className={cn(
-                            "w-6 h-6 flex items-center justify-center rounded-md transition-colors disabled:opacity-60",
-                            updateAgentId === d.id
-                              ? "bg-primary/15 text-primary"
-                              : "text-muted-foreground hover:text-primary hover:bg-primary/10"
-                          )}
-                        >
-                          {updateAgentId === d.id && !updateAgentDone
-                            ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                            : <ArrowUpCircle className="h-3.5 w-3.5" />}
-                        </button>
+                        <div className="flex items-center gap-0.5">
+                          {/* Version check badge */}
+                          {(() => {
+                            const vs = versionChecks[d.id];
+                            if (!vs) return (
+                              <button
+                                onClick={() => handleVersionCheck(d.id)}
+                                title="Check if update is available"
+                                className="h-5 px-1.5 rounded text-[10px] font-medium text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors border border-transparent hover:border-primary/20"
+                              >
+                                Check
+                              </button>
+                            );
+                            if (vs === "checking") return (
+                              <span className="h-5 px-1.5 rounded text-[10px] font-medium text-muted-foreground flex items-center gap-1">
+                                <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                              </span>
+                            );
+                            if (vs === "up-to-date") return (
+                              <button
+                                onClick={() => handleVersionCheck(d.id)}
+                                title="Up to date — click to re-check"
+                                className="h-5 px-1.5 rounded text-[10px] font-medium text-status-online bg-status-online/10 hover:bg-status-online/20 transition-colors"
+                              >
+                                ✓ Up to date
+                              </button>
+                            );
+                            if (vs === "available") return (
+                              <button
+                                onClick={() => handleVersionCheck(d.id)}
+                                title="Update available — click to re-check"
+                                className="h-5 px-1.5 rounded text-[10px] font-medium text-warning bg-warning/10 hover:bg-warning/20 transition-colors animate-pulse"
+                              >
+                                ↑ Update available
+                              </button>
+                            );
+                            return (
+                              <button
+                                onClick={() => handleVersionCheck(d.id)}
+                                title="Check failed — click to retry"
+                                className="h-5 px-1.5 rounded text-[10px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                              >
+                                Retry
+                              </button>
+                            );
+                          })()}
+                          {/* Update trigger button */}
+                          <button
+                            onClick={() => {
+                              if (updateAgentId === d.id) { setUpdateAgentId(null); setUpdateAgentLog(""); setUpdateAgentDone(false); }
+                              else { handleUpdateAgent(d.id); }
+                            }}
+                            title={versionChecks[d.id] === "up-to-date" ? "Force update agent" : "Update agent on device"}
+                            disabled={updateAgentId === d.id && !updateAgentDone}
+                            className={cn(
+                              "w-6 h-6 flex items-center justify-center rounded-md transition-colors disabled:opacity-60",
+                              updateAgentId === d.id
+                                ? "bg-primary/15 text-primary"
+                                : versionChecks[d.id] === "available"
+                                  ? "text-warning hover:text-warning hover:bg-warning/10"
+                                  : "text-muted-foreground hover:text-primary hover:bg-primary/10"
+                            )}
+                          >
+                            {updateAgentId === d.id && !updateAgentDone
+                              ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              : <ArrowUpCircle className="h-3.5 w-3.5" />}
+                          </button>
+                        </div>
                       )}
                       {/* Uninstall agent */}
                       <button
