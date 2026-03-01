@@ -637,6 +637,8 @@ export default function Chat() {
   const rawStdoutMapRef = useRef<Map<number, string>>(new Map());
   // Store tool calls used per message (session-only, not persisted)
   const toolCallsMapRef = useRef<Map<number, string[]>>(new Map());
+  // Store tool call log entries (tool_use/tool_result cards) per message
+  const toolCallEntriesMapRef = useRef<Map<number, LiveLogEntry[]>>(new Map());
   // Store codex reasoning summaries keyed by message array index
   const thinkingMapRef = useRef<Map<number, string>>(new Map());
   const thinkingDurationMapRef = useRef<Map<number, number>>(new Map());
@@ -852,6 +854,8 @@ export default function Chat() {
         setMessages(data as Message[]);
         // Restore raw_stdout for the debug panel on historical messages
         rawStdoutMapRef.current.clear();
+        toolCallsMapRef.current.clear();
+        toolCallEntriesMapRef.current.clear();
         data.forEach((msg, idx) => {
           if (msg.role === "assistant" && (msg as any).raw_stdout) {
             rawStdoutMapRef.current.set(idx, (msg as any).raw_stdout as string);
@@ -952,6 +956,8 @@ export default function Chat() {
         if (data) {
           setMessages(data as Message[]);
           rawStdoutMapRef.current.clear();
+          toolCallsMapRef.current.clear();
+          toolCallEntriesMapRef.current.clear();
           data.forEach((msg, idx) => {
             if (msg.role === "assistant" && (msg as any).raw_stdout) {
               rawStdoutMapRef.current.set(idx, (msg as any).raw_stdout as string);
@@ -1719,6 +1725,11 @@ export default function Chat() {
             rawStdoutMapRef.current.set(revealedIdx, stdout);
             // Snapshot tool calls for this message
             toolCallsMapRef.current.set(revealedIdx, [...toolCalls]);
+            // Snapshot structured tool call log entries (cards)
+            const toolCallEntries = liveLog.filter(e => e.type === "tool_call");
+            if (toolCallEntries.length > 0) {
+              toolCallEntriesMapRef.current.set(revealedIdx, toolCallEntries);
+            }
             // Store codex reasoning if present
             if (convData?.agent === "codex" && (codexThinking ?? "")) {
               thinkingMapRef.current.set(revealedIdx, codexThinking ?? "");
@@ -2583,6 +2594,7 @@ export default function Chat() {
                     activityStatus={streamingMsgIndex === i ? activityStatus : undefined}
                     toolCalls={streamingMsgIndex === i ? toolCalls : (msg.role === "assistant" ? toolCallsMapRef.current.get(i) : undefined)}
                     liveLog={streamingMsgIndex === i ? liveLog : undefined}
+                    completedToolCalls={streamingMsgIndex !== i && msg.role === "assistant" ? toolCallEntriesMapRef.current.get(i) : undefined}
                     rawStdout={msg.role === "assistant" ? rawStdoutMapRef.current.get(i) : undefined}
                     thinkingContent={msg.role === "assistant" ? thinkingMapRef.current.get(i) : undefined}
                     thinkingDurationMs={msg.role === "assistant" ? thinkingDurationMapRef.current.get(i) : undefined}

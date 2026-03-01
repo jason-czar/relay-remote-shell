@@ -302,6 +302,7 @@ interface ChatMessageProps {
   onRegenerate?: () => void;
   onOptionSelect?: (option: string) => void;
   liveLog?: LiveLogEntry[];
+  completedToolCalls?: LiveLogEntry[];
 }
 
 // ── Question/option extraction ────────────────────────────────────────────────
@@ -450,7 +451,7 @@ function CodeBlock({ language, value }: { language: string; value: string }) {
   );
 }
 
-export function ChatMessage({ role, content, thinking, streaming, activityStatus, toolCalls, rawStdout, thinkingContent, thinkingDurationMs, createdAt, agent, onRegenerate, onOptionSelect, liveLog }: ChatMessageProps) {
+export function ChatMessage({ role, content, thinking, streaming, activityStatus, toolCalls, rawStdout, thinkingContent, thinkingDurationMs, createdAt, agent, onRegenerate, onOptionSelect, liveLog, completedToolCalls }: ChatMessageProps) {
   const [thinkingPanelEnabled, setThinkingPanelEnabled] = useState(() => {
     const v = localStorage.getItem("show-thinking-panel");
     return v === null ? true : v === "true";
@@ -876,6 +877,24 @@ export function ChatMessage({ role, content, thinking, streaming, activityStatus
               className="inline-block w-0.5 h-3.5 ml-0.5 align-middle bg-primary rounded-full animate-pulse"
               style={{ animationDuration: "0.7s" }}
             />
+          )}
+
+          {/* Completed tool call cards — shown after streaming finishes */}
+          {completedToolCalls && completedToolCalls.length > 0 && (
+            <div className="mt-3 space-y-1">
+              {completedToolCalls.map((entry, i) => (
+                <ToolCallCard
+                  key={i}
+                  entry={entry}
+                  isLast={false}
+                  agentColor={
+                    agent === "claude" ? "hsl(180 60% 45%)" :
+                    agent === "codex"  ? "hsl(220 80% 65%)" :
+                                         "hsl(280 65% 65%)"
+                  }
+                />
+              ))}
+            </div>
           )}
           {/* Tool-call chips — animated while streaming, faded when done */}
           {toolCalls && toolCalls.length > 0 && (
