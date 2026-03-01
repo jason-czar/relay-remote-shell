@@ -147,6 +147,63 @@ interface ChatMessageProps {
   createdAt?: string;
   agent?: "openclaw" | "claude" | "codex";
   onRegenerate?: () => void;
+  onOptionSelect?: (option: string) => void;
+}
+
+// ── Question/option extraction ────────────────────────────────────────────────
+
+/**
+ * Detects if an assistant message is asking a question with selectable options.
+ * Returns an array of option strings, or empty array if none detected.
+ */
+function extractInteractiveOptions(content: string): string[] {
+  const options: string[] = [];
+
+  // Pattern 1: numbered list items like "1. Yes" / "1) Approve"
+  const numberedMatches = content.matchAll(/^\s*(?:\d+[.)]\s+)(.+)$/gm);
+  for (const m of numberedMatches) {
+    const opt = m[1].trim();
+    if (opt.length > 0 && opt.length < 120) options.push(opt);
+  }
+  if (options.length >= 2) return options;
+
+  // Pattern 2: lettered list items like "a. Yes" / "b) No"
+  options.length = 0;
+  const letteredMatches = content.matchAll(/^\s*[a-zA-Z][.)]\s+(.+)$/gm);
+  for (const m of letteredMatches) {
+    const opt = m[1].trim();
+    if (opt.length > 0 && opt.length < 120) options.push(opt);
+  }
+  if (options.length >= 2) return options;
+
+  // Pattern 3: approval-style yes/no/approve/deny keywords asked inline
+  // e.g. "Do you want to proceed? (yes/no)" or "Approve or deny?"
+  const approvalKeywords = /\b(yes|no|approve|deny|allow|reject|proceed|cancel|continue|skip|abort|confirm|decline)\b/gi;
+  const approvalLine = content.split("\n").find(
+    (line) => approvalKeywords.test(line) && /[/?]/.test(line)
+  );
+  if (approvalLine) {
+    // Reset regex
+    approvalKeywords.lastIndex = 0;
+    const kws = [...new Set([...approvalLine.matchAll(/\b(yes|no|approve|deny|allow|reject|proceed|cancel|continue|skip|abort|confirm|decline)\b/gi)].map(m => {
+      const w = m[1];
+      return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+    }))];
+    if (kws.length >= 2) return kws;
+  }
+
+  // Pattern 4: explicit "options:" / "choices:" header followed by dash list items
+  options.length = 0;
+  if (/^\s*(?:options?|choices?)\s*:/im.test(content)) {
+    const dashMatches = content.matchAll(/^\s*[-•*]\s+(.+)$/gm);
+    for (const m of dashMatches) {
+      const opt = m[1].trim();
+      if (opt.length > 0 && opt.length < 120) options.push(opt);
+    }
+    if (options.length >= 2) return options;
+  }
+
+  return [];
 }
 
 function CodeBlock({ language, value }: { language: string; value: string }) {
@@ -208,7 +265,7 @@ function CodeBlock({ language, value }: { language: string; value: string }) {
   );
 }
 
-export function ChatMessage({ role, content, thinking, streaming, activityStatus, toolCalls, rawStdout, thinkingContent, thinkingDurationMs, createdAt, agent, onRegenerate }: ChatMessageProps) {
+export function ChatMessage({ role, content, thinking, streaming, activityStatus, toolCalls, rawStdout, thinkingContent, thinkingDurationMs, createdAt, agent, onRegenerate, onOptionSelect }: ChatMessageProps) {
   const [thinkingPanelEnabled, setThinkingPanelEnabled] = useState(() => {
     const v = localStorage.getItem("show-thinking-panel");
     return v === null ? true : v === "true";
@@ -555,6 +612,30 @@ export function ChatMessage({ role, content, thinking, streaming, activityStatus
             </div>
           )}
         </div>
+
+        {/* Interactive option buttons — shown when agent asks a question */}
+        {!streaming && onOptionSelect && (() => {
+          const opts = extractInteractiveOptions(content);
+          if (opts.length === 0) return null;
+          return (
+            <div className="flex flex-wrap gap-2 mt-3 mb-1">
+              {opts.map((opt) => (
+                <button
+                  key={opt}
+                  onClick={() => onOptionSelect(opt)}
+                  className={cn(
+                    "px-3 py-1.5 rounded-lg text-sm font-medium border transition-all duration-150",
+                    "bg-muted/40 hover:bg-accent border-border/50 hover:border-primary/40",
+                    "text-foreground/80 hover:text-foreground",
+                    "active:scale-95"
+                  )}
+                >
+                  {opt}
+                </button>
+              ))}
+            </div>
+          );
+        })()}
 
         {/* Hover action bar */}
         <div className="flex items-center gap-0.5 mt-1.5">
