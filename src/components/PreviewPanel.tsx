@@ -71,7 +71,10 @@ export function PreviewPanel({
   }, [submittedUrl]);
 
   return (
-    <div className="flex flex-col h-full bg-[hsl(0,0%,8%)] overflow-hidden">
+    <div className={cn(
+      "flex flex-col h-full bg-[hsl(0,0%,8%)] overflow-hidden transition-transform duration-300 ease-in-out",
+      activeTab === "chat" && "translate-y-full"
+    )}>
 
       {/* ── URL bar row ────────────────────────────────────────────── */}
       <div className="shrink-0 px-3 pt-3 pb-2">
