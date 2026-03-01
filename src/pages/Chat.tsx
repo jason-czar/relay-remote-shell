@@ -3088,7 +3088,7 @@ export default function Chat() {
                 </button>
               </div>
               <p className="text-xs text-muted-foreground leading-snug">
-                Your token is stored only in your browser and never sent to any server. For best security, use a <span className="font-medium text-foreground">fine-grained personal access token</span> scoped to <span className="font-medium text-foreground">Contents: Read-only</span> on the target repository.
+                Your token is stored only in your browser and never sent to any server. For best security, use a{" "}<a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener noreferrer" className="font-medium text-foreground underline underline-offset-2 hover:text-foreground/80 transition-colors">fine-grained personal access token</a>{" "}scoped to <span className="font-medium text-foreground">Contents: Read-only</span> on the target repository.
               </p>
             </div>
           </div>
