@@ -1,0 +1,1 @@
+ALTER TABLE public.web_bookmarks ADD COLUMN IF NOT EXISTS folder text DEFAULT NULL;

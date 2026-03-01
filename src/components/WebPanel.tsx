@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Globe, X, RotateCcw, Loader2, AlertCircle, ChevronLeft, ChevronRight, Bookmark, BookmarkCheck, Trash2, Pencil, Check } from "lucide-react";
+import { Globe, X, RotateCcw, Loader2, AlertCircle, ChevronLeft, ChevronRight, Bookmark, BookmarkCheck, Trash2, Pencil, Check, FolderOpen, ChevronDown, ChevronRight as ChevronRightIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 
@@ -267,7 +267,7 @@ export function WebPanel({ initialUrl = "", deviceId, deviceName, onClose }: Web
   const canGoForward = historyIdx < history.length - 1;
 
   // Bookmarks
-  interface Bookmark { id: string; url: string; title: string; }
+  interface Bookmark { id: string; url: string; title: string; folder: string | null; }
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
   const [bookmarksOpen, setBookmarksOpen] = useState(false);
   const isBookmarked = bookmarks.some(b => b.url === loadedUrl);
@@ -276,25 +276,32 @@ export function WebPanel({ initialUrl = "", deviceId, deviceName, onClose }: Web
   // Save-with-title prompt
   const [savePromptOpen, setSavePromptOpen] = useState(false);
   const [saveTitle, setSaveTitle] = useState("");
+  const [saveFolder, setSaveFolder] = useState("");
+  const [newFolderMode, setNewFolderMode] = useState(false);
+  // Folder filter in bookmarks popover
+  const [activeFolder, setActiveFolder] = useState<string | null>(null);
+  const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(new Set());
+
+  const folders = Array.from(new Set(bookmarks.map(b => b.folder ?? "").filter(Boolean))).sort();
 
   // Load bookmarks on mount
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session) return;
-      supabase.from("web_bookmarks").select("id, url, title").order("created_at", { ascending: false })
-        .then(({ data }) => { if (data) setBookmarks(data); });
+      supabase.from("web_bookmarks").select("id, url, title, folder").order("created_at", { ascending: false })
+        .then(({ data }) => { if (data) setBookmarks(data as Bookmark[]); });
     });
   }, []);
 
   const handleBookmarkClick = () => {
     if (isBookmarked) {
-      // Remove immediately
       const bm = bookmarks.find(b => b.url === loadedUrl)!;
       supabase.from("web_bookmarks").delete().eq("id", bm.id);
       setBookmarks(prev => prev.filter(b => b.id !== bm.id));
     } else {
-      // Open save prompt with default title
       setSaveTitle(loadedUrl.replace(/^https?:\/\//, "").replace(/\/$/, ""));
+      setSaveFolder("");
+      setNewFolderMode(false);
       setSavePromptOpen(true);
     }
   };
@@ -303,10 +310,11 @@ export function WebPanel({ initialUrl = "", deviceId, deviceName, onClose }: Web
     const { data: { session } } = await supabase.auth.getSession();
     if (!session || !loadedUrl) return;
     const title = saveTitle.trim() || loadedUrl.replace(/^https?:\/\//, "").replace(/\/$/, "");
+    const folder = saveFolder.trim() || null;
     const { data } = await supabase.from("web_bookmarks")
-      .insert({ user_id: session.user.id, url: loadedUrl, title })
-      .select("id, url, title").single();
-    if (data) setBookmarks(prev => [data, ...prev]);
+      .insert({ user_id: session.user.id, url: loadedUrl, title, folder })
+      .select("id, url, title, folder").single();
+    if (data) setBookmarks(prev => [data as Bookmark, ...prev]);
     setSavePromptOpen(false);
   };
 
@@ -326,6 +334,14 @@ export function WebPanel({ initialUrl = "", deviceId, deviceName, onClose }: Web
     await supabase.from("web_bookmarks").update({ title: trimmed }).eq("id", id);
     setBookmarks(prev => prev.map(b => b.id === id ? { ...b, title: trimmed } : b));
     setRenamingId(null);
+  };
+
+  const toggleFolder = (folder: string) => {
+    setCollapsedFolders(prev => {
+      const next = new Set(prev);
+      if (next.has(folder)) next.delete(folder); else next.add(folder);
+      return next;
+    });
   };
 
   const relayHttpUrl = (import.meta.env.VITE_RELAY_URL || "wss://relay.privaclaw.com")
@@ -565,7 +581,7 @@ export function WebPanel({ initialUrl = "", deviceId, deviceName, onClose }: Web
                   : <Bookmark className="h-3.5 w-3.5" />}
               </Button>
             </PopoverTrigger>
-            <PopoverContent side="bottom" align="end" className="w-64 p-3">
+            <PopoverContent side="bottom" align="end" className="w-68 p-3 min-w-[260px]">
               <p className="text-xs font-semibold text-foreground mb-2">Save bookmark</p>
               <form onSubmit={e => { e.preventDefault(); handleSaveBookmark(); }} className="flex flex-col gap-2">
                 <Input
@@ -575,7 +591,51 @@ export function WebPanel({ initialUrl = "", deviceId, deviceName, onClose }: Web
                   placeholder="Bookmark title"
                   className="h-7 text-xs px-2"
                 />
-                <p className="text-[10px] text-muted-foreground truncate">{loadedUrl}</p>
+                {/* Folder selector */}
+                <div className="flex flex-col gap-1">
+                  <p className="text-[10px] text-muted-foreground font-medium">Folder (optional)</p>
+                  {!newFolderMode ? (
+                    <div className="flex flex-wrap gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setSaveFolder("")}
+                        className={cn("text-[10px] px-2 py-0.5 rounded-full border transition-colors", !saveFolder ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:bg-accent")}
+                      >
+                        None
+                      </button>
+                      {folders.map(f => (
+                        <button
+                          key={f}
+                          type="button"
+                          onClick={() => setSaveFolder(f)}
+                          className={cn("text-[10px] px-2 py-0.5 rounded-full border transition-colors", saveFolder === f ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:bg-accent")}
+                        >
+                          {f}
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => { setNewFolderMode(true); setSaveFolder(""); }}
+                        className="text-[10px] px-2 py-0.5 rounded-full border border-dashed border-border text-muted-foreground hover:bg-accent transition-colors"
+                      >
+                        + New
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex gap-1 items-center">
+                      <Input
+                        autoFocus
+                        value={saveFolder}
+                        onChange={e => setSaveFolder(e.target.value)}
+                        placeholder="Folder name"
+                        className="h-6 text-xs px-2 flex-1"
+                        onKeyDown={e => { if (e.key === "Escape") { setNewFolderMode(false); setSaveFolder(""); } }}
+                      />
+                      <button type="button" onClick={() => setNewFolderMode(false)} className="text-[10px] text-muted-foreground hover:text-foreground">✕</button>
+                    </div>
+                  )}
+                </div>
+                <p className="text-[10px] text-muted-foreground/60 truncate">{loadedUrl}</p>
                 <div className="flex gap-1.5 justify-end">
                   <Button type="button" variant="ghost" size="sm" className="h-6 text-xs px-2" onClick={() => setSavePromptOpen(false)}>Cancel</Button>
                   <Button type="submit" size="sm" className="h-6 text-xs px-2">Save</Button>
@@ -596,8 +656,23 @@ export function WebPanel({ initialUrl = "", deviceId, deviceName, onClose }: Web
             </Button>
           </PopoverTrigger>
           <PopoverContent side="bottom" align="end" className="w-72 p-0 overflow-hidden">
-            <div className="px-3 py-2 border-b border-border bg-card">
+            <div className="px-3 py-2 border-b border-border bg-card flex items-center justify-between">
               <p className="text-xs font-semibold text-foreground">Bookmarks</p>
+              {folders.length > 0 && (
+                <div className="flex gap-0.5">
+                  <button
+                    onClick={() => setActiveFolder(null)}
+                    className={cn("text-[10px] px-1.5 py-0.5 rounded transition-colors", activeFolder === null ? "bg-primary/15 text-primary font-medium" : "text-muted-foreground hover:text-foreground")}
+                  >All</button>
+                  {folders.map(f => (
+                    <button
+                      key={f}
+                      onClick={() => setActiveFolder(activeFolder === f ? null : f)}
+                      className={cn("text-[10px] px-1.5 py-0.5 rounded transition-colors", activeFolder === f ? "bg-primary/15 text-primary font-medium" : "text-muted-foreground hover:text-foreground")}
+                    >{f}</button>
+                  ))}
+                </div>
+              )}
             </div>
             {bookmarks.length === 0 ? (
               <div className="px-3 py-6 text-center">
@@ -605,58 +680,83 @@ export function WebPanel({ initialUrl = "", deviceId, deviceName, onClose }: Web
                 <p className="text-xs text-muted-foreground">No bookmarks yet.</p>
                 <p className="text-[10px] text-muted-foreground/60 mt-0.5">Click the bookmark icon while on a page.</p>
               </div>
-            ) : (
-              <ul className="max-h-72 overflow-y-auto divide-y divide-border">
-                {bookmarks.map(bm => (
-                  <li key={bm.id} className="flex items-center gap-2 px-3 py-2 hover:bg-accent/50 group">
-                    {renamingId === bm.id ? (
-                      <form
-                        className="flex-1 flex items-center gap-1 min-w-0"
-                        onSubmit={e => { e.preventDefault(); commitRename(bm.id); }}
-                      >
-                        <Input
-                          autoFocus
-                          value={renameValue}
-                          onChange={e => setRenameValue(e.target.value)}
-                          onBlur={() => commitRename(bm.id)}
-                          onKeyDown={e => e.key === "Escape" && setRenamingId(null)}
-                          className="h-6 text-xs px-2 bg-muted/60 border-border flex-1 min-w-0"
-                        />
-                        <Button type="submit" variant="ghost" size="icon" className="h-6 w-6 shrink-0 text-primary">
-                          <Check className="h-3 w-3" />
-                        </Button>
-                      </form>
-                    ) : (
-                      <>
+            ) : (() => {
+              const filtered = activeFolder !== null
+                ? bookmarks.filter(b => (b.folder ?? "") === activeFolder)
+                : bookmarks;
+
+              // Group by folder
+              const grouped: { folder: string | null; items: typeof filtered }[] = [];
+              const seen = new Map<string, typeof filtered>();
+              for (const bm of filtered) {
+                const key = bm.folder ?? "";
+                if (!seen.has(key)) { seen.set(key, []); grouped.push({ folder: bm.folder, items: seen.get(key)! }); }
+                seen.get(key)!.push(bm);
+              }
+
+              return (
+                <div className="max-h-80 overflow-y-auto">
+                  {grouped.map(({ folder, items }) => (
+                    <div key={folder ?? "__none__"}>
+                      {folder && (
                         <button
-                          className="flex-1 text-left min-w-0"
-                          onClick={() => { navigateTo(bm.url); setBookmarksOpen(false); }}
+                          onClick={() => toggleFolder(folder)}
+                          className="w-full flex items-center gap-1.5 px-3 py-1.5 bg-muted/40 hover:bg-muted/70 transition-colors"
                         >
-                          <p className="text-xs font-medium text-foreground truncate">{bm.title || bm.url}</p>
-                          <p className="text-[10px] text-muted-foreground truncate">{bm.url}</p>
+                          <FolderOpen className="h-3 w-3 text-muted-foreground shrink-0" />
+                          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide flex-1 text-left">{folder}</span>
+                          {collapsedFolders.has(folder)
+                            ? <ChevronRightIcon className="h-3 w-3 text-muted-foreground" />
+                            : <ChevronDown className="h-3 w-3 text-muted-foreground" />}
                         </button>
-                        <Button
-                          variant="ghost" size="icon"
-                          className="h-6 w-6 shrink-0 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground"
-                          onClick={() => startRename(bm)}
-                          title="Rename"
-                        >
-                          <Pencil className="h-3 w-3" />
-                        </Button>
-                        <Button
-                          variant="ghost" size="icon"
-                          className="h-6 w-6 shrink-0 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive"
-                          onClick={() => handleDeleteBookmark(bm.id)}
-                          title="Remove"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      </>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
+                      )}
+                      {!collapsedFolders.has(folder ?? "") && (
+                        <ul className="divide-y divide-border">
+                          {items.map(bm => (
+                            <li key={bm.id} className={cn("flex items-center gap-2 py-2 hover:bg-accent/50 group", folder ? "pl-7 pr-3" : "px-3")}>
+                              {renamingId === bm.id ? (
+                                <form
+                                  className="flex-1 flex items-center gap-1 min-w-0"
+                                  onSubmit={e => { e.preventDefault(); commitRename(bm.id); }}
+                                >
+                                  <Input
+                                    autoFocus
+                                    value={renameValue}
+                                    onChange={e => setRenameValue(e.target.value)}
+                                    onBlur={() => commitRename(bm.id)}
+                                    onKeyDown={e => e.key === "Escape" && setRenamingId(null)}
+                                    className="h-6 text-xs px-2 bg-muted/60 border-border flex-1 min-w-0"
+                                  />
+                                  <Button type="submit" variant="ghost" size="icon" className="h-6 w-6 shrink-0 text-primary">
+                                    <Check className="h-3 w-3" />
+                                  </Button>
+                                </form>
+                              ) : (
+                                <>
+                                  <button
+                                    className="flex-1 text-left min-w-0"
+                                    onClick={() => { navigateTo(bm.url); setBookmarksOpen(false); }}
+                                  >
+                                    <p className="text-xs font-medium text-foreground truncate">{bm.title || bm.url}</p>
+                                    <p className="text-[10px] text-muted-foreground truncate">{bm.url}</p>
+                                  </button>
+                                  <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground" onClick={() => startRename(bm)} title="Rename">
+                                    <Pencil className="h-3 w-3" />
+                                  </Button>
+                                  <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteBookmark(bm.id)} title="Remove">
+                                    <Trash2 className="h-3 w-3" />
+                                  </Button>
+                                </>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
           </PopoverContent>
         </Popover>
 

@@ -400,6 +400,7 @@ export type Database = {
       web_bookmarks: {
         Row: {
           created_at: string
+          folder: string | null
           id: string
           title: string
           url: string
@@ -407,6 +408,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          folder?: string | null
           id?: string
           title?: string
           url: string
@@ -414,6 +416,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          folder?: string | null
           id?: string
           title?: string
           url?: string
