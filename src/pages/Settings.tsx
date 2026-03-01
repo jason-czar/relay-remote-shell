@@ -29,7 +29,7 @@ import PrivaClawContent from "@/components/settings-tabs/PrivaClawContent";
 import DocsContent from "@/components/settings-tabs/DocsContent";
 
 const TABS = [
-  { value: "profile",   label: "Profile",   icon: User },
+  { value: "profile",   label: "Account",   icon: User },
   { value: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { value: "projects",  label: "Projects",  icon: FolderOpen },
   { value: "devices",   label: "Devices",   icon: Monitor },
