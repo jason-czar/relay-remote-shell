@@ -242,6 +242,9 @@ func plistPath() string {
 }
 
 func installAgentDarwin(exe string) error {
+	// Remove Gatekeeper quarantine flag so launchctl can exec the binary.
+	_ = exec.Command("xattr", "-d", "com.apple.quarantine", exe).Run()
+
 	home, _ := os.UserHomeDir()
 	logDir := filepath.Join(home, "relay-connector")
 	if err := os.MkdirAll(logDir, 0755); err != nil {
