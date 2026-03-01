@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -25,16 +26,28 @@ type Config struct {
 }
 
 func main() {
-	pairingCode    := flag.String("pair",             "", "Pairing code from the web UI")
-	name           := flag.String("name",             "", "Device name (optional, used during pairing)")
-	apiURL         := flag.String("api",              "", "Supabase Edge Function base URL (e.g. https://xyz.supabase.co/functions/v1)")
-	configPath     := flag.String("config",           defaultConfigPath(), "Path to config file")
-	shell          := flag.String("shell",            defaultShell(), "Shell to spawn (default: $SHELL or /bin/sh)")
-	workdir        := flag.String("workdir",          "", "Working directory for shell sessions (default: home directory)")
-	installAgent   := flag.Bool("install-agent",      false, "Register binary as a background service and start it")
-	uninstallAgent := flag.Bool("uninstall-agent",    false, "Stop and remove the background service")
-	statusAgent    := flag.Bool("status",             false, "Print service install/running status")
+	pairingCode    := flag.String("pair",           "", "Pairing code from the web UI")
+	name           := flag.String("name",           "", "Device name (optional, used during pairing)")
+	apiURL         := flag.String("api",            "", "Supabase Edge Function base URL (e.g. https://xyz.supabase.co/functions/v1)")
+	configPath     := flag.String("config",         defaultConfigPath(), "Path to config file")
+	shell          := flag.String("shell",          defaultShell(), "Shell to spawn (default: $SHELL or /bin/sh)")
+	workdir        := flag.String("workdir",        "", "Working directory for shell sessions (default: home directory)")
+	installAgent   := flag.Bool("install-agent",    false, "Register binary as a background service and start it")
+	uninstallAgent := flag.Bool("uninstall-agent",  false, "Stop and remove the background service")
+	statusAgent    := flag.Bool("status",           false, "Print service install/running status")
+	updateAgent    := flag.Bool("update",           false, "Download latest binary, replace self on disk, re-register service")
 	flag.Parse()
+
+	// --- update ---
+	if *updateAgent {
+		if *apiURL == "" {
+			log.Fatal("--api is required for --update (e.g. https://xyz.supabase.co/functions/v1)")
+		}
+		if err := selfUpdate(*apiURL); err != nil {
+			log.Fatalf("update failed: %v", err)
+		}
+		return
+	}
 
 	// --- install-agent ---
 	if *installAgent {
@@ -504,4 +517,71 @@ func loadConfig(path string) (*Config, error) {
 		return nil, err
 	}
 	return &cfg, nil
+}
+
+// ─── Self-update ──────────────────────────────────────────────────────────────
+
+// selfUpdate downloads the latest binary for this OS/arch from the
+// download-connector edge function, atomically replaces the running binary on
+// disk, marks it executable, then execs --install-agent to re-register the
+// background service with the new binary path.
+func selfUpdate(apiURL string) error {
+	exe, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("cannot resolve executable path: %w", err)
+	}
+	exe, err = filepath.EvalSymlinks(exe)
+	if err != nil {
+		return fmt.Errorf("cannot resolve symlinks: %w", err)
+	}
+
+	// Build download URL: GET <api>/download-connector?os=<goos>&arch=<goarch>
+	downloadURL := fmt.Sprintf("%s/download-connector?os=%s&arch=%s",
+		apiURL, runtime.GOOS, runtime.GOARCH)
+	fmt.Printf("⬇  Downloading latest binary from %s\n", downloadURL)
+
+	resp, err := http.Get(downloadURL)
+	if err != nil {
+		return fmt.Errorf("download request failed: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("download failed: HTTP %d", resp.StatusCode)
+	}
+
+	// Write to a temp file in the same directory so rename is atomic.
+	dir := filepath.Dir(exe)
+	tmp, err := os.CreateTemp(dir, ".connector-update-*")
+	if err != nil {
+		return fmt.Errorf("create temp file: %w", err)
+	}
+	tmpName := tmp.Name()
+	defer func() {
+		tmp.Close()
+		os.Remove(tmpName) // no-op if rename succeeded
+	}()
+
+	if _, err := io.Copy(tmp, resp.Body); err != nil {
+		return fmt.Errorf("write download: %w", err)
+	}
+	if err := tmp.Chmod(0755); err != nil {
+		return fmt.Errorf("chmod: %w", err)
+	}
+	tmp.Close()
+
+	// Atomic replace.
+	if err := os.Rename(tmpName, exe); err != nil {
+		return fmt.Errorf("replace binary: %w", err)
+	}
+	fmt.Printf("✅ Binary updated: %s\n", exe)
+
+	// Re-register the service with the new binary.
+	fmt.Println("🔄 Re-registering service...")
+	cmd := exec.Command(exe, "--install-agent")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("--install-agent after update: %w", err)
+	}
+	return nil
 }
