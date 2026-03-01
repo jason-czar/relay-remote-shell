@@ -148,6 +148,50 @@ function DiffBlock({ value }: { value: string }) {
   );
 }
 
+// ── Result panel with copy button ────────────────────────────────────────────
+
+function ResultPanel({ result, isError, hasBorder }: { result: string; isError: boolean; hasBorder: boolean }) {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = () => {
+    navigator.clipboard.writeText(result);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+  return (
+    <div className={cn("px-3 py-2 relative group", hasBorder && "border-t border-border/20")}>
+      <div className="flex items-center justify-between mb-1">
+        <div className={cn(
+          "text-[9px] uppercase tracking-widest",
+          isError ? "text-destructive/60" : "text-muted-foreground/40"
+        )}>
+          {isError ? "Error" : "Result"}
+        </div>
+        <button
+          onClick={handleCopy}
+          className={cn(
+            "flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono transition-all duration-150",
+            "opacity-0 group-hover:opacity-100",
+            copied
+              ? "text-primary bg-primary/10"
+              : "text-muted-foreground/50 hover:text-muted-foreground bg-white/5 hover:bg-white/10"
+          )}
+        >
+          {copied ? <><Check className="h-2.5 w-2.5" />Copied</> : <><Copy className="h-2.5 w-2.5" />Copy</>}
+        </button>
+      </div>
+      <pre
+        className={cn(
+          "font-mono text-[11px] whitespace-pre-wrap break-all overflow-x-auto thinking-scroll max-h-48",
+          isError ? "text-destructive/80" : "text-muted-foreground/70"
+        )}
+        style={{ lineHeight: 1.5 }}
+      >
+        {result}
+      </pre>
+    </div>
+  );
+}
+
 // ── Tool call card ────────────────────────────────────────────────────────────
 
 function ToolCallCard({ entry, isLast, agentColor }: {
@@ -272,23 +316,7 @@ function ToolCallCard({ entry, isLast, agentColor }: {
           )}
           {/* Result */}
           {hasResult && (
-            <div className={cn("px-3 py-2", inputStr && "border-t border-border/20")}>
-              <div className={cn(
-                "text-[9px] uppercase tracking-widest mb-1",
-                data.isError ? "text-destructive/60" : "text-muted-foreground/40"
-              )}>
-                {data.isError ? "Error" : "Result"}
-              </div>
-              <pre
-                className={cn(
-                  "font-mono text-[11px] whitespace-pre-wrap break-all overflow-x-auto thinking-scroll max-h-48",
-                  data.isError ? "text-destructive/80" : "text-muted-foreground/70"
-                )}
-                style={{ lineHeight: 1.5 }}
-              >
-                {data.result}
-              </pre>
-            </div>
+            <ResultPanel result={data.result!} isError={!!data.isError} hasBorder={!!inputStr} />
           )}
           {/* Result preview when not expanded input */}
           {!hasResult && resultPreview && (
