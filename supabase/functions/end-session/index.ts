@@ -71,7 +71,20 @@ Deno.serve(async (req) => {
       .single();
 
     if (error) {
+      console.error("[end-session] Session update failed", {
+        session_id,
+        user_id: user.id,
+        error: error.message,
+      });
       return json({ error: "Failed to end session: " + error.message }, 500);
+    }
+
+    if (!data) {
+      console.error("[end-session] Session not found or access denied", {
+        session_id,
+        user_id: user.id,
+      });
+      return json({ error: "Session not found or access denied" }, 404);
     }
 
     return json({
