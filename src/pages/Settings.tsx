@@ -29,12 +29,12 @@ import PrivaClawContent from "@/components/settings-tabs/PrivaClawContent";
 import DocsContent from "@/components/settings-tabs/DocsContent";
 
 const TABS = [
+  { value: "profile",   label: "Profile",   icon: User },
   { value: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { value: "projects",  label: "Projects",  icon: FolderOpen },
   { value: "devices",   label: "Devices",   icon: Monitor },
   { value: "privaclaw", label: "PrivaClaw", icon: Plug },
   { value: "docs",      label: "Docs",      icon: BookOpen },
-  { value: "profile",   label: "Profile",   icon: User },
 ] as const;
 
 type TabValue = typeof TABS[number]["value"];
