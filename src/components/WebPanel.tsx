@@ -273,6 +273,9 @@ export function WebPanel({ initialUrl = "", deviceId, deviceName, onClose }: Web
   const isBookmarked = bookmarks.some(b => b.url === loadedUrl);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
+  // Save-with-title prompt
+  const [savePromptOpen, setSavePromptOpen] = useState(false);
+  const [saveTitle, setSaveTitle] = useState("");
 
   // Load bookmarks on mount
   useEffect(() => {
@@ -283,20 +286,28 @@ export function WebPanel({ initialUrl = "", deviceId, deviceName, onClose }: Web
     });
   }, []);
 
-  const handleToggleBookmark = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session || !loadedUrl) return;
+  const handleBookmarkClick = () => {
     if (isBookmarked) {
+      // Remove immediately
       const bm = bookmarks.find(b => b.url === loadedUrl)!;
-      await supabase.from("web_bookmarks").delete().eq("id", bm.id);
+      supabase.from("web_bookmarks").delete().eq("id", bm.id);
       setBookmarks(prev => prev.filter(b => b.id !== bm.id));
     } else {
-      const title = loadedUrl.replace(/^https?:\/\//, "").replace(/\/$/, "");
-      const { data } = await supabase.from("web_bookmarks")
-        .insert({ user_id: session.user.id, url: loadedUrl, title })
-        .select("id, url, title").single();
-      if (data) setBookmarks(prev => [data, ...prev]);
+      // Open save prompt with default title
+      setSaveTitle(loadedUrl.replace(/^https?:\/\//, "").replace(/\/$/, ""));
+      setSavePromptOpen(true);
     }
+  };
+
+  const handleSaveBookmark = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session || !loadedUrl) return;
+    const title = saveTitle.trim() || loadedUrl.replace(/^https?:\/\//, "").replace(/\/$/, "");
+    const { data } = await supabase.from("web_bookmarks")
+      .insert({ user_id: session.user.id, url: loadedUrl, title })
+      .select("id, url, title").single();
+    if (data) setBookmarks(prev => [data, ...prev]);
+    setSavePromptOpen(false);
   };
 
   const handleDeleteBookmark = async (id: string) => {
@@ -539,18 +550,39 @@ export function WebPanel({ initialUrl = "", deviceId, deviceName, onClose }: Web
             : <RotateCcw className="h-3.5 w-3.5" />}
         </Button>
 
-        {/* Bookmark toggle */}
+        {/* Bookmark toggle with save-title prompt */}
         {loadedUrl && (
-          <Button
-            variant="ghost" size="icon"
-            className={cn("h-7 w-7 shrink-0", isBookmarked && "text-primary")}
-            onClick={handleToggleBookmark}
-            title={isBookmarked ? "Remove bookmark" : "Bookmark this page"}
-          >
-            {isBookmarked
-              ? <BookmarkCheck className="h-3.5 w-3.5" />
-              : <Bookmark className="h-3.5 w-3.5" />}
-          </Button>
+          <Popover open={savePromptOpen} onOpenChange={open => { if (!open) setSavePromptOpen(false); }}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="ghost" size="icon"
+                className={cn("h-7 w-7 shrink-0", isBookmarked && "text-primary")}
+                onClick={handleBookmarkClick}
+                title={isBookmarked ? "Remove bookmark" : "Bookmark this page"}
+              >
+                {isBookmarked
+                  ? <BookmarkCheck className="h-3.5 w-3.5" />
+                  : <Bookmark className="h-3.5 w-3.5" />}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent side="bottom" align="end" className="w-64 p-3">
+              <p className="text-xs font-semibold text-foreground mb-2">Save bookmark</p>
+              <form onSubmit={e => { e.preventDefault(); handleSaveBookmark(); }} className="flex flex-col gap-2">
+                <Input
+                  autoFocus
+                  value={saveTitle}
+                  onChange={e => setSaveTitle(e.target.value)}
+                  placeholder="Bookmark title"
+                  className="h-7 text-xs px-2"
+                />
+                <p className="text-[10px] text-muted-foreground truncate">{loadedUrl}</p>
+                <div className="flex gap-1.5 justify-end">
+                  <Button type="button" variant="ghost" size="sm" className="h-6 text-xs px-2" onClick={() => setSavePromptOpen(false)}>Cancel</Button>
+                  <Button type="submit" size="sm" className="h-6 text-xs px-2">Save</Button>
+                </div>
+              </form>
+            </PopoverContent>
+          </Popover>
         )}
 
         {/* Bookmarks list popover */}
