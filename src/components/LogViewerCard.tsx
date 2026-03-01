@@ -3,8 +3,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { RefreshCw, ScrollText, AlertCircle, Info, AlertTriangle, ChevronDown, ChevronUp } from "lucide-react";
+import { RefreshCw, ScrollText, AlertCircle, Info, AlertTriangle, ChevronDown, ChevronUp, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface LogEntry {
@@ -53,6 +54,7 @@ export function LogViewerCard() {
   const [secondsUntilRefresh, setSecondsUntilRefresh] = useState(60);
   const [filterFn, setFilterFn] = useState<string>("all");
   const [filterLevel, setFilterLevel] = useState<string>("all");
+  const [search, setSearch] = useState<string>("");
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
   const [functions, setFunctions] = useState<string[]>([]);
 
@@ -108,9 +110,12 @@ export function LogViewerCard() {
   }, []);
 
   // Client-side filter on top of fetched data
+  const keyword = search.trim().toLowerCase();
   const displayed = logs.filter((l) => {
     const fnMatch = filterFn === "all" || l.function === filterFn;
     const lvlMatch = filterLevel === "all" || l.level === filterLevel || (filterLevel === "error" && isErrorLike(l));
+    const kwMatch = !keyword || l.message.toLowerCase().includes(keyword) || l.function.includes(keyword);
+    return fnMatch && lvlMatch && kwMatch;
     return fnMatch && lvlMatch;
   });
 
@@ -144,7 +149,24 @@ export function LogViewerCard() {
 
       <CardContent className="space-y-3">
         {/* Filters */}
-        <div className="flex gap-2 flex-wrap">
+        <div className="flex gap-2 flex-wrap items-center">
+          <div className="relative flex-1 min-w-[180px]">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search logs…"
+              className="h-8 pl-8 pr-7 text-xs"
+            />
+            {search && (
+              <button
+                onClick={() => setSearch("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
           <Select value={filterFn} onValueChange={setFilterFn}>
             <SelectTrigger className="h-8 w-[160px] text-xs">
               <SelectValue placeholder="All functions" />
@@ -171,7 +193,7 @@ export function LogViewerCard() {
           </Select>
 
           <span className="text-xs text-muted-foreground self-center ml-auto">
-            {displayed.length} entries
+            {displayed.length} {keyword ? `of ${logs.length} ` : ""}entries
           </span>
         </div>
 
