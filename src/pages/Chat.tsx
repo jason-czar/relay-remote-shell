@@ -8,7 +8,7 @@ import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useScribe } from "@elevenlabs/react";
 import { cn } from "@/lib/utils";
 import { AppLayout } from "@/components/AppLayout";
-import { ChatMessage, EMPTY_RESPONSE_TEXT } from "@/components/ChatMessage";
+import { ChatMessage, EMPTY_RESPONSE_TEXT, type LiveLogEntry } from "@/components/ChatMessage";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/useAuth";
@@ -508,6 +508,76 @@ function parseChunkActivity(chunk: string): { status: "thinking" | "writing" | "
   return { status: null, toolName: null };
 }
 
+// ── Raw chunk → structured live log entry ─────────────────────────────────────
+function parseChunkForLog(chunk: string, acc: string): LiveLogEntry | null {
+  const combined = acc + chunk;
+
+  // ── Claude Code / OpenClaw: JSON tool_use events ──────────────────────────
+  if (/\"type\"\s*:\s*\"tool_use\"/.test(combined)) {
+    const nameMatch = combined.match(/"name"\s*:\s*"([^"]+)"/);
+    const inputMatch = combined.match(/"input"\s*:\s*\{([^}]{0,200})/);
+    const toolName = nameMatch ? friendlyToolName(nameMatch[1]) : "Tool";
+
+    // Bash: try to pull out the command
+    if (nameMatch && /bash|shell|run|exec/i.test(nameMatch[1])) {
+      const cmdMatch = combined.match(/"command"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+      return { type: "bash", label: "Bash", detail: cmdMatch ? cmdMatch[1].replace(/\\n/g, "\n").slice(0, 200) : undefined };
+    }
+    // File write/edit
+    if (nameMatch && /write|edit|create|str_replace/i.test(nameMatch[1])) {
+      const pathMatch = combined.match(/"(?:path|file_path|filename)"\s*:\s*"([^"]+)"/);
+      return { type: "write", label: toolName, detail: pathMatch?.[1] };
+    }
+    // File read
+    if (nameMatch && /read|cat|view/i.test(nameMatch[1])) {
+      const pathMatch = combined.match(/"(?:path|file_path|filename)"\s*:\s*"([^"]+)"/);
+      return { type: "read", label: toolName, detail: pathMatch?.[1] };
+    }
+    // Search / grep
+    if (nameMatch && /search|grep|find|ripgrep/i.test(nameMatch[1])) {
+      const patternMatch = combined.match(/"(?:pattern|query|regex)"\s*:\s*"([^"]+)"/);
+      return { type: "tool", label: toolName, detail: patternMatch?.[1] };
+    }
+    // Generic tool
+    return { type: "tool", label: toolName, detail: inputMatch ? `{${inputMatch[1]}}`.slice(0, 120) : undefined };
+  }
+
+  // ── Codex JSONL lines ─────────────────────────────────────────────────────
+  for (const line of chunk.split("\n")) {
+    const t = line.trim();
+    if (!t.startsWith("{")) continue;
+    try {
+      const obj = JSON.parse(t);
+      // function_call / tool_call
+      if (obj.type === "function_calls" || (obj.type === "tool_call")) {
+        const name = obj.name ?? obj.function?.name ?? "Tool";
+        const args = obj.arguments ?? obj.function?.arguments ?? obj.input ?? {};
+        if (/bash|shell|exec|run/i.test(name)) {
+          const cmd = typeof args === "string" ? JSON.parse(args).command : args?.command;
+          return { type: "bash", label: "Bash", detail: cmd?.slice(0, 200) };
+        }
+        if (/write|edit|create/i.test(name)) {
+          const path = typeof args === "string" ? JSON.parse(args).path : args?.path ?? args?.file_path;
+          return { type: "write", label: friendlyToolName(name), detail: path };
+        }
+        return { type: "tool", label: friendlyToolName(name) };
+      }
+      // Codex shell output block
+      if (obj.type === "shell" && obj.command) {
+        return { type: "bash", label: "Bash", detail: String(obj.command).slice(0, 200) };
+      }
+    } catch { /* not JSON */ }
+  }
+
+  // ── Plain text patterns ───────────────────────────────────────────────────
+  // Thinking block open tag
+  if (/<thinking>/i.test(chunk)) return { type: "think", label: "Thinking…" };
+  // Tool result (output)
+  if (/"type"\s*:\s*"tool_result"/.test(chunk)) return { type: "output", label: "Tool result" };
+
+  return null;
+}
+
 export default function Chat() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -541,6 +611,8 @@ export default function Chat() {
   const [activityStatus, setActivityStatus] = useState<"thinking" | "writing" | "running" | null>(null);
   const activityTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [toolCalls, setToolCalls] = useState<string[]>([]);
+  const [liveLog, setLiveLog] = useState<LiveLogEntry[]>([]);
+  const liveLogAccRef = useRef<string>("");
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
   const [showWizard, setShowWizard] = useState(false);
@@ -587,6 +659,17 @@ export default function Chat() {
     const { status, toolName } = parseChunkActivity(chunk);
     if (status) setActivityStatus(status);
     if (toolName) setToolCalls(prev => [...prev, toolName]);
+    // Parse for structured live log entry
+    liveLogAccRef.current += chunk;
+    const entry = parseChunkForLog(chunk, liveLogAccRef.current);
+    if (entry) {
+      // Deduplicate: don't add same label+detail twice in a row
+      setLiveLog(prev => {
+        const last = prev[prev.length - 1];
+        if (last?.label === entry.label && last?.detail === entry.detail) return prev;
+        return [...prev, entry];
+      });
+    }
     // Detect dev server port from stdout (Vite, Next, CRA, etc.)
     const portMatch = chunk.match(
       /(?:localhost|127\.0\.0\.1):(\d{4,5})|Local:\s+https?:\/\/(?:localhost|127\.0\.0\.1):(\d{4,5})/i
@@ -1128,6 +1211,8 @@ export default function Chat() {
     setMessages((prev) => [...prev, userMsg]);
     setThinking(true);
     startActivity();
+    setLiveLog([]);
+    liveLogAccRef.current = "";
 
     let convId = activeConvId;
     if (!convId) {
@@ -2152,7 +2237,7 @@ export default function Chat() {
                 )}
                 {thinking &&
                 <div className="animate-fade-in">
-                    <ChatMessage role="assistant" content="" thinking activityStatus={activityStatus} toolCalls={toolCalls} agent={(agent as string) === "terminal" ? "openclaw" : agent as "openclaw" | "claude" | "codex"} />
+                    <ChatMessage role="assistant" content="" thinking activityStatus={activityStatus} toolCalls={toolCalls} liveLog={liveLog} agent={(agent as string) === "terminal" ? "openclaw" : agent as "openclaw" | "claude" | "codex"} />
                   </div>
                 }
               </div>

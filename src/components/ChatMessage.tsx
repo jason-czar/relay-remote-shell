@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { Copy, Check, Terminal, ChevronDown, ChevronRight, RefreshCw, RotateCcw } from "lucide-react";
+import { Copy, Check, Terminal, ChevronDown, ChevronRight, RefreshCw, RotateCcw, FileEdit, FileSearch, Wrench, Brain } from "lucide-react";
 
 export const EMPTY_RESPONSE_TEXT = "No response was received from the device. Try rephrasing your message, or check that the device is connected and the agent is running.";
 import ReactMarkdown from "react-markdown";
@@ -10,6 +10,12 @@ import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import openclawImg from "@/assets/openclaw.png";
 import claudecodeImg from "@/assets/claudecode.png";
 import codexImg from "@/assets/codex.png";
+
+export type LiveLogEntry = {
+  type: "tool" | "bash" | "write" | "read" | "think" | "info" | "error" | "output";
+  label: string;
+  detail?: string;
+};
 
 // Patch oneDark to use pure black background
 const codeTheme = {
@@ -148,6 +154,7 @@ interface ChatMessageProps {
   agent?: "openclaw" | "claude" | "codex";
   onRegenerate?: () => void;
   onOptionSelect?: (option: string) => void;
+  liveLog?: LiveLogEntry[];
 }
 
 // ── Question/option extraction ────────────────────────────────────────────────
@@ -265,7 +272,7 @@ function CodeBlock({ language, value }: { language: string; value: string }) {
   );
 }
 
-export function ChatMessage({ role, content, thinking, streaming, activityStatus, toolCalls, rawStdout, thinkingContent, thinkingDurationMs, createdAt, agent, onRegenerate, onOptionSelect }: ChatMessageProps) {
+export function ChatMessage({ role, content, thinking, streaming, activityStatus, toolCalls, rawStdout, thinkingContent, thinkingDurationMs, createdAt, agent, onRegenerate, onOptionSelect, liveLog }: ChatMessageProps) {
   const [thinkingPanelEnabled, setThinkingPanelEnabled] = useState(() => {
     const v = localStorage.getItem("show-thinking-panel");
     return v === null ? true : v === "true";
@@ -331,27 +338,140 @@ export function ChatMessage({ role, content, thinking, streaming, activityStatus
       })()
     : null;
 
+  // Auto-scroll log to bottom as entries arrive
+  const logScrollRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (logScrollRef.current) {
+      logScrollRef.current.scrollTop = logScrollRef.current.scrollHeight;
+    }
+  }, [liveLog?.length]);
+
   if (thinking) {
+    const hasLog = liveLog && liveLog.length > 0;
+    const agentColor =
+      agent === "claude" ? "hsl(180 60% 45%)" :
+      agent === "codex"  ? "hsl(220 80% 65%)" :
+                           "hsl(280 65% 65%)";
+
+    const entryIcon = (entry: LiveLogEntry) => {
+      switch (entry.type) {
+        case "bash":   return <span className="text-[10px] font-mono font-bold opacity-80">$</span>;
+        case "write":  return <FileEdit  className="h-3 w-3 shrink-0" />;
+        case "read":   return <FileSearch className="h-3 w-3 shrink-0" />;
+        case "think":  return <Brain     className="h-3 w-3 shrink-0" />;
+        case "output": return <ChevronRight className="h-3 w-3 shrink-0 opacity-50" />;
+        default:       return <Wrench   className="h-3 w-3 shrink-0" />;
+      }
+    };
+
+    const entryColor = (type: LiveLogEntry["type"]) => {
+      if (type === "bash")   return "text-[hsl(45_90%_68%)]";
+      if (type === "write")  return "text-[hsl(195_70%_60%)]";
+      if (type === "read")   return "text-[hsl(210_60%_65%)]";
+      if (type === "think")  return "text-[hsl(280_60%_70%)]";
+      if (type === "error")  return "text-destructive";
+      return "text-muted-foreground/70";
+    };
+
     return (
-      <div className="flex items-start gap-3 mb-4 px-1">
-        <span className="flex gap-1 items-center h-5 mt-1">
-          {[0, 1, 2].map((i) => (
-            <span
-              key={i}
-              className="w-1.5 h-1.5 rounded-full bg-muted-foreground animate-bounce"
-              style={{ animationDelay: `${i * 0.15}s`, animationDuration: "0.9s" }}
-            />
-          ))}
-        </span>
-        {waitElapsed >= 5 && (
-          <span className="ml-2 text-xs text-muted-foreground/50 animate-fade-in">
-            {waitElapsed >= 30
-              ? `Still waiting — this may take a moment… (${waitElapsed}s)`
-              : waitElapsed >= 15
-              ? `Waiting for response… (${waitElapsed}s)`
-              : `Sending to device… (${waitElapsed}s)`}
-          </span>
-        )}
+      <div className="flex items-start gap-3 mb-4 px-1 pt-5">
+        <div className="flex-1 min-w-0">
+          {/* Live log panel */}
+          <div
+            className="rounded-xl border border-border/40 overflow-hidden"
+            style={{ background: "hsl(0 0% 5%)" }}
+          >
+            {/* Header bar — agent identity */}
+            <div
+              className="flex items-center justify-between px-3 py-2 border-b border-border/30"
+              style={{ background: "hsl(0 0% 8%)" }}
+            >
+              <div className="flex items-center gap-2">
+                <img
+                  src={agent === "claude" ? claudecodeImg : agent === "codex" ? codexImg : openclawImg}
+                  alt={agent}
+                  className="h-4 w-4 rounded"
+                />
+                <span className="text-[11px] font-medium tracking-wide" style={{ color: agentColor }}>
+                  {agent === "claude" ? "Claude Code" : agent === "codex" ? "Codex" : "OpenClaw"}
+                </span>
+                {/* Pulsing active dot */}
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: agentColor }} />
+                  <span className="relative inline-flex rounded-full h-1.5 w-1.5" style={{ background: agentColor }} />
+                </span>
+              </div>
+              {/* Elapsed timer */}
+              <span className="text-[10px] text-muted-foreground/40 font-mono tabular-nums">
+                {waitElapsed > 0 ? `${waitElapsed}s` : ""}
+              </span>
+            </div>
+
+            {/* Log entries */}
+            <div
+              ref={logScrollRef}
+              className="max-h-64 overflow-y-auto thinking-scroll px-0 py-1.5 space-y-0.5"
+            >
+              {!hasLog ? (
+                /* Fallback: no structured log yet — show spinner + status */
+                <div className="flex items-center gap-2 px-3 py-2">
+                  <span className="flex gap-1">
+                    {[0,1,2].map(i => (
+                      <span
+                        key={i}
+                        className="w-1 h-1 rounded-full bg-muted-foreground/50 animate-bounce"
+                        style={{ animationDelay: `${i * 0.15}s`, animationDuration: "0.9s" }}
+                      />
+                    ))}
+                  </span>
+                  <span className="text-xs text-muted-foreground/40">
+                    {waitElapsed >= 30
+                      ? `Still waiting… (${waitElapsed}s)`
+                      : waitElapsed >= 15
+                      ? `Waiting for response…`
+                      : `Sending to device…`}
+                  </span>
+                </div>
+              ) : (
+                liveLog!.map((entry, i) => {
+                  const isLast = i === liveLog!.length - 1;
+                  return (
+                    <div
+                      key={i}
+                      className={cn(
+                        "flex items-start gap-2 px-3 py-1 font-mono text-[12px] leading-relaxed",
+                        isLast ? "opacity-100" : "opacity-50",
+                        entryColor(entry.type)
+                      )}
+                    >
+                      {/* Icon */}
+                      <span className="mt-[1px] shrink-0">
+                        {entryIcon(entry)}
+                      </span>
+                      {/* Label */}
+                      <span className="shrink-0 font-semibold text-[11px]" style={{ color: agentColor }}>
+                        {entry.label}
+                      </span>
+                      {/* Detail */}
+                      {entry.detail && (
+                        <span className="truncate text-[11px] text-muted-foreground/60 min-w-0">
+                          {entry.detail}
+                        </span>
+                      )}
+                      {/* Blinking cursor on last entry */}
+                      {isLast && (
+                        <span
+                          className="inline-block w-1 h-3 ml-0.5 align-middle rounded-sm animate-pulse shrink-0"
+                          style={{ background: agentColor, animationDuration: "0.7s" }}
+                        />
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
