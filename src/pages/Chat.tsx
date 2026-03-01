@@ -604,7 +604,12 @@ export default function Chat() {
     return localStorage.getItem("chat-device-id") ?? "";
   });
   const [input, setInput] = useState("");
-  const pendingSendRef = useRef<string | null>(null);
+  // Tracks the live relay session so option buttons can inject stdin directly
+  const activeRelaySessionRef = useRef<{
+    ws: WebSocket;
+    sessionId: string;
+    resetSilence: () => void;
+  } | null>(null);
   const [thinking, setThinking] = useState(false);
   const [agentSwitchPending, setAgentSwitchPending] = useState<"openclaw" | "claude" | "codex" | "terminal" | null>(null);
   const [streamingMsgIndex, setStreamingMsgIndex] = useState<number | null>(null);
@@ -1000,6 +1005,10 @@ export default function Chat() {
           ws.close();
         }
         supabase.functions.invoke("end-session", { body: { session_id: sessionId } }).catch(() => {});
+        // Clear the active session ref so option buttons know the session is over
+        if (activeRelaySessionRef.current?.sessionId === sessionId) {
+          activeRelaySessionRef.current = null;
+        }
         if (result instanceof Error) reject(result);else
         resolve(result);
       };
@@ -1051,6 +1060,8 @@ export default function Chat() {
           type: "auth",
           data: { token: jwt, session_id: sessionId, device_id: selectedDeviceId }
         }));
+        // Expose this session so option buttons can inject stdin directly
+        activeRelaySessionRef.current = { ws, sessionId, resetSilence };
       };
 
       ws.onmessage = (event) => {
@@ -1624,14 +1635,40 @@ export default function Chat() {
     setTimeout(() => textareaRef.current?.focus(), 50);
   }, [stopActivity]);
 
-  // ── Option-select: fire handleSend after input state settles ────────────
-  useEffect(() => {
-    if (pendingSendRef.current !== null && input === pendingSendRef.current) {
-      pendingSendRef.current = null;
-      handleSend();
+  // ── Option-select: inject stdin directly into the active PTY session ──────
+  // This is the correct way to respond to agent prompts (tool approvals, yes/no, etc.)
+  // The agent is literally waiting for keyboard input on the PTY — we send it as stdin.
+  const handleOptionSelect = useCallback((opt: string) => {
+    const session = activeRelaySessionRef.current;
+    if (session && session.ws.readyState === WebSocket.OPEN) {
+      // Normalize: map friendly labels back to the single-char / short form the agent expects
+      // e.g. "Approve" → "y", "Deny" → "n", "Yes" → "y", "No" → "n"
+      const normalized = (() => {
+        const lower = opt.toLowerCase().trim();
+        if (lower === "yes" || lower === "approve" || lower === "allow" || lower === "confirm" || lower === "proceed") return "y";
+        if (lower === "no" || lower === "deny" || lower === "reject" || lower === "decline" || lower === "abort") return "n";
+        return opt.trim();
+      })();
+      const payload = normalized + "\n";
+      session.ws.send(JSON.stringify({
+        type: "stdin",
+        data: { session_id: session.sessionId, data_b64: btoa(payload) }
+      }));
+      // Show the selected option as a user message for visual context
+      setMessages(prev => [...prev, { role: "user", content: opt }]);
+      // Re-enter thinking state so the live activity feed shows agent is processing
+      setThinking(true);
+      startActivity();
+      setLiveLog([]);
+      liveLogAccRef.current = "";
+      // Reset the silence timer — the agent will produce more output after receiving input
+      session.resetSilence();
+    } else {
+      // Fallback: no active session (agent already finished), start a new message
+      setInput(opt);
+      setTimeout(() => handleSend(), 50);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [input]);
+  }, [startActivity]);
 
   // ── Regenerate ─────────────────────────────────────────────────────────
   const handleRegenerate = useCallback(async () => {
@@ -2227,10 +2264,7 @@ export default function Chat() {
                     handleRegenerate :
                     undefined
                     }
-                    onOptionSelect={msg.role === "assistant" && !thinking && streamingMsgIndex === null ? (opt) => {
-                      pendingSendRef.current = opt;
-                      setInput(opt);
-                    } : undefined}
+                    onOptionSelect={msg.role === "assistant" ? handleOptionSelect : undefined}
                     />
 
                   </div>
