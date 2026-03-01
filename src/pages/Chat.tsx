@@ -513,6 +513,53 @@ function parseChunkActivity(chunk: string): { status: "thinking" | "writing" | "
 function parseChunkForLog(chunk: string, acc: string): LiveLogEntry | null {
   const combined = acc + chunk;
 
+  // ── Stream-json JSONL: try to parse each line as a complete JSON object ───
+  for (const raw of chunk.split("\n")) {
+    const t = raw.trim();
+    if (!t.startsWith("{")) continue;
+    try {
+      const obj = JSON.parse(t) as Record<string, unknown>;
+      // tool_use: emit a structured tool_call card
+      if (obj.type === "tool_use") {
+        const name = typeof obj.name === "string" ? obj.name : "tool";
+        const rawInput = obj.input as Record<string, unknown> | undefined;
+        return {
+          type: "tool_call",
+          label: friendlyToolName(name),
+          toolCallData: {
+            id: typeof obj.id === "string" ? obj.id : undefined,
+            name: friendlyToolName(name),
+            input: rawInput && Object.keys(rawInput).length > 0 ? rawInput : undefined,
+          },
+        };
+      }
+      // tool_result: we handle this via the _tool_result_ sentinel (see onChunkActivity)
+      if (obj.type === "tool_result") {
+        const content = obj.content;
+        let resultText = "";
+        if (typeof content === "string") {
+          resultText = content;
+        } else if (Array.isArray(content)) {
+          resultText = content
+            .map((b: Record<string, unknown>) => (b.type === "text" ? b.text : ""))
+            .join("")
+            .trim();
+        }
+        const isError = obj.is_error === true;
+        return {
+          type: "tool_call",
+          label: "__tool_result__",
+          toolCallData: {
+            id: typeof obj.tool_use_id === "string" ? obj.tool_use_id : undefined,
+            name: "__result__",
+            result: resultText || (isError ? "Error" : "Done"),
+            isError,
+          },
+        };
+      }
+    } catch { /* not complete JSON */ }
+  }
+
   // ── Claude Code / OpenClaw: JSON tool_use events ──────────────────────────
   if (/\"type\"\s*:\s*\"tool_use\"/.test(combined)) {
     const nameMatch = combined.match(/"name"\s*:\s*"([^"]+)"/);
@@ -671,12 +718,35 @@ export default function Chat() {
     liveLogAccRef.current += chunk;
     const entry = parseChunkForLog(chunk, liveLogAccRef.current);
     if (entry) {
-      // Deduplicate: don't add same label+detail twice in a row
-      setLiveLog(prev => {
-        const last = prev[prev.length - 1];
-        if (last?.label === entry.label && last?.detail === entry.detail) return prev;
-        return [...prev, entry];
-      });
+      // tool_result: patch the matching tool_call entry rather than appending
+      if (entry.type === "tool_call" && entry.toolCallData?.name === "__result__") {
+        const resultId = entry.toolCallData.id;
+        setLiveLog(prev => {
+          // Find last tool_call entry with matching id (or last tool_call if no id)
+          const idx = resultId
+            ? [...prev].reverse().findIndex(e => e.type === "tool_call" && e.toolCallData?.id === resultId)
+            : [...prev].reverse().findIndex(e => e.type === "tool_call" && !e.toolCallData?.result);
+          if (idx === -1) return prev;
+          const realIdx = prev.length - 1 - idx;
+          const updated = [...prev];
+          updated[realIdx] = {
+            ...updated[realIdx],
+            toolCallData: {
+              ...updated[realIdx].toolCallData!,
+              result: entry.toolCallData!.result,
+              isError: entry.toolCallData!.isError,
+            },
+          };
+          return updated;
+        });
+      } else {
+        // Deduplicate: don't add same label+detail twice in a row
+        setLiveLog(prev => {
+          const last = prev[prev.length - 1];
+          if (last?.label === entry.label && last?.detail === entry.detail) return prev;
+          return [...prev, entry];
+        });
+      }
     }
     // Detect dev server port from stdout (Vite, Next, CRA, etc.)
     const portMatch = chunk.match(
