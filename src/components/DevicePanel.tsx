@@ -262,6 +262,7 @@ export function DevicePanel({ open, onClose, devices, selectedDeviceId, onSelect
     return `$s=(Invoke-WebRequest "${API_URL}/download-connector?install=ps-full" -UseBasicParsing).Content; Invoke-Expression "$s ${d.pairing_code}"`;
   }, []);
 
+  const isWindows = navigator.userAgent.includes("Win");
   const [reinstallPlatform, setReinstallPlatform] = useState<Record<string, "unix" | "windows">>({});
   const [offlinePlatform, setOfflinePlatform] = useState<Record<string, "unix" | "windows">>({});
 
@@ -460,7 +461,7 @@ export function DevicePanel({ open, onClose, devices, selectedDeviceId, onSelect
                               onClick={() => setReinstallPlatform(prev => ({ ...prev, [d.id]: p }))}
                               className={cn(
                                 "px-2 py-0.5 rounded text-[10px] font-medium transition-colors",
-                                (reinstallPlatform[d.id] ?? "unix") === p
+                                (reinstallPlatform[d.id] ?? (isWindows ? "windows" : "unix")) === p
                                   ? "bg-primary/15 text-primary"
                                   : "text-muted-foreground hover:text-foreground hover:bg-muted"
                               )}
@@ -471,10 +472,10 @@ export function DevicePanel({ open, onClose, devices, selectedDeviceId, onSelect
                         </div>
                         <div className="relative rounded-lg bg-muted/60 border border-border/40 overflow-hidden">
                           <pre className="px-2.5 py-2.5 pr-8 text-[10px] font-mono text-foreground/90 overflow-x-auto whitespace-pre-wrap break-all [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                            <code>{(reinstallPlatform[d.id] ?? "unix") === "unix" ? getOneLiner(d) : getWinOneLiner(d)}</code>
+                            <code>{(reinstallPlatform[d.id] ?? (isWindows ? "windows" : "unix")) === "unix" ? getOneLiner(d) : getWinOneLiner(d)}</code>
                           </pre>
                           <button
-                            onClick={(e) => { e.stopPropagation(); copyOneLiner((reinstallPlatform[d.id] ?? "unix") === "unix" ? getOneLiner(d) : getWinOneLiner(d), d.id, "reinstall"); }}
+                            onClick={(e) => { e.stopPropagation(); copyOneLiner((reinstallPlatform[d.id] ?? (isWindows ? "windows" : "unix")) === "unix" ? getOneLiner(d) : getWinOneLiner(d), d.id, "reinstall"); }}
                             className="absolute top-2 right-2 p-1 rounded hover:bg-accent/60 text-muted-foreground hover:text-foreground transition-colors"
                             title="Copy"
                           >
@@ -503,7 +504,7 @@ export function DevicePanel({ open, onClose, devices, selectedDeviceId, onSelect
                                 onClick={(e) => { e.stopPropagation(); setOfflinePlatform(prev => ({ ...prev, [d.id]: p })); }}
                                 className={cn(
                                   "px-2 py-0.5 rounded text-[10px] font-medium transition-colors",
-                                  (offlinePlatform[d.id] ?? "unix") === p
+                                  (offlinePlatform[d.id] ?? (isWindows ? "windows" : "unix")) === p
                                     ? "bg-primary/15 text-primary"
                                     : "text-muted-foreground hover:text-foreground hover:bg-muted"
                                 )}
@@ -514,10 +515,10 @@ export function DevicePanel({ open, onClose, devices, selectedDeviceId, onSelect
                           </div>
                           <div className="relative rounded-lg bg-muted/40 border border-border/40 overflow-hidden">
                             <pre className="px-2.5 py-2.5 pr-8 text-[10px] font-mono text-foreground/90 overflow-x-auto whitespace-pre-wrap break-all [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                              <code>{(offlinePlatform[d.id] ?? "unix") === "unix" ? getOneLiner(d) : getWinOneLiner(d)}</code>
+                              <code>{(offlinePlatform[d.id] ?? (isWindows ? "windows" : "unix")) === "unix" ? getOneLiner(d) : getWinOneLiner(d)}</code>
                             </pre>
                             <button
-                              onClick={(e) => { e.stopPropagation(); copyOneLiner((offlinePlatform[d.id] ?? "unix") === "unix" ? getOneLiner(d) : getWinOneLiner(d), d.id, "offline"); }}
+                              onClick={(e) => { e.stopPropagation(); copyOneLiner((offlinePlatform[d.id] ?? (isWindows ? "windows" : "unix")) === "unix" ? getOneLiner(d) : getWinOneLiner(d), d.id, "offline"); }}
                               className="absolute top-2 right-2 p-1 rounded hover:bg-accent/60 text-muted-foreground hover:text-foreground transition-colors"
                               title="Copy"
                             >
