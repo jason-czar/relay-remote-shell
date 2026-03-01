@@ -2148,21 +2148,49 @@ export default function Chat() {
               {/* Session resume badge — shown when conversation has a stored session ID */}
               {(() => {
                 const activeConv = conversations.find(c => c.id === activeConvId);
-                const sessionId = activeConv?.claude_session_id ?? activeConv?.openclaw_session_id ?? null;
+                const sessionId = agent === "openclaw"
+                  ? activeConv?.openclaw_session_id ?? null
+                  : activeConv?.claude_session_id ?? null;
                 if (!sessionId || agent === "terminal") return null;
                 const short = sessionId.slice(0, 8);
-                const label = agent === "openclaw" ? "OpenClaw" : agent === "codex" ? "Codex" : "Claude";
+                const agentLabel = agent === "openclaw" ? "OpenClaw" : agent === "codex" ? "Codex" : "Claude";
+                const handleClearSession = async () => {
+                  if (!activeConvId) return;
+                  const field = agent === "openclaw" ? "openclaw_session_id" : "claude_session_id";
+                  await supabase.from("chat_conversations").update({ [field]: null }).eq("id", activeConvId);
+                  setConversations(prev => prev.map(c =>
+                    c.id === activeConvId
+                      ? { ...c, claude_session_id: agent !== "openclaw" ? null : c.claude_session_id, openclaw_session_id: agent === "openclaw" ? null : c.openclaw_session_id }
+                      : c
+                  ));
+                };
                 return (
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium text-primary/70 bg-primary/8 border border-primary/15 select-none cursor-default">
-                        <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" className="shrink-0 opacity-70">
-                          <path d="M1.5 1.5A.5.5 0 0 1 2 1h12a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.128.334L10 8.692V13.5a.5.5 0 0 1-.342.474l-3 1A.5.5 0 0 1 6 14.5V8.692L1.628 3.834A.5.5 0 0 1 1.5 3.5z"/>
-                        </svg>
-                        <span>Resuming · <span className="font-mono opacity-80">{short}…</span></span>
+                      <div className="hidden sm:flex items-center gap-0 rounded-full text-xs font-medium text-primary/70 bg-primary/8 border border-primary/15 overflow-hidden">
+                        {/* Session info side */}
+                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 select-none cursor-default">
+                          <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" className="shrink-0 opacity-70">
+                            <path d="M1.5 1.5A.5.5 0 0 1 2 1h12a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.128.334L10 8.692V13.5a.5.5 0 0 1-.342.474l-3 1A.5.5 0 0 1 6 14.5V8.692L1.628 3.834A.5.5 0 0 1 1.5 3.5z"/>
+                          </svg>
+                          <span>Resuming · <span className="font-mono opacity-80">{short}…</span></span>
+                        </div>
+                        {/* Divider */}
+                        <div className="w-px h-4 bg-primary/20 self-center" />
+                        {/* Clear button */}
+                        <button
+                          onClick={handleClearSession}
+                          title={`Clear ${agentLabel} session — next message starts fresh`}
+                          className="flex items-center justify-center px-2 py-1.5 text-primary/50 hover:text-destructive hover:bg-destructive/10 transition-colors duration-150"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
                       </div>
                     </TooltipTrigger>
-                    <TooltipContent side="bottom" className="text-xs font-mono">{label} session: {sessionId}</TooltipContent>
+                    <TooltipContent side="bottom" className="text-xs">
+                      <span className="font-mono">{agentLabel} session: {sessionId}</span>
+                      <span className="block text-muted-foreground mt-0.5">Click × to start a fresh session</span>
+                    </TooltipContent>
                   </Tooltip>
                 );
               })()}
