@@ -1455,6 +1455,8 @@ export default function Chat() {
             const sessionId = extractClaudeSessionId(stdout);
             if (sessionId) {
               await supabase.from("chat_conversations").update({ claude_session_id: sessionId }).eq("id", jobConvId);
+              // Update local cache so the resume badge shows immediately
+              setConversations(prev => prev.map(c => c.id === jobConvId ? { ...c, claude_session_id: sessionId } : c));
             }
           }
           // Extract cwd from OSC 7 shell escape and persist to device
@@ -1802,6 +1804,7 @@ export default function Chat() {
               const sessionId = extractClaudeSessionId(stdout);
               if (sessionId) {
                 await supabase.from("chat_conversations").update({ claude_session_id: sessionId }).eq("id", jobConvId);
+                setConversations(prev => prev.map(c => c.id === jobConvId ? { ...c, claude_session_id: sessionId } : c));
               }
             }
           } else {
@@ -1821,6 +1824,7 @@ export default function Chat() {
               const claudeId = extractClaudeSessionId(stdout);
               if (claudeId) {
                 await supabase.from("chat_conversations").update({ claude_session_id: claudeId }).eq("id", jobConvId);
+                setConversations(prev => prev.map(c => c.id === jobConvId ? { ...c, claude_session_id: claudeId } : c));
               }
             }
           }
@@ -2041,6 +2045,29 @@ export default function Chat() {
             </div>
             {/* Right — device pill + refresh + new chat */}
             <div className="ml-auto flex items-center gap-3">
+
+              {/* Session resume badge — shown when conversation has a stored session ID */}
+              {(() => {
+                const activeConv = conversations.find(c => c.id === activeConvId);
+                const sessionId = activeConv?.claude_session_id ?? activeConv?.openclaw_session_id ?? null;
+                if (!sessionId || agent === "terminal") return null;
+                const short = sessionId.slice(0, 8);
+                const label = agent === "openclaw" ? "OpenClaw" : agent === "codex" ? "Codex" : "Claude";
+                return (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium text-primary/70 bg-primary/8 border border-primary/15 select-none cursor-default">
+                        <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" className="shrink-0 opacity-70">
+                          <path d="M1.5 1.5A.5.5 0 0 1 2 1h12a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.128.334L10 8.692V13.5a.5.5 0 0 1-.342.474l-3 1A.5.5 0 0 1 6 14.5V8.692L1.628 3.834A.5.5 0 0 1 1.5 3.5z"/>
+                        </svg>
+                        <span>Resuming · <span className="font-mono opacity-80">{short}…</span></span>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-xs font-mono">{label} session: {sessionId}</TooltipContent>
+                  </Tooltip>
+                );
+              })()}
+
               {/* Relay health pill */}
               {(() => {
                 const s = relayHealth.status;

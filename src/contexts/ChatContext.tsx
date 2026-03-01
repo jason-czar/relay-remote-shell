@@ -11,6 +11,8 @@ export interface Conversation {
   workdir?: string | null;
   device_id?: string | null;
   device_status?: "online" | "offline" | null;
+  claude_session_id?: string | null;
+  openclaw_session_id?: string | null;
 }
 
 
@@ -143,7 +145,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     if (!user) return;
     supabase
     .from("chat_conversations")
-      .select("id, title, agent, model, created_at, device_id, devices(workdir, status)")
+      .select("id, title, agent, model, created_at, device_id, claude_session_id, openclaw_session_id, devices(workdir, status)")
       .eq("user_id", user.id)
       .order("updated_at", { ascending: false })
       .then(({ data }) => {
@@ -362,7 +364,7 @@ print(json.dumps({'claude':read_sessions(h('~/.claude/sessions')),'codex':read_s
       // Refresh sidebar
       const { data } = await supabase
         .from("chat_conversations")
-        .select("id, title, agent, model, created_at, device_id, devices(workdir, status)")
+        .select("id, title, agent, model, created_at, device_id, claude_session_id, openclaw_session_id, devices(workdir, status)")
         .eq("user_id", user.id)
         .order("updated_at", { ascending: false });
       if (data) {
