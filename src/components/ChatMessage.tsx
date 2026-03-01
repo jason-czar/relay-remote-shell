@@ -817,11 +817,6 @@ export function ChatMessage({ role, content, thinking, streaming, activityStatus
             {textContent}
           </div>
         )}
-        {formattedTime && (
-          <span className="text-[10px] text-muted-foreground/40 opacity-0 group-hover:opacity-100 transition-opacity duration-150 pr-0.5">
-            {formattedTime}
-          </span>
-        )}
         {/* Copy button — visible on group-hover */}
         {textContent && (
           <button
