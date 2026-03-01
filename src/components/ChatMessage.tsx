@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { Copy, Check, Terminal, ChevronDown, ChevronRight, RefreshCw, RotateCcw, FileEdit, FileSearch, Wrench, Brain } from "lucide-react";
+import { Copy, Check, Terminal, ChevronDown, ChevronRight, RefreshCw, RotateCcw, FileEdit, FileSearch, Wrench, Brain, Reply } from "lucide-react";
 
 export const EMPTY_RESPONSE_TEXT = "No response was received from the device. Try rephrasing your message, or check that the device is connected and the agent is running.";
 import ReactMarkdown from "react-markdown";
@@ -566,13 +566,21 @@ export function ChatMessage({ role, content, thinking, streaming, activityStatus
   }
 
   // Assistant — hover actions
+  const interactiveOpts = !streaming ? extractInteractiveOptions(content) : [];
+  const hasOptions = interactiveOpts.length > 0;
+
   return (
     <div
       className="group flex items-start pt-5 pb-1 px-1"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      <div className="flex-1 min-w-0">
+      <div
+        className={cn(
+          "flex-1 min-w-0 transition-all duration-200",
+          hasOptions && "pl-3 border-l-2 border-primary/50"
+        )}
+      >
         <div className="text-[18px] md:text-[19px] leading-[1.45] text-foreground break-words pt-0.5">
           {/* Reasoning / thinking collapsible — Codex (with duration) and Claude Code (without) */}
           {thinkingPanelEnabled && thinkingContent && (() => {
@@ -754,18 +762,23 @@ export function ChatMessage({ role, content, thinking, streaming, activityStatus
         </div>
 
         {/* Interactive option buttons — shown when agent asks a question */}
-        {!streaming && onOptionSelect && (() => {
-          const opts = extractInteractiveOptions(content);
-          if (opts.length === 0) return null;
-          return (
-            <div className="flex flex-wrap gap-2 mt-3 mb-1">
-              {opts.map((opt) => (
+        {!streaming && onOptionSelect && hasOptions && (
+          <div className="mt-3 mb-1">
+            {/* "Awaiting reply" badge */}
+            <div className="flex items-center gap-1.5 mb-2">
+              <Reply className="h-3 w-3 text-primary/70" />
+              <span className="text-[11px] font-medium text-primary/60 tracking-wide select-none uppercase">
+                Awaiting reply
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {interactiveOpts.map((opt) => (
                 <button
                   key={opt}
                   onClick={() => onOptionSelect(opt)}
                   className={cn(
                     "px-3 py-1.5 rounded-lg text-sm font-medium border transition-all duration-150",
-                    "bg-muted/40 hover:bg-accent border-border/50 hover:border-primary/40",
+                    "bg-muted/40 hover:bg-primary/10 border-border/50 hover:border-primary/50",
                     "text-foreground/80 hover:text-foreground",
                     "active:scale-95"
                   )}
@@ -774,8 +787,8 @@ export function ChatMessage({ role, content, thinking, streaming, activityStatus
                 </button>
               ))}
             </div>
-          );
-        })()}
+          </div>
+        )}
 
         {/* Hover action bar */}
         <div className="flex items-center gap-0.5 mt-1.5">
