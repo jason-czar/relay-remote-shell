@@ -528,6 +528,20 @@ export function DevicePanel({ open, onClose, devices, selectedDeviceId, onSelect
     }
   }, [sendRelayCommand]);
 
+  // ── Auto-trigger version check when a device comes online ─────────────────
+  const prevStatusRef = useRef<Record<string, string>>({});
+  useEffect(() => {
+    const prev = prevStatusRef.current;
+    devices.forEach((d) => {
+      if (d.status === "online" && prev[d.id] !== "online" && !versionChecks[d.id]) {
+        handleVersionCheck(d.id);
+      }
+    });
+    const next: Record<string, string> = {};
+    devices.forEach((d) => { next[d.id] = d.status; });
+    prevStatusRef.current = next;
+  }, [devices]); // eslint-disable-line react-hooks/exhaustive-deps
+
 
   return (
     <>
