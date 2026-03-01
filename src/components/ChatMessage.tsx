@@ -897,22 +897,43 @@ export function ChatMessage({ role, content, thinking, streaming, activityStatus
           )}
 
           {/* Completed tool call cards — shown after streaming finishes */}
-          {completedToolCalls && completedToolCalls.length > 0 && (
-            <div className="mt-3 space-y-1">
-              {completedToolCalls.map((entry, i) => (
-                <ToolCallCard
-                  key={i}
-                  entry={entry}
-                  isLast={false}
-                  agentColor={
-                    agent === "claude" ? "hsl(180 60% 45%)" :
-                    agent === "codex"  ? "hsl(220 80% 65%)" :
-                                         "hsl(280 65% 65%)"
-                  }
-                />
-              ))}
-            </div>
-          )}
+          {completedToolCalls && completedToolCalls.length > 0 && (() => {
+            const agentColor =
+              agent === "claude" ? "hsl(180 60% 45%)" :
+              agent === "codex"  ? "hsl(220 80% 65%)" :
+                                   "hsl(280 65% 65%)";
+            const totalMs = completedToolCalls.reduce(
+              (sum, e) => sum + (e.toolCallData?.durationMs ?? 0), 0
+            );
+            const finishedCount = completedToolCalls.filter(
+              e => e.toolCallData?.durationMs !== undefined
+            ).length;
+            const totalLabel = totalMs < 1000
+              ? `${totalMs}ms`
+              : `${(totalMs / 1000).toFixed(1)}s`;
+            return (
+              <div className="mt-3 space-y-1">
+                {completedToolCalls.map((entry, i) => (
+                  <ToolCallCard
+                    key={i}
+                    entry={entry}
+                    isLast={false}
+                    agentColor={agentColor}
+                  />
+                ))}
+                {finishedCount > 0 && (
+                  <div className="flex items-center gap-1.5 pt-1 px-1">
+                    <span className="text-[9px] font-mono text-muted-foreground/40">
+                      {finishedCount} tool{finishedCount !== 1 ? "s" : ""} ·
+                    </span>
+                    <span className="text-[9px] font-mono tabular-nums text-muted-foreground/50 bg-white/5 px-1 py-0.5 rounded">
+                      {totalLabel} total
+                    </span>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
           {/* Tool-call chips — animated while streaming, faded when done */}
           {toolCalls && toolCalls.length > 0 && (
             <div className="flex flex-wrap gap-1 mt-2">
