@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { Copy, Check, Terminal, ChevronDown, ChevronRight, RefreshCw, RotateCcw, FileEdit, FileSearch, Wrench, Brain, Reply, Zap, CheckCircle2, XCircle } from "lucide-react";
+import { Copy, Check, Terminal, ChevronDown, ChevronRight, RefreshCw, RotateCcw, FileEdit, FileSearch, Wrench, Brain, Reply, Zap, CheckCircle2, XCircle, Loader2 } from "lucide-react";
 
 export const EMPTY_RESPONSE_TEXT = "No response was received from the device. Try rephrasing your message, or check that the device is connected and the agent is running.";
 import ReactMarkdown from "react-markdown";
@@ -214,7 +214,10 @@ function ToolCallCard({ entry, isLast, agentColor }: {
           }
         </span>
         {/* Tool name */}
-        <span className="font-mono text-[11px] font-semibold shrink-0" style={{ color: agentColor }}>
+        <span className="font-mono text-[11px] font-semibold shrink-0 flex items-center gap-1.5" style={{ color: agentColor }}>
+          {inProgress && (
+            <Loader2 className="h-3 w-3 animate-spin opacity-70" />
+          )}
           {data.name}
         </span>
         {/* Input preview */}
