@@ -1,166 +1,152 @@
 
-## Plan: Production-Grade One-Liner Installer
+## Implementation: Live Preview Split Pane in Chat
 
-### Two files to change
+### Single file change: `src/pages/Chat.tsx`
 
----
+**1. Add imports (line 17 and nearby)**
+- Add `Globe` to lucide imports (already present? — yes, imported in WebPanel; need to add to Chat.tsx line 17)
+- Add `WebPanel` from `@/components/WebPanel`
+- Add `ResizablePanelGroup`, `ResizablePanel`, `ResizableHandle` from `@/components/ui/resizable`
+- Add `Popover`, `PopoverContent`, `PopoverTrigger` from `@/components/ui/popover`
+- Add `Input` from `@/components/ui/input`
+- Add `Globe` to the lucide import on line 17
 
-**1. `supabase/functions/download-connector/index.ts`**
-
-Add a new `?install=full` branch at line 577 (before the existing `?install=1` check). The new branch serves a single bash script that does everything:
-
-```
-if (url.searchParams.get("install") === "full") {
-  const SUPABASE_URL = ...
-  const baseUrl = `${SUPABASE_URL}/storage/v1/object/public/connector-binaries`;
-  const apiUrl = `${SUPABASE_URL}/functions/v1`;
-  return fullInstallScript
-}
-```
-
-The script content:
-
-```bash
-#!/bin/bash
-set -e
-
-PAIR_CODE="$1"
-API_URL="https://psmglvwvoygaadjajvoq.supabase.co/functions/v1"
-BASE_URL="https://psmglvwvoygaadjajvoq.supabase.co/storage/v1/object/public/connector-binaries"
-
-if [ -z "$PAIR_CODE" ]; then
-  echo "❌ Usage: curl ... | bash -s -- YOUR_PAIR_CODE"
-  exit 1
-fi
-
-# Detect OS/arch
-OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
-case "$OS" in
-  linux)  PLATFORM="linux" ;;
-  darwin) PLATFORM="darwin" ;;
-  *) echo "❌ Unsupported OS: $OS"; exit 1 ;;
-esac
-ARCH="$(uname -m)"
-case "$ARCH" in
-  x86_64|amd64) ARCH="amd64" ;;
-  arm64|aarch64) ARCH="arm64" ;;
-  *) echo "❌ Unsupported architecture: $ARCH"; exit 1 ;;
-esac
-
-DEST_DIR="$HOME/relay-connector"
-BINARY_PATH="$DEST_DIR/relay-connector"
-BINARY_NAME="relay-connector-${PLATFORM}-${ARCH}"
-BINARY_URL="${BASE_URL}/${BINARY_NAME}"
-
-echo "📦 Installing PrivaClaw Connector (${PLATFORM}/${ARCH})..."
-mkdir -p "$DEST_DIR"
-
-HTTP_CODE=$(curl -sL -w "%{http_code}" -o "$BINARY_PATH" "$BINARY_URL")
-if [ "$HTTP_CODE" != "200" ]; then
-  rm -f "$BINARY_PATH"
-  echo "❌ Download failed (HTTP $HTTP_CODE). Binary may not be available for ${PLATFORM}/${ARCH}."
-  exit 1
-fi
-chmod +x "$BINARY_PATH"
-
-# Resolve absolute path (POSIX-safe, no realpath dependency)
-FULL_BINARY="$(cd "$(dirname "$BINARY_PATH")"; pwd)/$(basename "$BINARY_PATH")"
-
-# Pair device (idempotent — skip if already paired)
-CONFIG="$HOME/.relay-connector.json"
-if [ -f "$CONFIG" ] && grep -q '"device_id"' "$CONFIG" 2>/dev/null; then
-  echo "ℹ️  Already paired — skipping pairing step"
-else
-  echo "🔗 Pairing device..."
-  "$FULL_BINARY" --pair "$PAIR_CODE" --api "$API_URL" --name "$(hostname)"
-fi
-
-# Ensure log directory exists
-mkdir -p "$DEST_DIR"
-FULL_LOG="$DEST_DIR/relay.log"
-
-# Register service
-if [ "$PLATFORM" = "darwin" ]; then
-  PLIST="$HOME/Library/LaunchAgents/com.privaclaw.connector.plist"
-  mkdir -p "$HOME/Library/LaunchAgents"
-  
-  cat > "$PLIST" << EOF
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>Label</key>
-  <string>com.privaclaw.connector</string>
-  <key>ProgramArguments</key>
-  <array>
-    <string>${FULL_BINARY}</string>
-  </array>
-  <key>RunAtLoad</key>
-  <true/>
-  <key>KeepAlive</key>
-  <true/>
-  <key>StandardOutPath</key>
-  <string>${FULL_LOG}</string>
-  <key>StandardErrorPath</key>
-  <string>${FULL_LOG}</string>
-</dict>
-</plist>
-EOF
-
-  USER_ID=$(id -u)
-  # Only bootout if already registered (prevents noise on fresh install)
-  launchctl print "gui/$USER_ID" 2>/dev/null | grep -q "com.privaclaw.connector" && \
-    launchctl bootout "gui/$USER_ID" "$PLIST" 2>/dev/null || true
-  launchctl bootstrap "gui/$USER_ID" "$PLIST"
-  launchctl enable "gui/$USER_ID/com.privaclaw.connector"
-  launchctl kickstart -k "gui/$USER_ID/com.privaclaw.connector"
-
-elif [ "$PLATFORM" = "linux" ]; then
-  SERVICE_DIR="$HOME/.config/systemd/user"
-  mkdir -p "$SERVICE_DIR"
-  
-  cat > "$SERVICE_DIR/privaclaw-connector.service" << EOF
-[Unit]
-Description=PrivaClaw Connector
-After=network-online.target
-Wants=network-online.target
-
-[Service]
-ExecStart=${FULL_BINARY}
-Restart=always
-RestartSec=5
-
-[Install]
-WantedBy=default.target
-EOF
-
-  # Enable linger so service persists across logout
-  loginctl enable-linger "$USER" 2>/dev/null || true
-  systemctl --user daemon-reload
-  systemctl --user enable privaclaw-connector
-  systemctl --user start privaclaw-connector
-fi
-
-echo ""
-echo "✅ PrivaClaw installed and running!"
-echo "   Connector auto-starts on login."
+**2. Add state (after line 565, in state block)**
+```typescript
+const [showPreview, setShowPreview] = useState(false);
+const [previewUrl, setPreviewUrl] = useState("");
+const [previewInputPort, setPreviewInputPort] = useState("3000");
+const [previewPopoverOpen, setPreviewPopoverOpen] = useState(false);
+const [previewAutoDetecting, setPreviewAutoDetecting] = useState(false);
 ```
 
----
+**3. Add `handleOpenPreview` helper (after line 1712, before `return`)**
 
-**2. `src/components/SetupWizard.tsx`**
-
-Replace lines 82–86 (the three `cmd1`/`cmd2`/`cmd3` variables) with a single `cmdFull`:
+Cross-platform detect chain (lsof → ss → netstat), uses `127.0.0.1` for compatibility, includes port validation guard from ChatGPT's feedback (bail if `finalPort` is empty or NaN):
 
 ```typescript
-const cmdFull = device?.pairing_code
-  ? `curl -fsSL "${API_URL}/download-connector?install=full" | bash -s -- "${device.pairing_code}"`
-  : "";
+const handleOpenPreview = useCallback(async (port?: string) => {
+  const targetPort = port ?? previewInputPort;
+  setPreviewAutoDetecting(true);
+  setPreviewPopoverOpen(false);
+  try {
+    const detectCmd = `(\n  command -v lsof >/dev/null && lsof -iTCP -sTCP:LISTEN -n -P\n) || (\n  command -v ss >/dev/null && ss -ltn\n) || (\n  netstat -ltn 2>/dev/null\n) | grep -oE ':(3000|5173|8080|4200|8000|8888|4000|3001)\\b' | head -1 | tr -d ':'\n`;
+    const stdout = await sendViaRelay(detectCmd, false);
+    const detected = stdout.replace(/\x1b\[[\d;]*[a-zA-Z]/g, "").trim();
+    const finalPort = detected || targetPort;
+    if (!finalPort || isNaN(Number(finalPort))) {
+      setPreviewAutoDetecting(false);
+      return;
+    }
+    setPreviewUrl(`http://127.0.0.1:${finalPort}`);
+    setPreviewInputPort(finalPort);
+    setShowPreview(true);
+  } catch {
+    const finalPort = targetPort;
+    if (!finalPort || isNaN(Number(finalPort))) { setPreviewAutoDetecting(false); return; }
+    setPreviewUrl(`http://127.0.0.1:${finalPort}`);
+    setShowPreview(true);
+  } finally {
+    setPreviewAutoDetecting(false);
+  }
+}, [previewInputPort, sendViaRelay]);
 ```
 
-Replace lines 162–202 (step 2 command block) with:
-- Updated subtitle: `"One command — installs, pairs, and registers as a background service."`
-- Single command block with label `"Run this on your machine"` and copy button
-- Keep the Gatekeeper note and status polling unchanged
+**4. Wrap outer layout (lines 1724–1730)**
 
-No database changes, no new secrets, no RLS changes needed.
+Replace:
+```tsx
+<div className="flex h-full overflow-hidden">
+  <div className={`flex flex-col flex-1 min-w-0 h-full relative ...`}
+```
+
+With:
+```tsx
+<div className="flex h-full overflow-hidden">
+  <ResizablePanelGroup direction="horizontal" className="flex-1 min-w-0">
+    <ResizablePanel defaultSize={showPreview ? 50 : 100} minSize={30}>
+      <div className={`flex flex-col h-full relative ...`}
+```
+
+Close the existing chat div (before `</div>` that closes the outer flex div), then add:
+```tsx
+    </ResizablePanel>
+    {showPreview && (
+      <>
+        <ResizableHandle withHandle />
+        <ResizablePanel defaultSize={50} minSize={25}>
+          <WebPanel
+            deviceId={selectedDeviceId}
+            deviceName={devices.find(d => d.id === selectedDeviceId)?.name}
+            initialUrl={previewUrl}
+            onClose={() => { setShowPreview(false); setPreviewUrl(""); }}
+          />
+        </ResizablePanel>
+      </>
+    )}
+  </ResizablePanelGroup>
+</div>
+```
+
+Need to find exact closing div. The outer div at line 1724 closes at the very end of the return statement. The chat column div at 1726 also needs its closing `</div>` moved before the ResizablePanel closer.
+
+**5. Add Preview button to header right section (after line 1823, before the device pill at line 1825)**
+
+```tsx
+{/* Preview button */}
+{selectedDeviceId && (
+  <Popover open={previewPopoverOpen} onOpenChange={setPreviewPopoverOpen}>
+    <PopoverTrigger asChild>
+      <button
+        className={cn(
+          "hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium transition-colors",
+          showPreview ? "bg-primary/10 text-primary" : "text-foreground/50 hover:text-foreground hover:bg-accent"
+        )}
+        title="Live preview"
+      >
+        {previewAutoDetecting
+          ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          : <Monitor className="h-3.5 w-3.5" />}
+        <span>{showPreview ? `Preview · :${previewInputPort}` : "Preview"}</span>
+      </button>
+    </PopoverTrigger>
+    <PopoverContent side="bottom" align="end" className="w-64 p-3">
+      <p className="text-xs font-medium mb-2">Open live preview</p>
+      <div className="flex gap-2 mb-2">
+        <Input
+          className="h-8 text-sm"
+          placeholder="Port (e.g. 3000)"
+          value={previewInputPort}
+          onChange={e => setPreviewInputPort(e.target.value.replace(/\D/g, ""))}
+          onKeyDown={e => e.key === "Enter" && handleOpenPreview()}
+        />
+        <Button size="sm" className="h-8 shrink-0" onClick={() => handleOpenPreview()}>Open</Button>
+      </div>
+      <div className="flex flex-wrap gap-1">
+        {["3000","5173","8080","4200","8000"].map(p => (
+          <button key={p} onClick={() => handleOpenPreview(p)}
+            className="text-xs px-2 py-0.5 rounded-full border hover:bg-accent transition-colors">:{p}</button>
+        ))}
+      </div>
+      <p className="text-[10px] text-muted-foreground mt-2">Auto-detects running dev server on your device.</p>
+    </PopoverContent>
+  </Popover>
+)}
+```
+
+`Monitor` is already imported on line 17. `Loader2` is already imported on line 17. No new icons needed beyond `Globe` (already in WebPanel — needs adding to Chat.tsx only if used there, but we're using `Monitor` so it's fine).
+
+### Summary of changes
+- File: `src/pages/Chat.tsx` only
+- No backend, no edge function, no database changes
+- `ResizablePanelGroup` + `ResizablePanel` + `ResizableHandle` — already installed package
+- `Popover` — already installed package
+- `Input` — already in project
+- `WebPanel` — already exists with full HTTP + WS proxy
+
+### Key technical decisions
+- `127.0.0.1` not `localhost` → better framework compatibility (Vite, Next, Astro)
+- Port validation guard (`isNaN(Number(finalPort))`) → no blank preview panel
+- Cross-platform detect: `lsof` (macOS) → `ss` (Linux) → `netstat` (fallback) 
+- `sendViaRelay` already has auto-retry built in — detect command benefits automatically
+- `defaultSize={showPreview ? 50 : 100}` on the left panel ensures 50/50 when preview opens but full-width otherwise (panel respects `defaultSize` on mount; toggling `showPreview` mounts/unmounts the right panel causing a re-render)
