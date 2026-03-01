@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
-import { X, Terminal, Wifi, WifiOff, Plus, Copy, Check, Loader2, Info, AlertCircle, Trash2, Power, RefreshCw } from "lucide-react";
+import { X, Terminal, Wifi, WifiOff, Plus, Copy, Check, Loader2, Info, AlertCircle, Trash2, Power, RefreshCw, PackageX } from "lucide-react";
 import type { Tables } from "@/integrations/supabase/types";
 
 const API_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
@@ -251,6 +251,9 @@ export function DevicePanel({ open, onClose, devices, selectedDeviceId, onSelect
   const [reinstallDeviceId, setReinstallDeviceId] = useState<string | null>(null);
   const [copiedReinstallId, setCopiedReinstallId] = useState<string | null>(null);
   const [offlineCopiedId, setOfflineCopiedId] = useState<string | null>(null);
+  const [confirmUninstallId, setConfirmUninstallId] = useState<string | null>(null);
+  const [uninstallingId, setUninstallingId] = useState<string | null>(null);
+  const [uninstallLog, setUninstallLog] = useState<string | null>(null);
 
   const getOneLiner = useCallback((d: Tables<"devices">) => {
     if (!d.pairing_code) return "";
@@ -302,6 +305,76 @@ export function DevicePanel({ open, onClose, devices, selectedDeviceId, onSelect
     setDeletingId(null);
     setConfirmDeleteId(null);
     onDeviceDeleted(id);
+  }, [onDeviceDeleted]);
+
+  // Send --uninstall-agent via relay, then delete the device record.
+  const handleUninstall = useCallback(async (deviceId: string) => {
+    setUninstallingId(deviceId);
+    setUninstallLog("Connecting to device…");
+    try {
+      const { data: sesData, error: sesErr } = await supabase.functions.invoke("start-session", {
+        body: { device_id: deviceId },
+      });
+      if (sesErr || !sesData?.session_id) throw new Error(sesErr?.message ?? "Could not start session");
+      const sessionId: string = sesData.session_id;
+
+      const relayUrl = (import.meta.env.VITE_RELAY_URL || "wss://relay.privaclaw.com")
+        .replace("https://", "wss://").replace("http://", "ws://");
+      const { data: { session: authSession } } = await supabase.auth.getSession();
+      const jwt = authSession?.access_token;
+      const wsUrl = `${relayUrl}/connect${jwt ? `?token=${jwt}` : ""}`;
+
+      await new Promise<void>((resolve, reject) => {
+        const ws = new WebSocket(wsUrl);
+        let settled = false;
+        const finish = (err?: string) => {
+          if (settled) return;
+          settled = true;
+          ws.close();
+          if (err) reject(new Error(err)); else resolve();
+        };
+
+        const timeout = setTimeout(() => finish("Timed out waiting for device response"), 20000);
+
+        ws.onopen = () => {
+          ws.send(JSON.stringify({ type: "hello", data: { session_id: sessionId } }));
+        };
+
+        ws.onmessage = (ev) => {
+          try {
+            const msg = JSON.parse(ev.data);
+            if (msg.type === "authenticated" || msg.type === "session_ready" || msg.type === "scrollback") {
+              // Send the uninstall command
+              setUninstallLog("Running --uninstall-agent…");
+              const cmd = "./relay-connector --uninstall-agent\n";
+              ws.send(JSON.stringify({ type: "stdin", data: { session_id: sessionId, data_b64: btoa(cmd) } }));
+            }
+            if (msg.type === "stdout") {
+              const out = atob(msg.data?.data_b64 ?? "");
+              setUninstallLog((prev) => (prev ?? "") + out);
+              // Consider done once we see the ✅ success line or after a short delay
+              if (out.includes("uninstalled") || out.includes("✅")) {
+                clearTimeout(timeout);
+                setTimeout(() => finish(), 500);
+              }
+            }
+          } catch { /* ignore parse errors */ }
+        };
+
+        ws.onerror = () => finish("WebSocket error");
+        ws.onclose = () => { clearTimeout(timeout); if (!settled) finish(); };
+      });
+    } catch (err: any) {
+      setUninstallLog(`Warning: ${err.message}. Removing device from list anyway.`);
+      await new Promise(r => setTimeout(r, 1500));
+    }
+
+    // Always delete the device record regardless of relay success
+    await supabase.from("devices").delete().eq("id", deviceId);
+    setUninstallingId(null);
+    setUninstallLog(null);
+    setConfirmUninstallId(null);
+    onDeviceDeleted(deviceId);
   }, [onDeviceDeleted]);
 
   return (
@@ -413,6 +486,19 @@ export function DevicePanel({ open, onClose, devices, selectedDeviceId, onSelect
                             : <Power className="h-3.5 w-3.5" />}
                         </button>
                       )}
+                      {/* Uninstall agent */}
+                      <button
+                        onClick={() => { setConfirmUninstallId((prev) => prev === d.id ? null : d.id); setConfirmDeleteId(null); }}
+                        title="Uninstall agent from device & remove"
+                        className={cn(
+                          "w-6 h-6 flex items-center justify-center rounded-md transition-colors",
+                          confirmUninstallId === d.id
+                            ? "bg-warning/15 text-warning"
+                            : "text-muted-foreground hover:text-warning hover:bg-warning/10"
+                        )}
+                      >
+                        <PackageX className="h-3.5 w-3.5" />
+                      </button>
                       {/* Delete */}
                       {confirmDeleteId === d.id ? (
                         <div className="flex items-center gap-1">
@@ -432,7 +518,7 @@ export function DevicePanel({ open, onClose, devices, selectedDeviceId, onSelect
                         </div>
                       ) : (
                         <button
-                          onClick={() => setConfirmDeleteId(d.id)}
+                          onClick={() => { setConfirmDeleteId(d.id); setConfirmUninstallId(null); }}
                           title="Delete device"
                           className="w-6 h-6 flex items-center justify-center rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
                         >
@@ -442,7 +528,50 @@ export function DevicePanel({ open, onClose, devices, selectedDeviceId, onSelect
                     </div>
                   </div>
 
-                  {/* Reinstall / Update panel */}
+                  {/* Uninstall agent confirm / progress panel */}
+                  {confirmUninstallId === d.id && (
+                    <div className="mt-1 mb-1 px-1 pb-1">
+                      <div className="rounded-lg border border-warning/30 bg-warning/5 p-3 flex flex-col gap-2">
+                        {uninstallingId === d.id ? (
+                          <>
+                            <div className="flex items-center gap-2 text-xs text-warning font-medium">
+                              <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" />
+                              Uninstalling…
+                            </div>
+                            {uninstallLog && (
+                              <pre className="text-[10px] font-mono text-foreground/70 bg-muted/40 rounded p-2 overflow-x-auto max-h-24 whitespace-pre-wrap break-all [scrollbar-width:thin]">
+                                {uninstallLog}
+                              </pre>
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            <div className="flex items-center gap-1.5">
+                              <PackageX className="h-3 w-3 text-warning shrink-0" />
+                              <p className="text-[11px] font-semibold text-foreground/80">Uninstall agent</p>
+                            </div>
+                            <p className="text-[10px] text-muted-foreground leading-relaxed">
+                              This will run <code className="font-mono bg-muted px-1 rounded">--uninstall-agent</code> on the device to remove the background service, then delete the device from your list.
+                            </p>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => handleUninstall(d.id)}
+                                className="px-2.5 py-1 rounded text-[11px] font-medium bg-warning text-warning-foreground hover:bg-warning/90 transition-colors"
+                              >
+                                Uninstall &amp; Remove
+                              </button>
+                              <button
+                                onClick={() => setConfirmUninstallId(null)}
+                                className="px-2 py-1 rounded text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  )}
                   {reinstallDeviceId === d.id && d.pairing_code && (
                     <div className="mt-1 mb-1 px-1 pb-1">
                       <div className="rounded-lg border border-border/50 bg-muted/30 p-3 flex flex-col gap-2">
