@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
-import { X, Terminal, Wifi, WifiOff, Plus, Copy, Check, Loader2, Info, AlertCircle, Trash2, Power, RefreshCw, PackageX } from "lucide-react";
+import { X, Terminal, Wifi, WifiOff, Plus, Copy, Check, Loader2, Info, AlertCircle, Trash2, Power, RefreshCw, PackageX, Activity } from "lucide-react";
 import type { Tables } from "@/integrations/supabase/types";
 
 const API_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
@@ -200,6 +200,47 @@ const DEFAULT_WIDTH = 360;
 
 const STORAGE_KEY = "device-panel-width";
 
+// ── StatusOutputBlock ─────────────────────────────────────────────────────────
+function StatusOutputBlock({ raw, loading }: { raw: string; loading: boolean }) {
+  const lines = raw.split("\n").map(l => l.trim()).filter(Boolean);
+  const getValue = (key: string) => {
+    const line = lines.find(l => l.startsWith(key + ":"));
+    return line ? line.slice(key.length + 1).trim() : undefined;
+  };
+  const installed = getValue("installed");
+  const running = getValue("running");
+  return (
+    <div className="flex flex-col gap-1.5">
+      {(installed !== undefined || running !== undefined) && (
+        <div className="flex items-center gap-2 flex-wrap">
+          {installed !== undefined && (
+            <span className={cn(
+              "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium",
+              installed === "true" ? "bg-status-online/15 text-status-online" : "bg-muted text-muted-foreground"
+            )}>
+              <span className={cn("w-1.5 h-1.5 rounded-full", installed === "true" ? "bg-status-online" : "bg-muted-foreground/40")} />
+              {installed === "true" ? "Installed" : "Not installed"}
+            </span>
+          )}
+          {running !== undefined && (
+            <span className={cn(
+              "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium",
+              running === "true" ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"
+            )}>
+              <span className={cn("w-1.5 h-1.5 rounded-full", running === "true" ? "bg-primary" : "bg-muted-foreground/40")} />
+              {running === "true" ? "Running" : "Stopped"}
+            </span>
+          )}
+        </div>
+      )}
+      <pre className={cn(
+        "text-[10px] font-mono bg-muted/40 rounded p-2 overflow-x-auto whitespace-pre-wrap break-all [scrollbar-width:thin] transition-opacity",
+        loading ? "opacity-50" : "opacity-100"
+      )}>{raw}</pre>
+    </div>
+  );
+}
+
 export function DevicePanel({ open, onClose, devices, selectedDeviceId, onSelectDevice, userId, projectId, onDeviceAdded, onDeviceDeleted }: DevicePanelProps) {
   const [showAdd, setShowAdd] = useState(false);
   const [panelWidth, setPanelWidth] = useState(() => {
@@ -255,6 +296,11 @@ export function DevicePanel({ open, onClose, devices, selectedDeviceId, onSelect
   const [uninstallingId, setUninstallingId] = useState<string | null>(null);
   const [uninstallLog, setUninstallLog] = useState<string | null>(null);
 
+  // Status check state: deviceId → { loading, output }
+  const [statusCheckId, setStatusCheckId] = useState<string | null>(null);
+  const [statusCheckLoading, setStatusCheckLoading] = useState(false);
+  const [statusOutput, setStatusOutput] = useState<string | null>(null);
+
   const getOneLiner = useCallback((d: Tables<"devices">) => {
     if (!d.pairing_code) return "";
     return `curl -fsSL "${API_URL}/download-connector?install=full" | bash -s -- "${d.pairing_code}"`;
@@ -307,75 +353,116 @@ export function DevicePanel({ open, onClose, devices, selectedDeviceId, onSelect
     onDeviceDeleted(id);
   }, [onDeviceDeleted]);
 
-  // Send --uninstall-agent via relay, then delete the device record.
+  // ── Shared relay command helper ───────────────────────────────────────────
+  // Starts a session for deviceId, sends `command` via stdin, streams stdout
+  // into onOutput until `isDone(line)` returns true or timeout fires.
+  const sendRelayCommand = useCallback(async (
+    deviceId: string,
+    command: string,
+    onOutput: (chunk: string) => void,
+    isDone: (accumulated: string) => boolean,
+    timeoutMs = 20000,
+  ): Promise<void> => {
+    const { data: sesData, error: sesErr } = await supabase.functions.invoke("start-session", {
+      body: { device_id: deviceId },
+    });
+    if (sesErr || !sesData?.session_id) throw new Error(sesErr?.message ?? "Could not start session");
+    const sessionId: string = sesData.session_id;
+
+    const relayUrl = (import.meta.env.VITE_RELAY_URL || "wss://relay.privaclaw.com")
+      .replace("https://", "wss://").replace("http://", "ws://");
+    const { data: { session: authSession } } = await supabase.auth.getSession();
+    const jwt = authSession?.access_token;
+    const wsUrl = `${relayUrl}/connect${jwt ? `?token=${jwt}` : ""}`;
+
+    await new Promise<void>((resolve, reject) => {
+      const ws = new WebSocket(wsUrl);
+      let settled = false;
+      let accumulated = "";
+      let commandSent = false;
+
+      const finish = (err?: string) => {
+        if (settled) return;
+        settled = true;
+        ws.close();
+        if (err) reject(new Error(err)); else resolve();
+      };
+
+      const timeout = setTimeout(() => finish("Timed out waiting for device response"), timeoutMs);
+
+      ws.onopen = () => {
+        ws.send(JSON.stringify({ type: "hello", data: { session_id: sessionId } }));
+      };
+
+      ws.onmessage = (ev) => {
+        try {
+          const msg = JSON.parse(ev.data);
+          if (!commandSent && (msg.type === "authenticated" || msg.type === "session_ready" || msg.type === "scrollback")) {
+            commandSent = true;
+            ws.send(JSON.stringify({ type: "stdin", data: { session_id: sessionId, data_b64: btoa(command) } }));
+          }
+          if (msg.type === "stdout") {
+            const chunk = atob(msg.data?.data_b64 ?? "");
+            accumulated += chunk;
+            onOutput(chunk);
+            if (isDone(accumulated)) {
+              clearTimeout(timeout);
+              setTimeout(() => finish(), 400);
+            }
+          }
+        } catch { /* ignore parse errors */ }
+      };
+
+      ws.onerror = () => finish("WebSocket error");
+      ws.onclose = () => { clearTimeout(timeout); if (!settled) finish(); };
+    });
+  }, []);
+
+  // ── Uninstall via relay ───────────────────────────────────────────────────
   const handleUninstall = useCallback(async (deviceId: string) => {
     setUninstallingId(deviceId);
     setUninstallLog("Connecting to device…");
     try {
-      const { data: sesData, error: sesErr } = await supabase.functions.invoke("start-session", {
-        body: { device_id: deviceId },
-      });
-      if (sesErr || !sesData?.session_id) throw new Error(sesErr?.message ?? "Could not start session");
-      const sessionId: string = sesData.session_id;
-
-      const relayUrl = (import.meta.env.VITE_RELAY_URL || "wss://relay.privaclaw.com")
-        .replace("https://", "wss://").replace("http://", "ws://");
-      const { data: { session: authSession } } = await supabase.auth.getSession();
-      const jwt = authSession?.access_token;
-      const wsUrl = `${relayUrl}/connect${jwt ? `?token=${jwt}` : ""}`;
-
-      await new Promise<void>((resolve, reject) => {
-        const ws = new WebSocket(wsUrl);
-        let settled = false;
-        const finish = (err?: string) => {
-          if (settled) return;
-          settled = true;
-          ws.close();
-          if (err) reject(new Error(err)); else resolve();
-        };
-
-        const timeout = setTimeout(() => finish("Timed out waiting for device response"), 20000);
-
-        ws.onopen = () => {
-          ws.send(JSON.stringify({ type: "hello", data: { session_id: sessionId } }));
-        };
-
-        ws.onmessage = (ev) => {
-          try {
-            const msg = JSON.parse(ev.data);
-            if (msg.type === "authenticated" || msg.type === "session_ready" || msg.type === "scrollback") {
-              // Send the uninstall command
-              setUninstallLog("Running --uninstall-agent…");
-              const cmd = "./relay-connector --uninstall-agent\n";
-              ws.send(JSON.stringify({ type: "stdin", data: { session_id: sessionId, data_b64: btoa(cmd) } }));
-            }
-            if (msg.type === "stdout") {
-              const out = atob(msg.data?.data_b64 ?? "");
-              setUninstallLog((prev) => (prev ?? "") + out);
-              // Consider done once we see the ✅ success line or after a short delay
-              if (out.includes("uninstalled") || out.includes("✅")) {
-                clearTimeout(timeout);
-                setTimeout(() => finish(), 500);
-              }
-            }
-          } catch { /* ignore parse errors */ }
-        };
-
-        ws.onerror = () => finish("WebSocket error");
-        ws.onclose = () => { clearTimeout(timeout); if (!settled) finish(); };
-      });
+      await sendRelayCommand(
+        deviceId,
+        "./relay-connector --uninstall-agent\n",
+        (chunk) => setUninstallLog((prev) => (prev ?? "") + chunk),
+        (acc) => acc.includes("uninstalled") || acc.includes("✅"),
+      );
     } catch (err: any) {
       setUninstallLog(`Warning: ${err.message}. Removing device from list anyway.`);
       await new Promise(r => setTimeout(r, 1500));
     }
-
-    // Always delete the device record regardless of relay success
     await supabase.from("devices").delete().eq("id", deviceId);
     setUninstallingId(null);
     setUninstallLog(null);
     setConfirmUninstallId(null);
     onDeviceDeleted(deviceId);
-  }, [onDeviceDeleted]);
+  }, [sendRelayCommand, onDeviceDeleted]);
+
+  // ── Status check via relay ────────────────────────────────────────────────
+  const handleStatusCheck = useCallback(async (deviceId: string) => {
+    setStatusCheckId(deviceId);
+    setStatusCheckLoading(true);
+    setStatusOutput("Connecting to device…");
+    try {
+      let output = "";
+      await sendRelayCommand(
+        deviceId,
+        "./relay-connector --status\n",
+        (chunk) => {
+          output += chunk;
+          setStatusOutput(output);
+        },
+        (acc) => acc.includes("installed:") && acc.includes("\n"),
+        15000,
+      );
+      setStatusOutput(output.trim() || "(no output)");
+    } catch (err: any) {
+      setStatusOutput(`Error: ${err.message}`);
+    }
+    setStatusCheckLoading(false);
+  }, [sendRelayCommand]);
 
   return (
     <>
@@ -486,6 +573,27 @@ export function DevicePanel({ open, onClose, devices, selectedDeviceId, onSelect
                             : <Power className="h-3.5 w-3.5" />}
                         </button>
                       )}
+                      {/* Check service status — only for online devices */}
+                      {d.status === "online" && (
+                        <button
+                          onClick={() => {
+                            if (statusCheckId === d.id) { setStatusCheckId(null); setStatusOutput(null); }
+                            else { handleStatusCheck(d.id); }
+                          }}
+                          title="Check service status"
+                          disabled={statusCheckLoading && statusCheckId === d.id}
+                          className={cn(
+                            "w-6 h-6 flex items-center justify-center rounded-md transition-colors disabled:opacity-40",
+                            statusCheckId === d.id
+                              ? "bg-primary/15 text-primary"
+                              : "text-muted-foreground hover:text-primary hover:bg-primary/10"
+                          )}
+                        >
+                          {statusCheckLoading && statusCheckId === d.id
+                            ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            : <Activity className="h-3.5 w-3.5" />}
+                        </button>
+                      )}
                       {/* Uninstall agent */}
                       <button
                         onClick={() => { setConfirmUninstallId((prev) => prev === d.id ? null : d.id); setConfirmDeleteId(null); }}
@@ -572,6 +680,32 @@ export function DevicePanel({ open, onClose, devices, selectedDeviceId, onSelect
                       </div>
                     </div>
                   )}
+
+                  {/* Service status panel */}
+                  {statusCheckId === d.id && (
+                    <div className="mt-1 mb-1 px-1 pb-1">
+                      <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 flex flex-col gap-2">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5">
+                            <Activity className="h-3 w-3 text-primary shrink-0" />
+                            <p className="text-[11px] font-semibold text-foreground/80">Service Status</p>
+                          </div>
+                          <button
+                            onClick={() => { handleStatusCheck(d.id); }}
+                            disabled={statusCheckLoading && statusCheckId === d.id}
+                            title="Refresh"
+                            className="text-muted-foreground hover:text-foreground transition-colors disabled:opacity-40"
+                          >
+                            <RefreshCw className={cn("h-3 w-3", statusCheckLoading && statusCheckId === d.id && "animate-spin")} />
+                          </button>
+                        </div>
+                        {statusOutput && (
+                          <StatusOutputBlock raw={statusOutput} loading={statusCheckLoading && statusCheckId === d.id} />
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  {/* Reinstall / Update panel */}
                   {reinstallDeviceId === d.id && d.pairing_code && (
                     <div className="mt-1 mb-1 px-1 pb-1">
                       <div className="rounded-lg border border-border/50 bg-muted/30 p-3 flex flex-col gap-2">
