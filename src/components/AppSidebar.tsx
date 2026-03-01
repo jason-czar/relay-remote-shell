@@ -1,5 +1,5 @@
 import {
-  Settings, Sun, Moon,
+  Settings, Sun, Moon, LogOut,
   Plus, Search, Trash2, Pencil, Check, X, RefreshCw,
 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -10,6 +10,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavLink } from "@/components/NavLink";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/hooks/useAuth";
 import { useTheme } from "next-themes";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -304,45 +306,68 @@ export function AppSidebar() {
       <SidebarFooter style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
 
         {/* User row */}
-        <div className={cn(
-          "mt-1 border-t border-border/40 pt-2 flex items-center gap-2.5 px-2 py-2 rounded-lg hover:bg-accent/40 transition-colors cursor-default",
-          collapsed && "justify-center px-0"
-        )}>
-          <Avatar className="h-8 w-8 shrink-0 ring-1 ring-border">
-            <AvatarImage src={avatarUrl ?? undefined} alt={displayName ?? ""} />
-            <AvatarFallback className="bg-muted text-foreground/70 text-xs font-semibold">
-              {(displayName ?? user?.email ?? "U").slice(0, 2).toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
-          {!collapsed && (
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-foreground truncate leading-tight">
-                {displayName ?? user?.email?.split("@")[0] ?? "User"}
-              </p>
-              <p className="caption truncate leading-tight">
-                {user?.email ?? ""}
-              </p>
+        <Popover>
+          <PopoverTrigger asChild>
+            <div className={cn(
+              "mt-1 border-t border-border/40 pt-2 flex items-center gap-2.5 px-2 py-2 rounded-lg hover:bg-accent/40 transition-colors cursor-pointer",
+              collapsed && "justify-center px-0"
+            )}>
+              <Avatar className="h-8 w-8 shrink-0 ring-1 ring-border">
+                <AvatarImage src={avatarUrl ?? undefined} alt={displayName ?? ""} />
+                <AvatarFallback className="bg-muted text-foreground/70 text-xs font-semibold">
+                  {(displayName ?? user?.email ?? "U").slice(0, 2).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              {!collapsed && (
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate leading-tight">{displayName || user?.email}</p>
+                  <p className="text-xs text-muted-foreground truncate leading-tight">{user?.email}</p>
+                </div>
+              )}
             </div>
-          )}
-          {!collapsed && (
-            <div className="flex items-center gap-0.5 shrink-0">
+          </PopoverTrigger>
+          <PopoverContent side="top" align="start" className="w-64 p-0">
+            <div className="flex items-center gap-3 px-4 py-3">
+              <Avatar className="h-9 w-9 shrink-0 ring-1 ring-border">
+                <AvatarImage src={avatarUrl ?? undefined} alt={displayName ?? ""} />
+                <AvatarFallback className="bg-muted text-foreground/70 text-xs font-semibold">
+                  {(displayName ?? user?.email ?? "U").slice(0, 2).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold truncate">{displayName || user?.email}</p>
+                <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+              </div>
+            </div>
+            <Separator />
+            <div className="py-1">
               <button
                 onClick={toggleTheme}
-                className="p-1.5 rounded-md text-muted-foreground/60 hover:text-foreground hover:bg-accent/60 transition-colors"
-                title={theme === "dark" ? "Light mode" : "Dark mode"}
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-accent/60 transition-colors text-left"
               >
-                {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                {theme === "dark" ? <Sun className="h-4 w-4 text-muted-foreground" /> : <Moon className="h-4 w-4 text-muted-foreground" />}
+                {theme === "dark" ? "Light mode" : "Dark mode"}
               </button>
               <button
                 onClick={() => navigate("/settings?tab=profile")}
-                className="p-1.5 rounded-md text-muted-foreground/60 hover:text-foreground hover:bg-accent/60 transition-colors"
-                title="Profile settings"
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-accent/60 transition-colors text-left"
               >
-                <Settings className="h-4 w-4" />
+                <Settings className="h-4 w-4 text-muted-foreground" />
+                Account settings
               </button>
             </div>
-          )}
-        </div>
+            <Separator />
+            <div className="py-1">
+              <button
+                onClick={handleSignOut}
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-destructive/10 hover:text-destructive transition-colors text-left"
+              >
+                <LogOut className="h-4 w-4" />
+                Sign out
+              </button>
+            </div>
+          </PopoverContent>
+        </Popover>
       </SidebarFooter>
     </Sidebar>
 
