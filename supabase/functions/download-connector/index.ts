@@ -574,6 +574,143 @@ serve(async (req) => {
     });
   }
 
+  // Full one-liner: download, pair, and register as a background service
+  if (url.searchParams.get("install") === "full") {
+    const baseUrl = `${SUPABASE_URL}/storage/v1/object/public/connector-binaries`;
+    const apiUrl = `${SUPABASE_URL}/functions/v1`;
+    const fullScript = `#!/bin/bash
+set -e
+
+PAIR_CODE="$1"
+API_URL="${apiUrl}"
+BASE_URL="${baseUrl}"
+
+if [ -z "$PAIR_CODE" ]; then
+  echo "❌ Usage: curl -fsSL \\"...\\" | bash -s -- YOUR_PAIR_CODE"
+  exit 1
+fi
+
+# Detect OS/arch
+OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
+case "$OS" in
+  linux)  PLATFORM="linux" ;;
+  darwin) PLATFORM="darwin" ;;
+  *) echo "❌ Unsupported OS: $OS"; exit 1 ;;
+esac
+ARCH="$(uname -m)"
+case "$ARCH" in
+  x86_64|amd64)  ARCH="amd64" ;;
+  arm64|aarch64) ARCH="arm64" ;;
+  *) echo "❌ Unsupported architecture: $ARCH"; exit 1 ;;
+esac
+
+DEST_DIR="$HOME/relay-connector"
+BINARY_PATH="$DEST_DIR/relay-connector"
+BINARY_NAME="relay-connector-\${PLATFORM}-\${ARCH}"
+BINARY_URL="\${BASE_URL}/\${BINARY_NAME}"
+
+echo "📦 Installing PrivaClaw Connector (\${PLATFORM}/\${ARCH})..."
+mkdir -p "$DEST_DIR"
+
+HTTP_CODE=$(curl -sL -w "%{http_code}" -o "$BINARY_PATH" "$BINARY_URL")
+if [ "$HTTP_CODE" != "200" ]; then
+  rm -f "$BINARY_PATH"
+  echo "❌ Download failed (HTTP $HTTP_CODE). Binary may not be available for \${PLATFORM}/\${ARCH}."
+  exit 1
+fi
+chmod +x "$BINARY_PATH"
+
+# Resolve absolute path (POSIX-safe, no realpath dependency)
+FULL_BINARY="$(cd "$(dirname "$BINARY_PATH")"; pwd)/$(basename "$BINARY_PATH")"
+
+# Pair device (idempotent — skip if already paired)
+CONFIG="$HOME/.relay-connector.json"
+if [ -f "$CONFIG" ] && grep -q '"device_id"' "$CONFIG" 2>/dev/null; then
+  echo "ℹ️  Already paired — skipping pairing step"
+else
+  echo "🔗 Pairing device..."
+  "$FULL_BINARY" --pair "$PAIR_CODE" --api "$API_URL" --name "$(hostname)"
+fi
+
+# Ensure log directory exists
+mkdir -p "$DEST_DIR"
+FULL_LOG="$DEST_DIR/relay.log"
+
+# Register service
+if [ "$PLATFORM" = "darwin" ]; then
+  PLIST="$HOME/Library/LaunchAgents/com.privaclaw.connector.plist"
+  mkdir -p "$HOME/Library/LaunchAgents"
+
+  cat > "$PLIST" << PLISTEOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.privaclaw.connector</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>$FULL_BINARY</string>
+  </array>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>$FULL_LOG</string>
+  <key>StandardErrorPath</key>
+  <string>$FULL_LOG</string>
+</dict>
+</plist>
+PLISTEOF
+
+  USER_ID=$(id -u)
+  # Only bootout if already registered (prevents noise on fresh install)
+  launchctl print "gui/$USER_ID" 2>/dev/null | grep -q "com.privaclaw.connector" && \\
+    launchctl bootout "gui/$USER_ID" "$PLIST" 2>/dev/null || true
+  launchctl bootstrap "gui/$USER_ID" "$PLIST"
+  launchctl enable "gui/$USER_ID/com.privaclaw.connector"
+  launchctl kickstart -k "gui/$USER_ID/com.privaclaw.connector"
+
+elif [ "$PLATFORM" = "linux" ]; then
+  SERVICE_DIR="$HOME/.config/systemd/user"
+  mkdir -p "$SERVICE_DIR"
+
+  cat > "$SERVICE_DIR/privaclaw-connector.service" << SVCEOF
+[Unit]
+Description=PrivaClaw Connector
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStart=$FULL_BINARY
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target
+SVCEOF
+
+  # Enable linger so service persists across logout
+  loginctl enable-linger "$USER" 2>/dev/null || true
+  systemctl --user daemon-reload
+  systemctl --user enable privaclaw-connector
+  systemctl --user start privaclaw-connector
+fi
+
+echo ""
+echo "✅ PrivaClaw installed and running!"
+echo "   Connector auto-starts on login."
+`;
+    return new Response(fullScript, {
+      headers: {
+        "Content-Type": "text/x-shellscript",
+        "Content-Disposition": "inline; filename=install.sh",
+        "Access-Control-Allow-Origin": "*",
+      },
+    });
+  }
+
   // Smart install script: auto-detects OS/arch, downloads binary or falls back to source
   if (url.searchParams.get("install") === "1") {
     const baseUrl = `${SUPABASE_URL}/storage/v1/object/public/connector-binaries`;
