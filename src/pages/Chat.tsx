@@ -2207,7 +2207,7 @@ export default function Chat() {
               <ComposerBox
                 textareaRef={textareaRef}
                 fileInputRef={fileInputRef}
-                onPreview={() => setPreviewPopoverOpen(true)}
+                onPreview={() => showPreview ? (setShowPreview(false), setPreviewUrl("")) : handleOpenPreview()}
                 previewActive={showPreview}
                 isStreaming={!!(thinking || streamingMsgIndex !== null)}
                 onAbort={handleAbort}
