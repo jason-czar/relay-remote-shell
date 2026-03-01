@@ -493,14 +493,28 @@ export function WebPanel({ initialUrl = "", deviceId, deviceName, onClose }: Web
       </div>
 
       {error ? (
-        <div className="flex-1 flex items-center justify-center text-destructive">
-          <div className="text-center space-y-2 max-w-sm px-4">
-            <AlertCircle className="h-8 w-8 mx-auto opacity-60" />
-            <p className="text-sm font-medium">Connection failed</p>
-            <p className="text-xs opacity-80">{error}</p>
-            <Button variant="outline" size="sm" onClick={handleReload} className="mt-2">
-              Retry
-            </Button>
+        <div className="flex-1 flex items-center justify-center p-6">
+          <div className="w-full max-w-xs">
+            <div className="rounded-xl border-2 border-destructive/20 bg-card p-6 flex flex-col items-center gap-4 text-center shadow-sm">
+              <div className="h-12 w-12 rounded-full bg-destructive/10 flex items-center justify-center shrink-0">
+                <AlertCircle className="h-6 w-6 text-destructive" />
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm font-semibold text-foreground">Connection failed</p>
+                <p className="text-xs text-muted-foreground leading-relaxed font-mono break-all">{error}</p>
+              </div>
+              <div className="flex gap-2 w-full">
+                <Button variant="outline" size="sm" className="flex-1 h-8 rounded-full border-2" onClick={handleReload}>
+                  <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
+                  Retry
+                </Button>
+                {loadedUrl && (
+                  <Button variant="ghost" size="sm" className="flex-1 h-8 rounded-full text-xs text-muted-foreground" onClick={() => { setError(null); setLoadedUrl(""); setUrl(""); }}>
+                    Dismiss
+                  </Button>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       ) : proxyHtml ? (
