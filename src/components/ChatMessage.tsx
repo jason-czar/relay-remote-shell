@@ -233,12 +233,24 @@ function ToolCallCard({ entry, isLast, agentColor }: {
           {inputStr && (
             <div className="px-3 py-2">
               <div className="text-[9px] uppercase tracking-widest text-muted-foreground/40 mb-1">Input</div>
-              <pre
-                className="font-mono text-[11px] text-muted-foreground/70 whitespace-pre-wrap break-all overflow-x-auto thinking-scroll max-h-48"
-                style={{ lineHeight: 1.5 }}
+              <SyntaxHighlighter
+                style={codeTheme}
+                language="json"
+                PreTag="div"
+                customStyle={{
+                  margin: 0,
+                  padding: "8px 10px",
+                  fontSize: "11px",
+                  lineHeight: "1.55",
+                  maxHeight: "192px",
+                  overflowY: "auto",
+                  background: "hsl(0 0% 6%)",
+                  borderRadius: "6px",
+                }}
+                codeTagProps={{ style: { fontFamily: "'JetBrains Mono', monospace" } }}
               >
                 {inputStr}
-              </pre>
+              </SyntaxHighlighter>
             </div>
           )}
           {/* Result */}
