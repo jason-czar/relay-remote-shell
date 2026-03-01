@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Globe, X, RotateCcw, Loader2, AlertCircle } from "lucide-react";
+import { Globe, X, RotateCcw, Loader2, AlertCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 interface WebPanelProps {
@@ -258,6 +258,12 @@ export function WebPanel({ initialUrl = "", deviceId, deviceName, onClose }: Web
   const [key, setKey] = useState(0);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
+  // Navigation history: stack of URLs + current index
+  const [history, setHistory] = useState<string[]>([]);
+  const [historyIdx, setHistoryIdx] = useState(-1);
+  const canGoBack = historyIdx > 0;
+  const canGoForward = historyIdx < history.length - 1;
+
   const relayHttpUrl = (import.meta.env.VITE_RELAY_URL || "wss://relay.privaclaw.com")
     .replace("wss://", "https://")
     .replace("ws://", "http://");
@@ -369,23 +375,31 @@ export function WebPanel({ initialUrl = "", deviceId, deviceName, onClose }: Web
     }
   }, [deviceId, relayHttpUrl, relayWsUrl]);
 
-  const handleNavigate = (e: React.FormEvent) => {
-    e.preventDefault();
-    let normalized = url.trim();
-    if (normalized && !normalized.startsWith("http")) {
-      normalized = "http://" + normalized;
-      setUrl(normalized);
-    }
+  // Core navigate helper — always pushes to history
+  const navigateTo = useCallback((targetUrl: string, pushHistory = true) => {
+    let normalized = targetUrl.trim();
+    if (normalized && !normalized.startsWith("http")) normalized = "http://" + normalized;
     if (!normalized) return;
-
+    setUrl(normalized);
+    setLoadedUrl(normalized);
+    if (pushHistory) {
+      setHistory(prev => {
+        const truncated = prev.slice(0, historyIdx + 1);
+        return [...truncated, normalized];
+      });
+      setHistoryIdx(prev => prev + 1);
+    }
     if (deviceId) {
-      setLoadedUrl(normalized);
       fetchViaProxy(normalized);
     } else {
-      // Direct mode (no device — legacy behavior)
-      setLoadedUrl(normalized);
       setKey((k) => k + 1);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deviceId, fetchViaProxy, historyIdx]);
+
+  const handleNavigate = (e: React.FormEvent) => {
+    e.preventDefault();
+    navigateTo(url);
   };
 
   const handleReload = () => {
@@ -396,15 +410,37 @@ export function WebPanel({ initialUrl = "", deviceId, deviceName, onClose }: Web
     }
   };
 
+  const handleBack = () => {
+    if (!canGoBack) return;
+    const newIdx = historyIdx - 1;
+    const target = history[newIdx];
+    setHistoryIdx(newIdx);
+    setUrl(target);
+    setLoadedUrl(target);
+    if (deviceId) fetchViaProxy(target);
+    else setKey(k => k + 1);
+  };
+
+  const handleForward = () => {
+    if (!canGoForward) return;
+    const newIdx = historyIdx + 1;
+    const target = history[newIdx];
+    setHistoryIdx(newIdx);
+    setUrl(target);
+    setLoadedUrl(target);
+    if (deviceId) fetchViaProxy(target);
+    else setKey(k => k + 1);
+  };
+
   // Auto-load initial URL
   useEffect(() => {
     if (initialUrl && deviceId) {
       let normalized = initialUrl.trim();
-      if (normalized && !normalized.startsWith("http")) {
-        normalized = "http://" + normalized;
-      }
+      if (normalized && !normalized.startsWith("http")) normalized = "http://" + normalized;
       setUrl(normalized);
       setLoadedUrl(normalized);
+      setHistory([normalized]);
+      setHistoryIdx(0);
       fetchViaProxy(normalized);
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -413,10 +449,21 @@ export function WebPanel({ initialUrl = "", deviceId, deviceName, onClose }: Web
 
   return (
     <div className="flex flex-col h-full bg-background">
-      <div className="flex items-center gap-1 px-2 py-1 border-b border-border bg-card shrink-0">
-        <Globe className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+      <div className="flex items-center gap-0.5 px-2 py-1 border-b border-border bg-card shrink-0">
+        <Button
+          variant="ghost" size="icon" className="h-7 w-7 shrink-0"
+          onClick={handleBack} disabled={!canGoBack} title="Back"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="ghost" size="icon" className="h-7 w-7 shrink-0"
+          onClick={handleForward} disabled={!canGoForward} title="Forward"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </Button>
         {deviceName && (
-          <span className="text-[10px] text-muted-foreground font-medium shrink-0 mr-1">{deviceName}</span>
+          <span className="text-[10px] text-muted-foreground font-medium shrink-0 ml-1 mr-1">{deviceName}</span>
         )}
         <form onSubmit={handleNavigate} className="flex-1 flex items-center gap-1">
           <Input
