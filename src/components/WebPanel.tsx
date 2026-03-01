@@ -1,8 +1,10 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Globe, X, RotateCcw, Loader2, AlertCircle, ChevronLeft, ChevronRight } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Globe, X, RotateCcw, Loader2, AlertCircle, ChevronLeft, ChevronRight, Bookmark, BookmarkCheck, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { cn } from "@/lib/utils";
 
 interface WebPanelProps {
   initialUrl?: string;
@@ -264,6 +266,42 @@ export function WebPanel({ initialUrl = "", deviceId, deviceName, onClose }: Web
   const canGoBack = historyIdx > 0;
   const canGoForward = historyIdx < history.length - 1;
 
+  // Bookmarks
+  interface Bookmark { id: string; url: string; title: string; }
+  const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
+  const [bookmarksOpen, setBookmarksOpen] = useState(false);
+  const isBookmarked = bookmarks.some(b => b.url === loadedUrl);
+
+  // Load bookmarks on mount
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) return;
+      supabase.from("web_bookmarks").select("id, url, title").order("created_at", { ascending: false })
+        .then(({ data }) => { if (data) setBookmarks(data); });
+    });
+  }, []);
+
+  const handleToggleBookmark = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session || !loadedUrl) return;
+    if (isBookmarked) {
+      const bm = bookmarks.find(b => b.url === loadedUrl)!;
+      await supabase.from("web_bookmarks").delete().eq("id", bm.id);
+      setBookmarks(prev => prev.filter(b => b.id !== bm.id));
+    } else {
+      const title = loadedUrl.replace(/^https?:\/\//, "").replace(/\/$/, "");
+      const { data } = await supabase.from("web_bookmarks")
+        .insert({ user_id: session.user.id, url: loadedUrl, title })
+        .select("id, url, title").single();
+      if (data) setBookmarks(prev => [data, ...prev]);
+    }
+  };
+
+  const handleDeleteBookmark = async (id: string) => {
+    await supabase.from("web_bookmarks").delete().eq("id", id);
+    setBookmarks(prev => prev.filter(b => b.id !== id));
+  };
+
   const relayHttpUrl = (import.meta.env.VITE_RELAY_URL || "wss://relay.privaclaw.com")
     .replace("wss://", "https://")
     .replace("ws://", "http://");
@@ -485,6 +523,67 @@ export function WebPanel({ initialUrl = "", deviceId, deviceName, onClose }: Web
             ? <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
             : <RotateCcw className="h-3.5 w-3.5" />}
         </Button>
+
+        {/* Bookmark toggle */}
+        {loadedUrl && (
+          <Button
+            variant="ghost" size="icon"
+            className={cn("h-7 w-7 shrink-0", isBookmarked && "text-primary")}
+            onClick={handleToggleBookmark}
+            title={isBookmarked ? "Remove bookmark" : "Bookmark this page"}
+          >
+            {isBookmarked
+              ? <BookmarkCheck className="h-3.5 w-3.5" />
+              : <Bookmark className="h-3.5 w-3.5" />}
+          </Button>
+        )}
+
+        {/* Bookmarks list popover */}
+        <Popover open={bookmarksOpen} onOpenChange={setBookmarksOpen}>
+          <PopoverTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 relative" title="Bookmarks">
+              <Globe className="h-3.5 w-3.5" />
+              {bookmarks.length > 0 && (
+                <span className="absolute top-0.5 right-0.5 h-1.5 w-1.5 rounded-full bg-primary" />
+              )}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent side="bottom" align="end" className="w-72 p-0 overflow-hidden">
+            <div className="px-3 py-2 border-b border-border bg-card">
+              <p className="text-xs font-semibold text-foreground">Bookmarks</p>
+            </div>
+            {bookmarks.length === 0 ? (
+              <div className="px-3 py-6 text-center">
+                <Bookmark className="h-6 w-6 mx-auto text-muted-foreground/40 mb-2" />
+                <p className="text-xs text-muted-foreground">No bookmarks yet.</p>
+                <p className="text-[10px] text-muted-foreground/60 mt-0.5">Click the bookmark icon while on a page.</p>
+              </div>
+            ) : (
+              <ul className="max-h-72 overflow-y-auto divide-y divide-border">
+                {bookmarks.map(bm => (
+                  <li key={bm.id} className="flex items-center gap-2 px-3 py-2 hover:bg-accent/50 group">
+                    <button
+                      className="flex-1 text-left min-w-0"
+                      onClick={() => { navigateTo(bm.url); setBookmarksOpen(false); }}
+                    >
+                      <p className="text-xs font-medium text-foreground truncate">{bm.title || bm.url}</p>
+                      <p className="text-[10px] text-muted-foreground truncate">{bm.url}</p>
+                    </button>
+                    <Button
+                      variant="ghost" size="icon"
+                      className="h-6 w-6 shrink-0 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive"
+                      onClick={() => handleDeleteBookmark(bm.id)}
+                      title="Remove"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </PopoverContent>
+        </Popover>
+
         {onClose && (
           <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive" onClick={onClose} title="Close">
             <X className="h-3 w-3" />
