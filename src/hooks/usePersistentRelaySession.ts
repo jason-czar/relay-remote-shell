@@ -19,6 +19,10 @@ const RELAY_TIMEOUT_MS = 90000;
 const PROMPT_RE = /(?:[%$#➜❯>]\s*$)|(?:\$\s+$)/m;
 const PROMPT_TIMEOUT_MS = 8000;
 const MAX_SUBSTANTIVE_WAITS = 8;
+// Matches when the agent is waiting for user input (approval prompts)
+const AWAITING_INPUT_RE = /\b(yes|no|approve|deny|allow|reject|y\/n|proceed|confirm)\b.*[?:]\s*$|>\s*$/im;
+// How long to keep the WS open while waiting for user to click Approve/Deny (5 min)
+const AWAIT_INPUT_HOLD_MS = 5 * 60 * 1000;
 
 type SessionStatus = "idle" | "ready" | "busy" | "offline";
 
@@ -63,6 +67,12 @@ export function usePersistentRelaySession() {
     const buf = outputBufferRef.current;
     if (/^Error:/m.test(buf) || /^error:/im.test(buf)) { finishRef.current?.(buf); return; }
 
+    // Detect if the agent is waiting for user input (Approve/Deny style prompts).
+    // If so, hold the WS open much longer so the user has time to click a button.
+    const stripped = stripAnsi(buf);
+    const isAwaitingInput = AWAITING_INPUT_RE.test(stripped);
+    const delay = isAwaitingInput ? AWAIT_INPUT_HOLD_MS : SILENCE_MS;
+
     silenceTimerRef.current = setTimeout(() => {
       const cur = outputBufferRef.current;
       if (isOpenClawRef.current) {
@@ -82,12 +92,12 @@ export function usePersistentRelaySession() {
         }
         return;
       }
-      const stripped = cur.replace(/\x1b[\s\S]{1,10}/g, "").replace(/[%$#>\[\]?;=\r\n\s]/g, "");
-      if (stripped.length < 10) {
+      const s = cur.replace(/\x1b[\s\S]{1,10}/g, "").replace(/[%$#>\[\]?;=\r\n\s]/g, "");
+      if (s.length < 10) {
         if (substantiveWaitsRef.current++ < MAX_SUBSTANTIVE_WAITS) { resetSilence(); return; }
       }
       finishRef.current?.(cur);
-    }, SILENCE_MS);
+    }, delay);
   }, []);
 
   // ── Ensure we have a session ID for this device ──────────────────────────
@@ -281,11 +291,64 @@ export function usePersistentRelaySession() {
   const getSessionStatus = useCallback((): SessionStatus => statusRef.current, []);
 
   // ── Inject raw stdin (Stop / option buttons) ─────────────────────────────
-  const sendRawStdin = useCallback((sessionId: string, data_b64: string) => {
+  // If the active WS is still open (agent is mid-stream waiting), inject directly.
+  // If it was already closed (silence timer fired early), open a short-lived WS
+  // just to resume the PTY and inject the keystroke, then leave it open so the
+  // agent's response can be streamed back through the existing runCommand promise
+  // (which is already resolved) — the new WS just delivers the input.
+  const sendRawStdin = useCallback(async (sessionId: string, data_b64: string) => {
     const ws = activeWsRef.current;
-    if (!ws || ws.readyState !== WebSocket.OPEN) return;
-    ws.send(JSON.stringify({ type: "stdin", data: { session_id: sessionId, data_b64 } }));
-  }, []);
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: "stdin", data: { session_id: sessionId, data_b64 } }));
+      return;
+    }
+
+    // Fallback: open a transient WS to deliver the keystroke to the live PTY.
+    // We need the device id for auth.
+    const deviceId = deviceIdRef.current;
+    if (!deviceId) return;
+    const { data: { session: authSession } } = await supabase.auth.getSession();
+    const jwt = authSession?.access_token;
+    if (!jwt) return;
+
+    const fallbackWs = new WebSocket(`${RELAY_URL}/session`);
+    activeWsRef.current = fallbackWs;
+
+    fallbackWs.onopen = () => {
+      fallbackWs.send(JSON.stringify({ type: "auth", data: { token: jwt, session_id: sessionId, device_id: deviceId } }));
+    };
+
+    fallbackWs.onmessage = (event) => {
+      try {
+        const msg = JSON.parse(event.data);
+        if (msg.type === "auth_ok") {
+          // Resume the existing PTY
+          fallbackWs.send(JSON.stringify({ type: "resize", data: { session_id: sessionId, cols: 200, rows: 50 } }));
+          // Small delay for PTY attach, then send the keystroke
+          setTimeout(() => {
+            fallbackWs.send(JSON.stringify({ type: "stdin", data: { session_id: sessionId, data_b64 } }));
+          }, 150);
+        } else if (msg.type === "stdout" && msg.data) {
+          // Route output back through the normal chunk handler so the chat updates
+          const { data_b64: b64 } = msg.data as { data_b64: string };
+          if (!b64) return;
+          let chunk = "";
+          try { chunk = decodeURIComponent(escape(atob(b64))); } catch { chunk = atob(b64); }
+          outputBufferRef.current += chunk;
+          onChunkRef.current?.(chunk);
+          substantiveWaitsRef.current = 0;
+          resetSilence();
+        } else if (msg.type === "session_end") {
+          sessionIdRef.current = null;
+          fallbackWs.close();
+          activeWsRef.current = null;
+        }
+      } catch { /* ignore */ }
+    };
+
+    fallbackWs.onerror = () => { fallbackWs.close(); activeWsRef.current = null; };
+    fallbackWs.onclose = () => { if (activeWsRef.current === fallbackWs) activeWsRef.current = null; };
+  }, [resetSilence]);
 
   // ── Reset on device switch ───────────────────────────────────────────────
   const disconnect = useCallback(() => {

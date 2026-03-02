@@ -1861,7 +1861,8 @@ export default function Chat() {
     // Mark this message as answered so its option buttons disappear
     setAnsweredMsgIndices(prev => new Set([...prev, msgIndex]));
     const sessionId = relay.getSessionId();
-    if (sessionId && relay.getSessionStatus() !== "idle") {
+    // Send even if status is "ready" — sendRawStdin now opens a fallback WS if needed
+    if (sessionId) {
       // Normalize: map friendly labels back to the single-char / short form the agent expects
       // e.g. "Approve" → "y", "Deny" → "n", "Yes" → "y", "No" → "n"
       const normalized = (() => {
