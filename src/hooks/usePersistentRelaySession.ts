@@ -271,7 +271,8 @@ export function usePersistentRelaySession() {
               resetSilence();
             }
           } else if (msg.type === "scrollback") {
-            // Scrollback on resume — add to prompt buffer so prompt detection works
+            // Scrollback on resume — PTY is alive, mark ready and add to prompt buffer
+            markPtyReady();
             const d = (msg.data ?? {}) as { data_b64?: string; frames?: { d: string }[] };
             if (d.data_b64) {
               try { promptBuffer += decodeURIComponent(escape(atob(d.data_b64))); } catch { promptBuffer += atob(d.data_b64 ?? ""); }
@@ -284,8 +285,12 @@ export function usePersistentRelaySession() {
             tryPrompt();
           } else if (msg.type === "session_end") {
             const reason = (msg.data as { reason?: string } | undefined)?.reason ?? "";
-            if (!ptyReady && isResume && !resumeFallbackTried && missingSessionRe.test(reason)) {
+            if (!ptyReady && isResume && !resumeFallbackTried) {
+              // Relay ended session — PTY is gone; start fresh
               resumeFallbackTried = true;
+              sessionIdRef.current = null;
+              // Mark the stale DB session as ended so it won't be reused
+              supabase.functions.invoke("end-session", { body: { session_id: sessionId } }).catch(() => {});
               ws.send(JSON.stringify({ type: "session_start", data: { session_id: sessionId, cols: 200, rows: 50 } }));
               return;
             }
@@ -295,15 +300,15 @@ export function usePersistentRelaySession() {
             finish(outputBufferRef.current || new Error("Session ended by relay"));
           } else if (msg.type === "error") {
             const message = (msg.data as { message?: string })?.message ?? "Relay error";
-            if (!ptyReady && isResume && !resumeFallbackTried && missingSessionRe.test(message)) {
+            if (!ptyReady && isResume && !resumeFallbackTried) {
               resumeFallbackTried = true;
+              sessionIdRef.current = null;
+              // Mark stale DB session as ended
+              supabase.functions.invoke("end-session", { body: { session_id: sessionId } }).catch(() => {});
               ws.send(JSON.stringify({ type: "session_start", data: { session_id: sessionId, cols: 200, rows: 50 } }));
               return;
             }
-            // If relay says session not found, force a fresh DB session next time.
-            if ((isResume || resumeFallbackTried) && missingSessionRe.test(message)) {
-              sessionIdRef.current = null;
-            }
+            sessionIdRef.current = null;
             finish(new Error(message));
           }
         } catch { /* ignore */ }
