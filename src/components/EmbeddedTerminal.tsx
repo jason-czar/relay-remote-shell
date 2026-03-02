@@ -241,21 +241,17 @@ export function EmbeddedTerminal({ deviceId }: Props) {
       const { data: dev } = await supabase.from("devices").select("*").eq("id", deviceId).single();
       devRef.current = dev;
 
+      // Always attempt to resume a persisted session — the relay probe (+ 3 s fallback)
+      // is the sole authority on whether the PTY is still alive.  The relay marks sessions
+      // "ended" in the DB as soon as the browser WS closes (even during a reload), so
+      // checking DB status here would always create a brand-new session on every reload.
       let sessionId = getPersistedSessionId();
       let isResume = false;
 
       if (sessionId) {
-        const { data: existing } = await supabase.from("sessions").select("id, status").eq("id", sessionId).single();
-        if (!existing || existing.status !== "active") { sessionId = null; clearPersistedSessionId(); }
-        else { isResume = true; }
+        isResume = true;
       }
 
-      if (!sessionId) {
-        const { data: active } = await supabase.from("sessions").select("id")
-          .eq("device_id", deviceId).eq("user_id", user!.id).eq("status", "active")
-          .order("started_at", { ascending: false }).limit(1);
-        if (active?.length) { sessionId = active[0].id; isResume = true; }
-      }
 
       if (!sessionId) {
         const { data: sesData, error: sesErr } = await supabase.functions.invoke("start-session", { body: { device_id: deviceId } });
