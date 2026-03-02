@@ -251,6 +251,8 @@ const plistTemplate = `<?xml version="1.0" encoding="UTF-8"?>
     <key>HOME</key><string>{{.Home}}</string>
     <key>SHELL</key><string>{{.Shell}}</string>
     <key>PATH</key><string>{{.Path}}</string>
+    <key>TERM</key><string>xterm-256color</string>
+    <key>COLORTERM</key><string>truecolor</string>
   </dict>
   <key>RunAtLoad</key>
   <true/>

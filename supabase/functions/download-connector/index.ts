@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 // Bump this whenever MAIN_GO or CLIENT_GO changes so --self-update-check can detect stale binaries.
-const SOURCE_VERSION = "2026-03-02T10:00:00Z";
+const SOURCE_VERSION = "2026-03-02T10:30:00Z";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -208,6 +208,8 @@ const plistTmpl = \`<?xml version="1.0" encoding="UTF-8"?>
     <key>HOME</key><string>{{.Home}}</string>
     <key>SHELL</key><string>{{.Shell}}</string>
     <key>PATH</key><string>{{.Path}}</string>
+    <key>TERM</key><string>xterm-256color</string>
+    <key>COLORTERM</key><string>truecolor</string>
   </dict>
   <key>ProcessType</key><string>Background</string>
   <key>RunAtLoad</key><true/>
