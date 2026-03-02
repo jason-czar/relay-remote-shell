@@ -338,7 +338,12 @@ export default function TerminalSession() {
       let resumeFallbackTried = false;
       const missingSessionRe = /session[_\s-]*not[_\s-]*found|unknown session|missing session|not found/i;
 
+      // If the relay silently ignores the probe (no response), fall through to session_start after 3 s.
+      let probeTimeoutId: ReturnType<typeof setTimeout> | null = null;
+      const clearProbeTimeout = () => { if (probeTimeoutId) { clearTimeout(probeTimeoutId); probeTimeoutId = null; } };
+
       const markPtyReady = () => {
+        clearProbeTimeout();
         if (ptyReady) return;
         ptyReady = true;
         term.writeln(`\x1b[32m✓ Connected\x1b[0m`);
@@ -374,6 +379,14 @@ export default function TerminalSession() {
             // Only send session_start for brand-new sessions — resume probes PTY first.
             if (isResume) {
               ws.send(JSON.stringify({ type: "resize", data: { session_id: sessionId, cols: term.cols, rows: term.rows, probe: true } }));
+              // The relay may silently ignore the probe if the session is gone.
+              // Fall through to session_start after 3 s of silence.
+              probeTimeoutId = setTimeout(() => {
+                if (!ptyReady && !resumeFallbackTried) {
+                  resumeFallbackTried = true;
+                  ws.send(JSON.stringify({ type: "session_start", data: { session_id: sessionId, cols: term.cols, rows: term.rows } }));
+                }
+              }, 3000);
             } else {
               ws.send(JSON.stringify({ type: "session_start", data: { session_id: sessionId, cols: term.cols, rows: term.rows } }));
             }
@@ -409,6 +422,7 @@ export default function TerminalSession() {
       ws.onerror = () => {};
 
       ws.onclose = () => {
+        clearProbeTimeout();
         if (intentionalCloseRef.current) { setConnectionStatus("offline"); return; }
         const delay = reconnectDelayRef.current;
         term.writeln(`\r\n\x1b[33m⚠ Lost connection. Retry in ${Math.round(delay / 1000)}s...\x1b[0m`);

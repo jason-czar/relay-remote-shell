@@ -69,7 +69,11 @@ export function EmbeddedTerminal({ deviceId }: Props) {
       let resumeFallbackTried = false;
       const missingSessionRe = /session[_\s-]*not[_\s-]*found|unknown session|missing session|not found/i;
 
+      let probeTimeoutId: ReturnType<typeof setTimeout> | null = null;
+      const clearProbeTimeout = () => { if (probeTimeoutId) { clearTimeout(probeTimeoutId); probeTimeoutId = null; } };
+
       const markPtyReady = () => {
+        clearProbeTimeout();
         if (ptyReady) return;
         ptyReady = true;
         setStatus("online");
@@ -93,9 +97,16 @@ export function EmbeddedTerminal({ deviceId }: Props) {
         try {
           const msg: RelayMessage = JSON.parse(event.data);
           if (msg.type === "auth_ok") {
-            if (isResume) {
+          if (isResume) {
               // Probe whether the previous PTY is still alive.
               ws.send(JSON.stringify({ type: "resize", data: { session_id: sessionId, cols: term.cols, rows: term.rows, probe: true } }));
+              // Relay may silently ignore the probe if the session is gone — fall through after 3 s.
+              probeTimeoutId = setTimeout(() => {
+                if (!ptyReady && !resumeFallbackTried) {
+                  resumeFallbackTried = true;
+                  ws.send(JSON.stringify({ type: "session_start", data: { session_id: sessionId, cols: term.cols, rows: term.rows } }));
+                }
+              }, 3000);
             } else {
               ws.send(JSON.stringify({ type: "session_start", data: { session_id: sessionId, cols: term.cols, rows: term.rows } }));
             }
@@ -140,6 +151,7 @@ export function EmbeddedTerminal({ deviceId }: Props) {
 
       ws.onerror = () => setStatus("offline");
       ws.onclose = () => {
+        clearProbeTimeout();
         if (pingTimerRef.current) { clearInterval(pingTimerRef.current); pingTimerRef.current = null; }
         if (!intentionalCloseRef.current && !isHiddenRef.current) {
           setStatus("offline");
