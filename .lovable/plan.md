@@ -1,62 +1,70 @@
 
-## Plan: Fix macOS Gatekeeper quarantine removal — use $BINARY_PATH instead of $FULL_BINARY
+## What we're implementing
 
-### Root cause recap
-After downloading, macOS attaches `com.apple.quarantine` to the file at `$BINARY_PATH`. The quarantine flag is a filesystem attribute on that specific path. Using `$FULL_BINARY` (a runtime-resolved alias computed later) is less safe — if path resolution has any edge case, the `xattr` call could silently target the wrong path. Using `$BINARY_PATH` directly (the exact path written by `curl`) is the safest approach.
+Three targeted fixes to the existing plan, confirmed by ChatGPT's final review. The core REPL spawn architecture, runtimeAgentsRef, pendingQueueRef, readiness detection, and approval UI are all already in the plan — we only need these 3 surgical additions before proceeding.
 
-### Single change — `supabase/functions/download-connector/index.ts`
+---
 
-**Location:** line 934, inside the `install=full` bash script, between `chmod +x "$BINARY_PATH"` and `"$FULL_BINARY" --install-agent`
+## Fix 1 — Trust-gate readiness guard (`Chat.tsx`)
 
-**Before (lines 934–950):**
-```bash
-chmod +x "$BINARY_PATH"
+**Problem:** Codex can print `"Approval mode: suggest"` *before* the trust gate prompt, causing `AGENT_READY_RE` to fire too early, marking the agent ready while it's still blocked on the trust check.
 
-# Resolve absolute path (POSIX-safe, no realpath dependency)
-FULL_BINARY="$(cd "$(dirname "$BINARY_PATH")"; pwd)/$(basename "$BINARY_PATH")"
+**Fix:** Add `TRUST_BLOCK_RE` and gate readiness on both conditions:
 
-# Pair device (idempotent — skip if already paired)
-...
-  "$FULL_BINARY" --pair "$PAIR_CODE" --api "$API_URL" --name "$(hostname)"
-...
-
-# Register service (binary owns all platform-specific service logic)
-echo "⚙️  Registering background service..."
-"$FULL_BINARY" --install-agent
+```ts
+const TRUST_BLOCK_RE = /Not inside a trusted directory|Working with untrusted/i;
 ```
 
-**After:**
-```bash
-chmod +x "$BINARY_PATH"
-
-# Remove macOS Gatekeeper quarantine flag (prevents Killed: 9)
-if [[ "$(uname)" == "Darwin" ]]; then
-  echo "🔓 Removing macOS quarantine..."
-  xattr -d com.apple.quarantine "$BINARY_PATH" 2>/dev/null || true
-fi
-
-# Resolve absolute path (POSIX-safe, no realpath dependency)
-FULL_BINARY="$(cd "$(dirname "$BINARY_PATH")"; pwd)/$(basename "$BINARY_PATH")"
-
-# Pair device ...
-...
-
-# Register service
-"$FULL_BINARY" --install-agent
+In the `onChunk` readiness detection:
+```ts
+// Only mark ready if banner seen AND trust block is NOT active in the buffer
+if (AGENT_READY_RE.codex.test(chunk) && !TRUST_BLOCK_RE.test(outputBuffer)) {
+  state.ready = true;
+  // flush pending queue...
+}
 ```
 
-### Why $BINARY_PATH and not $FULL_BINARY
-- `$BINARY_PATH` = `$HOME/relay-connector/relay-connector` — set on line 921, this is the exact path `curl` wrote the file to. The quarantine attribute lives on this inode.
-- `$FULL_BINARY` is computed later (line 937) via a subshell `cd`. If anything in that subshell fails, `xattr` would use an empty string and silently do nothing.
-- Removing the attribute from `$BINARY_PATH` before resolving `$FULL_BINARY` is the safest execution order.
+---
 
-### What this fixes
-- `curl ... | bash -s -- PAIRCODE` now succeeds end-to-end on macOS without `Killed: 9`
-- No user action required (no manual `xattr -d ...`)
-- Linux and Windows are completely unaffected (`[[ "$(uname)" == "Darwin" ]]` is false)
-- `2>/dev/null || true` makes it idempotent — safe on reinstall
+## Fix 2 — Session-scoped pending queue (`Chat.tsx`)
 
-### Scope
-- One file: `supabase/functions/download-connector/index.ts`
-- ~5 lines inserted inside the bash string literal
-- No database, no UI, no Go code changes
+**Problem:** `pendingQueueRef = useRef<string[]>([])` is global. In a multi-device setup, messages queued for one PTY could flush into another.
+
+**Fix:** Change type to `Record<string, string[]>` keyed by sessionId:
+
+```ts
+const pendingQueueRef = useRef<Record<string, string[]>>({});
+```
+
+All queue reads/writes use `pendingQueueRef.current[sessionId]`.  
+PTY death cleanup adds: `delete pendingQueueRef.current[deadSessionId]`.
+
+---
+
+## Fix 3 — Only call `onAwaitingInput` for blocking prompts (`usePersistentRelaySession.ts`)
+
+**Problem:** The current plan calls `onAwaitingInput` whenever `AWAITING_INPUT_RE` matches. This would surface buttons for informational agent suggestions like "Would you like to refactor this?" which are not blocking prompts.
+
+**Fix:** Add `BLOCKING_PROMPT_RE` and gate `onAwaitingInput` on both:
+
+```ts
+const BLOCKING_PROMPT_RE = /Do you trust|Not inside a trusted directory|Working with untrusted|\[Y\/n\]|\(y\/n\)|password:|Proceed\?|Continue\?/i;
+```
+
+In `resetSilence`, only call `onAwaitingInput` when both fire:
+```ts
+if (AWAITING_INPUT_RE.test(stripped) && BLOCKING_PROMPT_RE.test(stripped)) {
+  onAwaitingInputRef.current?.(extractOptions(stripped));
+}
+```
+
+---
+
+## Files to change
+
+| File | Change |
+|---|---|
+| `src/hooks/usePersistentRelaySession.ts` | Add `BLOCKING_PROMPT_RE`; gate `onAwaitingInput` call on both `AWAITING_INPUT_RE` + `BLOCKING_PROMPT_RE` |
+| `src/pages/Chat.tsx` | Add `TRUST_BLOCK_RE`; guard readiness with trust-block check; change `pendingQueueRef` to `Record<string, string[]>` keyed by sessionId; update all queue accesses and PTY death cleanup |
+
+These are small, surgical changes — no new files, no structural rewrites. The full REPL spawn implementation from the prior plan is still needed and will be built alongside these.
