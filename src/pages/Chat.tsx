@@ -1348,19 +1348,19 @@ export default function Chat() {
       const modelPart = modelFlag ? ` ${modelFlag}` : "";
       return `openclaw agent --agent main --session-id ${sid}${modelPart} --message "${escaped}" --json --local\n`;
     } else if (conv.agent === "codex") {
-      // Codex CLI: resume synced sessions by ID; otherwise fresh
+      // Modern Codex CLI no longer supports -q flag; pass prompt as positional arg
       const modelPart = modelFlag ? ` --model ${selectedModel}` : "";
       if (conv.claude_session_id) {
-        return `codex${modelPart} --resume ${conv.claude_session_id} -q "${escaped}"\n`;
+        return `codex${modelPart} --resume ${conv.claude_session_id} "${escaped}"\n`;
       }
-      return `codex${modelPart} -q "${escaped}"\n`;
+      return `codex${modelPart} "${escaped}"\n`;
     } else {
-      // claude — use stream-json so we get session_id in the result line
+      // claude — stream-json with verbose + partial messages for real-time streaming
       const modelPart = modelFlag ? ` ${modelFlag}` : "";
       if (conv.claude_session_id) {
-        return `claude --resume ${conv.claude_session_id}${modelPart} --output-format stream-json -p "${escaped}"\n`;
+        return `claude --resume ${conv.claude_session_id}${modelPart} --print --output-format stream-json --include-partial-messages --verbose "${escaped}"\n`;
       }
-      return `claude${modelPart} --output-format stream-json -p "${escaped}"\n`;
+      return `claude${modelPart} --print --output-format stream-json --include-partial-messages --verbose "${escaped}"\n`;
     }
   }, []);
 
@@ -2102,7 +2102,7 @@ export default function Chat() {
               } catch {/* next */}
             }
           } else if (convData?.agent === "codex") {
-            // Proper JSONL parser for Codex -q output
+            // Proper JSONL parser for Codex output
             const codexParts: string[] = [];
             for (const line of cleaned.split("\n")) {
               const t = line.trim();
