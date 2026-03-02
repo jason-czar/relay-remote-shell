@@ -138,7 +138,7 @@ const SLASH_COMMANDS: SlashCommand[] = [
   name: "codex-resume",
   description: "Resume the last Codex session",
   agents: ["codex"],
-  rawCommand: () => `codex --resume\n`
+  rawCommand: () => `codex exec --skip-git-repo-check --resume\n`
 },
 {
   name: "help",
@@ -1218,9 +1218,9 @@ export default function Chat() {
       // Modern Codex CLI no longer supports -q flag; pass prompt as positional arg
       const modelPart = modelFlag ? ` --model ${selectedModel}` : "";
       if (conv.claude_session_id) {
-        return `codex${modelPart} --resume ${conv.claude_session_id} "${escaped}"\n`;
+        return `codex exec --skip-git-repo-check${modelPart} --resume ${conv.claude_session_id} "${escaped}"\n`;
       }
-      return `codex${modelPart} "${escaped}"\n`;
+      return `codex exec --skip-git-repo-check${modelPart} "${escaped}"\n`;
     } else {
       // claude — stream-json with verbose + partial messages for real-time streaming
       const modelPart = modelFlag ? ` ${modelFlag}` : "";
