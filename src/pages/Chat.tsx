@@ -4,7 +4,7 @@ import openclawImg from "@/assets/openclaw.png";
 import claudecodeImg from "@/assets/claudecode.png";
 import codexImg from "@/assets/codex.png";
 import terminalIconImg from "@/assets/terminal-icon.png";
-import { EmbeddedTerminal } from "@/components/EmbeddedTerminal";
+import { EmbeddedTerminal, type EmbeddedTerminalHandle } from "@/components/EmbeddedTerminal";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useScribe } from "@elevenlabs/react";
 import { cn } from "@/lib/utils";
@@ -712,6 +712,7 @@ export default function Chat() {
   const [showTerminalDrawer, setShowTerminalDrawer] = useState(false);
   const [terminalDrawerHeight, setTerminalDrawerHeight] = useState(380);
   const terminalDragRef = useRef<{ startY: number; startH: number } | null>(null);
+  const drawerTerminalRef = useRef<EmbeddedTerminalHandle>(null);
   const [showWizard, setShowWizard] = useState(false);
   const [projectId, setProjectId] = useState<string>("");
   const [relayStatus, setRelayStatus] = useState<"idle" | "connecting" | "retrying" | "failed">("idle");
@@ -2644,7 +2645,12 @@ export default function Chat() {
               {/* Terminal drawer toggle */}
               {selectedDeviceId && agent !== "terminal" && (
                 <button
-                  onClick={() => setShowTerminalDrawer(v => !v)}
+                  onClick={() => {
+                    setShowTerminalDrawer(v => {
+                      if (!v) setTimeout(() => drawerTerminalRef.current?.focus(), 100);
+                      return !v;
+                    });
+                  }}
                   className={cn(
                     "hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium transition-colors",
                     showTerminalDrawer ? "bg-primary/10 text-primary" : "text-foreground/50 hover:text-foreground hover:bg-accent"
@@ -3140,7 +3146,7 @@ export default function Chat() {
 
               {/* Terminal itself */}
               <div className="flex-1 min-h-0 overflow-hidden">
-                <EmbeddedTerminal deviceId={selectedDeviceId} convId={activeConvId} />
+                <EmbeddedTerminal ref={drawerTerminalRef} deviceId={selectedDeviceId} convId={activeConvId} />
               </div>
             </div>
           )}
