@@ -3,7 +3,7 @@
 > Machine-readable documentation for AI agents and bots.
 > Full version with all source documents: /llms-full.txt
 > Human-friendly docs available at: https://privaclaw.com/docs
-> Last updated: 2026-02-27
+> Last updated: 2026-03-02
 
 ---
 
@@ -136,6 +136,49 @@ Calls the `pair-device` edge function. Returns device ID, auth token, relay URL.
 | `--api <url>` | Edge Function base URL | Required for pairing |
 | `--config <path>` | Config file path | `~/.relay-connector.json` |
 | `--shell <path>` | Shell to spawn | `$SHELL` or `/bin/sh` |
+| `--workdir <path>` | Working directory for sessions | Home directory |
+| `--install-agent` | Register binary as a background service and start it | — |
+| `--uninstall-agent` | Stop and remove the background service | — |
+| `--status` | Print service install/running status | — |
+| `--update` | Download latest binary, replace self, re-register service | — |
+| `--self-update-check` | Check for a newer binary without downloading | — |
+
+### Shell Compatibility
+
+The connector auto-detects your shell family and applies the appropriate launch flags. At startup it runs a **shell probe** (`echo ok`) and emits the result to the relay — the dashboard shows a live warning badge if the shell is unrecognized or misconfigured.
+
+| Shell family | Examples | Launch strategy |
+|---|---|---|
+| **bash / zsh** | `/bin/bash`, `/bin/zsh` | `-lic exec <shell>` — login + interactive, sources profiles |
+| **POSIX sh** | `/bin/sh`, `/bin/dash`, `/bin/ash`, `ksh`, `mksh` | `-i` — interactive only |
+| **fish** | `/usr/bin/fish` | `--login --interactive` |
+| **PowerShell** | `pwsh`, `powershell.exe` | `-NoExit -Interactive` |
+
+#### Per-OS recommended `--shell` value
+
+| OS | Recommended value | Notes |
+|---|---|---|
+| macOS | `/bin/zsh` (default on 10.15+) | `/bin/bash` also works |
+| Ubuntu / Debian | `/bin/bash` | `/bin/dash` is default `sh` but lacks interactive features |
+| Alpine / BusyBox | `/bin/sh` or `/bin/bash` (if installed) | BusyBox ash uses `-i` strategy |
+| Arch / Fedora | `/bin/bash` or `/usr/bin/zsh` | — |
+| Windows (native) | `pwsh.exe` or `powershell.exe` | PowerShell Core (`pwsh`) recommended |
+| Windows (WSL) | `/bin/bash` inside WSL | Run the Linux connector build inside WSL |
+
+#### Overriding the shell
+
+```bash
+# Use bash explicitly
+./relay-connector --shell /bin/bash
+
+# Use zsh
+./relay-connector --shell /usr/bin/zsh
+
+# Windows: PowerShell Core
+.\relay-connector.exe --shell "C:\Program Files\PowerShell\7\pwsh.exe"
+```
+
+If the dashboard shows a shell warning badge on your device, click **Fix Shell** to copy a reinstall command with `--shell /bin/bash` pre-filled.
 
 ### Configuration File
 
