@@ -217,7 +217,16 @@ export default function TerminalSession() {
     resizeObserver.observe(terminalContainerRef.current);
 
     const init = async () => {
-      const { data: dev } = await supabase.from("devices").select("*").eq("id", deviceId).single();
+      const { data: dev, error: devErr } = await supabase.from("devices").select("*").eq("id", deviceId).single();
+
+      // Device no longer exists (deleted) — clear all persisted state and bail
+      if (devErr || !dev) {
+        clearPersistedSessionId();
+        term.writeln(`\x1b[31m✗ Device not found. It may have been deleted.\x1b[0m`);
+        setConnectionStatus("offline");
+        return;
+      }
+
       devRef.current = dev;
       setDevice(dev);
 
