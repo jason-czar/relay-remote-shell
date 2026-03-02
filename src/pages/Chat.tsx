@@ -1288,6 +1288,13 @@ export default function Chat() {
         }));
         // Expose this session so option buttons can inject stdin directly
         activeRelaySessionRef.current = { ws, sessionId, resetSilence };
+        // Mirror session ID into the key TerminalSession reads so opening the
+        // terminal page resumes this exact PTY session rather than starting a new one.
+        if (selectedDeviceId) {
+          const key = `relay-session-${selectedDeviceId}`;
+          sessionStorage.setItem(key, sessionId);
+          localStorage.setItem(key, sessionId);
+        }
       };
 
       ws.onmessage = (event) => {
