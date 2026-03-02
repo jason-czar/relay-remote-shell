@@ -22,7 +22,7 @@ const MAX_SUBSTANTIVE_WAITS = 8;
 // Matches when the agent is waiting for user input (approval prompts)
 const AWAITING_INPUT_RE = /\b(yes|no|approve|deny|allow|reject|y\/n|proceed|confirm)\b.*[?:]\s*$|>\s*$/im;
 // Only surface blocking prompts — not informational suggestions
-const BLOCKING_PROMPT_RE = /Do you trust|Not inside a trusted directory|Working with untrusted|\[Y\/n\]|\[y\/N\]|\(y\/n\)|password:|passphrase:|Proceed\?|Continue\?|Are you sure/i;
+const BLOCKING_PROMPT_RE = /Do you trust|Not inside a trusted directory|Working with untrusted|\[Y\/n\]|\[y\/N\]|\(y\/n\)|password:|passphrase:|Proceed\?|Continue\?|Are you sure|Enter to confirm|Is this a project you|trust this folder/i;
 // How long to keep the WS open while waiting for user to click Approve/Deny (5 min)
 const AWAIT_INPUT_HOLD_MS = 5 * 60 * 1000;
 
