@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { X, Terminal, Wifi, WifiOff, Plus, Copy, Check, Loader2, Info, AlertCircle, Trash2, Power, RefreshCw, PackageX, Activity, ArrowUpCircle } from "lucide-react";
@@ -242,6 +243,7 @@ function StatusOutputBlock({ raw, loading }: { raw: string; loading: boolean }) 
 }
 
 export function DevicePanel({ open, onClose, devices, selectedDeviceId, onSelectDevice, userId, projectId, onDeviceAdded, onDeviceDeleted }: DevicePanelProps) {
+  const navigate = useNavigate();
   const [showAdd, setShowAdd] = useState(false);
   const [panelWidth, setPanelWidth] = useState(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
@@ -691,7 +693,7 @@ export function DevicePanel({ open, onClose, devices, selectedDeviceId, onSelect
                         <>
                           {/* Open Terminal */}
                           <button
-                            onClick={() => { window.location.href = `/terminal/${d.id}`; }}
+                            onClick={() => navigate(`/terminal/${d.id}`)}
                             className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-primary-foreground bg-primary hover:bg-primary/90 border border-primary/20 transition-colors"
                           >
                             <Terminal className="h-3.5 w-3.5 shrink-0" />
