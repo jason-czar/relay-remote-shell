@@ -691,6 +691,8 @@ export default function Chat() {
   // Tracks which message indices the user has already responded to (hides option buttons)
   const [answeredMsgIndices, setAnsweredMsgIndices] = useState<Set<number>>(new Set());
   const liveLogAccRef = useRef<string>("");
+  // Blocking PTY prompt awaiting user choice (trust gate, [Y/n], etc.)
+  const [awaitingApproval, setAwaitingApproval] = useState<{ sessionId: string; options: string[] } | null>(null);
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
   const [showWizard, setShowWizard] = useState(false);
@@ -1220,6 +1222,9 @@ export default function Chat() {
     await supabase.from("chat_conversations").update({ updated_at: new Date().toISOString() }).eq("id", convId);
   };
 
+  // ── Trust-prompt detector (used for auto-trust) ───────────────────────────
+  const TRUST_PROMPT_RE = /Do you trust|Not inside a trusted directory|Working with untrusted|trust this directory/i;
+
   // ── Relay send — delegates to the persistent session hook ───────────────
   const sendViaRelay = useCallback(async (command: string, isOpenClaw = false, onChunk?: (chunk: string) => void): Promise<string> => {
     if (!selectedDeviceId) throw new Error("No device selected");
@@ -1229,10 +1234,28 @@ export default function Chat() {
       const result = await relay.sendCommand(selectedDeviceId, command, {
         isOpenClaw,
         onChunk,
+        onAwaitingInput: (options: string[]) => {
+          const sid = relay.getSessionId();
+          if (!sid) return;
+          // Auto-trust: if the user previously trusted this device and it's a
+          // trust-type prompt, silently send "1\n" without showing UI
+          const promptText = options.join(" ");
+          const isTrustPrompt = TRUST_PROMPT_RE.test(promptText) || options.some(o => TRUST_PROMPT_RE.test(o));
+          if (isTrustPrompt && selectedDeviceId && localStorage.getItem(`agent-trust-${selectedDeviceId}`) === "true") {
+            relay.sendRawStdin(sid, btoa("1\n"));
+            return;
+          }
+          // Only show approval UI for suggest/auto-edit modes (or unknown/boot phase)
+          const agentState = runtimeAgentsRef.current[sid];
+          const mode = agentState?.approvalMode;
+          if (mode === "never" || mode === "full-auto") return;
+          setAwaitingApproval({ sessionId: sid, options });
+        },
         onSessionReset: (deadSessionId: string) => {
           // PTY died — clear runtime agent state and pending queue for this session
           delete runtimeAgentsRef.current[deadSessionId];
           delete pendingQueueRef.current[deadSessionId];
+          setAwaitingApproval(null);
         },
       });
       setRelayStatus("idle");
@@ -1975,6 +1998,35 @@ export default function Chat() {
       setTimeout(() => handleSend(), 50);
     }
   }, [startActivity]);
+
+  // ── Approval choice: respond to a blocking PTY prompt from the composer ──
+  const handleApprovalChoice = useCallback((choice: string) => {
+    if (!awaitingApproval) return;
+    const { sessionId } = awaitingApproval;
+
+    // Normalize choice to single char the CLI expects
+    const normalized = (() => {
+      const lower = choice.toLowerCase().trim();
+      if (lower === "yes" || lower === "approve" || lower === "allow" || lower === "confirm" || lower === "proceed" || lower === "trust") return "1";
+      if (lower === "no" || lower === "deny" || lower === "reject" || lower === "decline" || lower === "abort" || lower === "quit") return "2";
+      return choice.trim();
+    })();
+
+    relay.sendRawStdin(sessionId, btoa(normalized + "\n"));
+
+    // If user trusted — remember it so future trust prompts auto-resolve
+    const isTrustChoice = /yes|approve|allow|trust/i.test(choice);
+    if (isTrustChoice && selectedDeviceId) {
+      localStorage.setItem(`agent-trust-${selectedDeviceId}`, "true");
+    }
+
+    setMessages(prev => [...prev, { role: "user", content: choice }]);
+    setAwaitingApproval(null);
+    setThinking(true);
+    startActivity();
+    setLiveLog([]);
+    liveLogAccRef.current = "";
+  }, [awaitingApproval, selectedDeviceId, relay, startActivity]);
 
   // ── Regenerate ─────────────────────────────────────────────────────────
   const handleRegenerate = useCallback(async () => {
@@ -2807,6 +2859,48 @@ export default function Chat() {
                 </div>
               )}
               {/* Stop streaming button — now handled by composer send button */}
+
+              {/* ── Approval prompt UI ── shown when a blocking PTY prompt is detected */}
+              {awaitingApproval && (
+                <div className="mb-2 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2.5 flex flex-col gap-2">
+                  <div className="flex items-center gap-2 text-xs text-amber-400/80 font-medium">
+                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                    Agent is waiting for your input
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {awaitingApproval.options.length > 0 ? (
+                      awaitingApproval.options.map((opt) => (
+                        <button
+                          key={opt}
+                          onClick={() => handleApprovalChoice(opt)}
+                          className={cn(
+                            "px-3 py-1 text-xs rounded-md border font-medium transition-colors",
+                            /yes|approve|allow|trust|continue|proceed/i.test(opt)
+                              ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20"
+                              : "border-red-500/40 bg-red-500/10 text-red-400 hover:bg-red-500/20"
+                          )}
+                        >
+                          {opt}
+                        </button>
+                      ))
+                    ) : (
+                      /* Fallback: generic yes/no when no options were parsed */
+                      <>
+                        <button onClick={() => handleApprovalChoice("Yes")} className="px-3 py-1 text-xs rounded-md border border-emerald-500/50 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 font-medium transition-colors">Yes</button>
+                        <button onClick={() => handleApprovalChoice("No")} className="px-3 py-1 text-xs rounded-md border border-red-500/40 bg-red-500/10 text-red-400 hover:bg-red-500/20 font-medium transition-colors">No</button>
+                      </>
+                    )}
+                    <button
+                      onClick={() => setAwaitingApproval(null)}
+                      className="ml-auto px-2 py-1 text-xs rounded-md border border-border/50 text-muted-foreground hover:bg-muted/30 transition-colors"
+                      title="Dismiss"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <ComposerBox
                 textareaRef={textareaRef}
                 fileInputRef={fileInputRef}
