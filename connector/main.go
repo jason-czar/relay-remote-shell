@@ -243,8 +243,15 @@ const plistTemplate = `<?xml version="1.0" encoding="UTF-8"?>
   <key>ProgramArguments</key>
   <array>
     <string>{{.Exe}}</string>
-    <string>connect</string>
+    <string>--shell</string>
+    <string>{{.Shell}}</string>
   </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>HOME</key><string>{{.Home}}</string>
+    <key>SHELL</key><string>{{.Shell}}</string>
+    <key>PATH</key><string>{{.Path}}</string>
+  </dict>
   <key>RunAtLoad</key>
   <true/>
   <key>KeepAlive</key>
@@ -280,6 +287,15 @@ func installAgentDarwin(exe string) error {
 		return err
 	}
 
+	shellPath := os.Getenv("SHELL")
+	if shellPath == "" {
+		shellPath = "/bin/zsh" // macOS default
+	}
+	pathEnv := os.Getenv("PATH")
+	if pathEnv == "" {
+		pathEnv = "/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+	}
+
 	tmpl, err := template.New("plist").Parse(plistTemplate)
 	if err != nil {
 		return err
@@ -289,7 +305,13 @@ func installAgentDarwin(exe string) error {
 		return err
 	}
 	defer f.Close()
-	if err := tmpl.Execute(f, struct{ Exe, LogPath string }{exe, logPath}); err != nil {
+	if err := tmpl.Execute(f, struct{ Exe, LogPath, Shell, Home, Path string }{
+		Exe:     exe,
+		LogPath: logPath,
+		Shell:   shellPath,
+		Home:    home,
+		Path:    pathEnv,
+	}); err != nil {
 		return err
 	}
 

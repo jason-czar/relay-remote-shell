@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 // Bump this whenever MAIN_GO or CLIENT_GO changes so --self-update-check can detect stale binaries.
-const SOURCE_VERSION = "2026-03-02T02:00:00Z";
+const SOURCE_VERSION = "2026-03-02T10:00:00Z";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -198,7 +198,17 @@ const plistTmpl = \`<?xml version="1.0" encoding="UTF-8"?>
 <dict>
   <key>Label</key><string>com.privaclaw.connector</string>
   <key>ProgramArguments</key>
-  <array><string>{{.Exe}}</string><string>connect</string></array>
+  <array>
+    <string>{{.Exe}}</string>
+    <string>--shell</string>
+    <string>{{.Shell}}</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>HOME</key><string>{{.Home}}</string>
+    <key>SHELL</key><string>{{.Shell}}</string>
+    <key>PATH</key><string>{{.Path}}</string>
+  </dict>
   <key>ProcessType</key><string>Background</string>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><true/>
@@ -221,10 +231,14 @@ func installAgentDarwin(exe string) error {
 \t// Strip Gatekeeper quarantine before writing plist so launchd can spawn it.
 \trun("xattr", "-d", "com.apple.quarantine", exe)
 \trun("xattr", "-c", exe)
+\tshellPath := os.Getenv("SHELL")
+\tif shellPath == "" { shellPath = "/bin/zsh" }
+\tpathEnv := os.Getenv("PATH")
+\tif pathEnv == "" { pathEnv = "/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin" }
 \tt, _ := template.New("p").Parse(plistTmpl)
 \tf, err := os.Create(plistPath())
 \tif err != nil { return err }
-\tt.Execute(f, struct{ Exe, Log string }{exe, logPath})
+\tt.Execute(f, struct{ Exe, Log, Shell, Home, Path string }{exe, logPath, shellPath, home, pathEnv})
 \t// Flush + close before handing off to launchctl — avoids exit 5 I/O error
 \t// that occurs when launchctl reads a partially-written plist.
 \tif err := f.Sync(); err != nil { f.Close(); return fmt.Errorf("sync plist: %w", err) }
