@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, forwardRef, useImperativeHandle } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Terminal } from "@xterm/xterm";
@@ -18,9 +18,13 @@ interface Props {
   convId?: string | null;
 }
 
+export interface EmbeddedTerminalHandle {
+  focus: () => void;
+}
+
 const FONT_SIZES = [10, 11, 12, 13, 14, 16, 18, 20];
 
-export function EmbeddedTerminal({ deviceId, convId }: Props) {
+export const EmbeddedTerminal = forwardRef<EmbeddedTerminalHandle, Props>(function EmbeddedTerminal({ deviceId, convId }, ref) {
   const { user } = useAuth();
   const containerRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
@@ -320,6 +324,10 @@ export function EmbeddedTerminal({ deviceId, convId }: Props) {
 
   const latencyColor = latency === null ? "text-muted-foreground/40" : latency < 80 ? "text-green-400" : latency < 200 ? "text-yellow-400" : "text-red-400";
 
+  useImperativeHandle(ref, () => ({
+    focus: () => termRef.current?.focus(),
+  }));
+
   return (
     <div className="flex flex-col h-full w-full bg-background">
       {/* Slim status + controls bar — matches chat header aesthetic */}
@@ -348,4 +356,5 @@ export function EmbeddedTerminal({ deviceId, convId }: Props) {
       <div ref={containerRef} className="flex-1 min-h-0 px-2 pt-2" />
     </div>
   );
-}
+});
+
