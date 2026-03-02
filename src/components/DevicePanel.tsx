@@ -330,6 +330,11 @@ export function DevicePanel({ open, onClose, devices, selectedDeviceId, onSelect
   type VersionCheckStatus = "checking" | "up-to-date" | "available" | "error";
   const [versionChecks, setVersionChecks] = useState<Record<string, VersionCheckStatus>>({});
 
+  // Shell probe state per device
+  type ShellProbeStatus = "checking" | "ok" | "warning" | "error";
+  interface ShellProbeResult { status: ShellProbeStatus; shell?: string; detail?: string; }
+  const [shellProbes, setShellProbes] = useState<Record<string, ShellProbeResult>>({});
+
 
   const getOneLiner = useCallback((d: Tables<"devices">) => {
     if (!d.pairing_code) return "";
@@ -549,13 +554,48 @@ export function DevicePanel({ open, onClose, devices, selectedDeviceId, onSelect
     }
   }, [sendRelayCommand]);
 
+  // ── Shell probe via relay ─────────────────────────────────────────────────
+  const KNOWN_SHELLS = ["bash", "zsh", "sh", "fish", "dash", "ash", "ksh", "mksh", "pwsh", "powershell", "csh", "tcsh"];
+  const handleShellProbe = useCallback(async (deviceId: string) => {
+    setShellProbes((prev) => ({ ...prev, [deviceId]: { status: "checking" } }));
+    try {
+      let output = "";
+      await sendRelayCommand(
+        deviceId,
+        'echo $SHELL; echo __probe_ok__\n',
+        (chunk) => { output += chunk; },
+        (line) => line.includes("__probe_ok__"),
+      );
+      const lines = output.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+      const probeLine = lines.find((l) => l.includes("__probe_ok__"));
+      const shellLine = lines.find((l) => l.startsWith("/") && !l.includes("__probe_ok__")) ?? lines[0] ?? "";
+      const shellBase = shellLine.split("/").pop()?.toLowerCase().replace(/[^a-z]/g, "") ?? "";
+      if (!probeLine) {
+        setShellProbes((prev) => ({ ...prev, [deviceId]: { status: "error", shell: shellLine || "unknown", detail: "Shell did not respond to probe" } }));
+        return;
+      }
+      const isKnown = KNOWN_SHELLS.some((s) => shellBase.startsWith(s));
+      setShellProbes((prev) => ({
+        ...prev,
+        [deviceId]: {
+          status: isKnown ? "ok" : "warning",
+          shell: shellLine || shellBase || "unknown",
+          detail: isKnown ? undefined : `Unrecognized shell: "${shellLine || shellBase}". Terminal may behave unexpectedly.`,
+        },
+      }));
+    } catch {
+      setShellProbes((prev) => ({ ...prev, [deviceId]: { status: "error", detail: "Shell probe failed — device may be unreachable" } }));
+    }
+  }, [sendRelayCommand]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Auto-trigger version check when a device comes online ─────────────────
   const prevStatusRef = useRef<Record<string, string>>({});
   useEffect(() => {
     const prev = prevStatusRef.current;
     devices.forEach((d) => {
-      if (d.status === "online" && prev[d.id] !== "online" && !versionChecks[d.id]) {
-        handleVersionCheck(d.id);
+      if (d.status === "online" && prev[d.id] !== "online") {
+        if (!versionChecks[d.id]) handleVersionCheck(d.id);
+        if (!shellProbes[d.id]) handleShellProbe(d.id);
       }
     });
     const next: Record<string, string> = {};
@@ -655,7 +695,14 @@ export function DevicePanel({ open, onClose, devices, selectedDeviceId, onSelect
                           className="flex-1 truncate font-medium cursor-text hover:text-primary transition-colors"
                           onDoubleClick={(e) => { e.stopPropagation(); setRenamingId(d.id); setRenameValue(d.name); }}
                           title="Double-click to rename"
-                        >{d.name}</span>
+                          >{d.name}</span>
+                      )}
+                      {/* Shell compatibility dot indicator */}
+                      {shellProbes[d.id]?.status === "warning" && (
+                        <span title={shellProbes[d.id]?.detail ?? "Unrecognized shell"} className="shrink-0 w-2 h-2 rounded-full bg-warning animate-pulse" />
+                      )}
+                      {shellProbes[d.id]?.status === "error" && (
+                        <span title={shellProbes[d.id]?.detail ?? "Shell probe failed"} className="shrink-0 w-2 h-2 rounded-full bg-destructive" />
                       )}
                       <span className={cn(
                         "text-[11px] font-medium shrink-0",
@@ -826,6 +873,44 @@ export function DevicePanel({ open, onClose, devices, selectedDeviceId, onSelect
                           {trustResetId === d.id ? "Trust cleared" : "Reset Agent Trust"}
                         </button>
                       )}
+
+                      {/* Shell compatibility probe result */}
+                      {(() => {
+                        const sp = shellProbes[d.id];
+                        if (!sp || sp.status === "ok") return null;
+                        if (sp.status === "checking") return (
+                          <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border/40 bg-muted/30 text-[11px] text-muted-foreground">
+                            <Loader2 className="h-3 w-3 animate-spin shrink-0" />
+                            Checking shell compatibility…
+                          </div>
+                        );
+                        if (sp.status === "warning" || sp.status === "error") return (
+                          <div className={cn(
+                            "flex flex-col gap-1.5 px-3 py-2.5 rounded-lg border text-[11px]",
+                            sp.status === "warning"
+                              ? "border-warning/30 bg-warning/5 text-warning"
+                              : "border-destructive/30 bg-destructive/5 text-destructive"
+                          )}>
+                            <div className="flex items-center gap-2 font-medium">
+                              <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                              {sp.status === "warning" ? "Unrecognized shell" : "Shell probe failed"}
+                            </div>
+                            {sp.detail && (
+                              <p className="text-[10px] leading-relaxed opacity-80">{sp.detail}</p>
+                            )}
+                            {sp.shell && sp.status === "warning" && (
+                              <code className="text-[10px] font-mono bg-warning/10 rounded px-1.5 py-0.5 self-start">{sp.shell}</code>
+                            )}
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleShellProbe(d.id); }}
+                              className="self-start text-[10px] underline underline-offset-2 opacity-70 hover:opacity-100 transition-opacity mt-0.5"
+                            >
+                              Re-run probe
+                            </button>
+                          </div>
+                        );
+                        return null;
+                      })()}
                     </div>
                   )}
 
