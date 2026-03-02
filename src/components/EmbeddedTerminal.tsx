@@ -15,11 +15,12 @@ interface RelayMessage {
 
 interface Props {
   deviceId: string;
+  convId?: string | null;
 }
 
 const FONT_SIZES = [10, 11, 12, 13, 14, 16, 18, 20];
 
-export function EmbeddedTerminal({ deviceId }: Props) {
+export function EmbeddedTerminal({ deviceId, convId }: Props) {
   const { user } = useAuth();
   const containerRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
@@ -42,11 +43,16 @@ export function EmbeddedTerminal({ deviceId }: Props) {
     return saved ? parseInt(saved, 10) : (window.innerWidth < 640 ? 2 : 4);
   });
 
-  const sessionStorageKey = `relay-session-${deviceId}`;
+  // Session storage key: scoped to conversation when available, falls back to device-level
+  const sessionStorageKey = convId ? `relay-session-${deviceId}-${convId}` : `relay-session-${deviceId}`;
   const persistSessionId = useCallback((id: string) => {
     sessionStorage.setItem(sessionStorageKey, id);
     localStorage.setItem(sessionStorageKey, id);
-  }, [sessionStorageKey]);
+    // Also mirror to the device-level key so standalone terminal page can resume it
+    const deviceKey = `relay-session-${deviceId}`;
+    sessionStorage.setItem(deviceKey, id);
+    localStorage.setItem(deviceKey, id);
+  }, [sessionStorageKey, deviceId]);
   const getPersistedSessionId = useCallback((): string | null => {
     return sessionStorage.getItem(sessionStorageKey) ?? localStorage.getItem(sessionStorageKey);
   }, [sessionStorageKey]);
@@ -295,9 +301,11 @@ export function EmbeddedTerminal({ deviceId }: Props) {
       if (pingTimerRef.current) clearInterval(pingTimerRef.current);
       if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
       if (wsRef.current) { wsRef.current.close(); wsRef.current = null; }
-      // Don't dispose terminal — keep session alive
+      // Dispose terminal on conv switch so the new one gets a fresh canvas
+      if (termRef.current) { termRef.current.dispose(); termRef.current = null; }
+      fitRef.current = null;
     };
-  }, [deviceId, user]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [deviceId, user, convId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const latencyColor = latency === null ? "text-muted-foreground/40" : latency < 80 ? "text-green-400" : latency < 200 ? "text-yellow-400" : "text-red-400";
 

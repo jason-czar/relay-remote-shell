@@ -689,6 +689,12 @@ export default function Chat() {
     }, 1000);
     return () => clearInterval(id);
   }, [relay]);
+
+  // Scope the relay's PTY to the active conversation
+  useEffect(() => {
+    relay.setConvId(activeConvId);
+  }, [activeConvId, relay]);
+
   const [thinking, setThinking] = useState(false);
   const [agentSwitchPending, setAgentSwitchPending] = useState<"openclaw" | "claude" | "codex" | "terminal" | null>(null);
   const [streamingMsgIndex, setStreamingMsgIndex] = useState<number | null>(null);
@@ -2224,7 +2230,12 @@ export default function Chat() {
     setStreamingMsgIndex(null);
     setAgentSwitchPending(null);
     setTimeout(() => textareaRef.current?.focus(), 50);
-  }, [stopActivity]);
+    // Pre-warm a PTY for the new conversation in the background so the first
+    // message doesn't have to wait for shell startup.
+    if (selectedDeviceId) {
+      relay.prewarmSession(selectedDeviceId, null);
+    }
+  }, [stopActivity, selectedDeviceId, relay]);
 
   // Register handleNew with context so sidebar "New" button triggers it
   useEffect(() => {
@@ -2739,7 +2750,7 @@ export default function Chat() {
           {agent === "terminal" ? (
             <div className="flex-1 min-h-0 overflow-hidden">
               {selectedDeviceId ? (
-                <EmbeddedTerminal deviceId={selectedDeviceId} />
+                <EmbeddedTerminal deviceId={selectedDeviceId} convId={activeConvId} />
               ) : (
                 <div className="flex items-center justify-center h-full text-muted-foreground/50 text-sm">
                   Select a device to open a terminal
@@ -3108,6 +3119,8 @@ export default function Chat() {
                 setAgentSwitchPending(null);
                 setActiveConvId(null);
                 handleNew();
+                // Pre-warm PTY for this new chat immediately
+                if (selectedDeviceId) relay.prewarmSession(selectedDeviceId, null);
               }}>
                 Start New Chat
               </AlertDialogAction>

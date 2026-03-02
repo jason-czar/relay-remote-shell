@@ -35,10 +35,18 @@ interface SendOptions {
   onSessionReset?: (sessionId: string) => void;
 }
 
-function mirrorSessionId(deviceId: string, sessionId: string) {
-  const key = `relay-session-${deviceId}`;
+function sessionKey(deviceId: string, convId: string | null) {
+  return convId ? `relay-session-${deviceId}-${convId}` : `relay-session-${deviceId}`;
+}
+
+function mirrorSessionId(deviceId: string, sessionId: string, convId: string | null) {
+  const key = sessionKey(deviceId, convId);
   sessionStorage.setItem(key, sessionId);
   localStorage.setItem(key, sessionId);
+  // Also write the device-level key so the standalone terminal page can resume it
+  const deviceKey = `relay-session-${deviceId}`;
+  sessionStorage.setItem(deviceKey, sessionId);
+  localStorage.setItem(deviceKey, sessionId);
 }
 
 /** Extract numbered / keyword choices from terminal prompt text */
@@ -60,6 +68,7 @@ export function usePersistentRelaySession() {
   // The logical session — just a session ID + device; no persistent WS
   const sessionIdRef = useRef<string | null>(null);
   const deviceIdRef = useRef<string | null>(null);
+  const convIdRef = useRef<string | null>(null);
   const lastSessionCreatedRef = useRef(false);
   // Active WS for the current in-flight command (for Ctrl+C / option inject)
   const activeWsRef = useRef<WebSocket | null>(null);
@@ -143,7 +152,7 @@ export function usePersistentRelaySession() {
         sessionIdRef.current = active[0].id;
         deviceIdRef.current = deviceId;
         lastSessionCreatedRef.current = false;
-        mirrorSessionId(deviceId, active[0].id);
+        mirrorSessionId(deviceId, active[0].id, convIdRef.current);
         return active[0].id;
       }
     }
@@ -156,7 +165,7 @@ export function usePersistentRelaySession() {
     sessionIdRef.current = sesData.session_id;
     deviceIdRef.current = deviceId;
     lastSessionCreatedRef.current = true;
-    mirrorSessionId(deviceId, sesData.session_id);
+    mirrorSessionId(deviceId, sesData.session_id, convIdRef.current);
     return sesData.session_id;
   }, []);
 
@@ -429,6 +438,35 @@ export function usePersistentRelaySession() {
     fallbackWs.onclose = () => { if (activeWsRef.current === fallbackWs) activeWsRef.current = null; };
   }, [resetSilence]);
 
+  // ── Scope session to a conversation ─────────────────────────────────────
+  /** Call whenever the active conversation changes. Resets the in-memory session
+   *  so the next sendCommand picks up (or creates) the PTY for that conversation. */
+  const setConvId = useCallback((id: string | null) => {
+    convIdRef.current = id;
+    // If switching conversation, drop the cached session ID so ensureSessionId
+    // will look up (or create) the right PTY for the new conversation.
+    sessionIdRef.current = null;
+    lastSessionCreatedRef.current = false;
+  }, []);
+
+  // ── Pre-warm a PTY for a conversation in the background ─────────────────
+  /** Call when a new conversation is created or an agent switch starts a new chat.
+   *  Starts a relay session immediately so the first message doesn't wait. */
+  const prewarmSession = useCallback(async (deviceId: string, convId: string | null) => {
+    if (!deviceId) return;
+    try {
+      // Check if we already have a stored session for this conv
+      const key = convId ? `relay-session-${deviceId}-${convId}` : `relay-session-${deviceId}`;
+      const existing = sessionStorage.getItem(key) ?? localStorage.getItem(key);
+      if (existing) return; // already have one
+      const { data: sesData, error } = await supabase.functions.invoke("start-session", {
+        body: { device_id: deviceId },
+      });
+      if (error || !sesData?.session_id) return;
+      mirrorSessionId(deviceId, sesData.session_id, convId);
+    } catch { /* best-effort */ }
+  }, []);
+
   // ── Reset on device switch ───────────────────────────────────────────────
   const disconnect = useCallback(() => {
     if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
@@ -443,5 +481,5 @@ export function usePersistentRelaySession() {
 
   useEffect(() => () => { disconnect(); }, [disconnect]);
 
-  return { sendCommand, sendRawStdin, getSessionId, getSessionStatus, disconnect };
+  return { sendCommand, sendRawStdin, getSessionId, getSessionStatus, disconnect, setConvId, prewarmSession };
 }
