@@ -68,7 +68,7 @@ Deno.serve(async (req) => {
       .eq("id", session_id)
       .eq("user_id", user.id)
       .select()
-      .single();
+      .maybeSingle();
 
     if (error) {
       console.error("[end-session] Session update failed", {
