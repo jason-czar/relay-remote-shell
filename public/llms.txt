@@ -745,6 +745,33 @@ Default public relay: `wss://relay.privaclaw.com`
 
 ### Common Issues
 
+#### Blank terminal / no output after connecting
+
+The terminal connects but shows nothing — cursor blinks, keystrokes produce no response. Root cause is almost always a failed shell startup probe on the connector.
+
+**How to diagnose:** Check connector logs on the remote machine. A failed probe prints:
+
+```
+╔══════════════════════════════════════════════════════╗
+║  SHELL PROBE FAILED — sessions will not work         ║
+╠══════════════════════════════════════════════════════╣
+║  Shell : /usr/bin/fish                               ║
+║  Error : exit status 1                               ║
+║  Fix   : restart with --shell /bin/bash or /bin/sh   ║
+╚══════════════════════════════════════════════════════╝
+```
+
+The connector also emits a `meta_update` to the relay immediately after `hello_ok` with `shell_probe_ok: false` — the dashboard device card shows an amber warning badge in real time. Click **Fix Shell** to copy a reinstall command with `--shell /bin/bash` pre-filled.
+
+**Manual fix:**
+```bash
+./relay-connector --shell /bin/bash
+```
+
+See the [Shell Compatibility](#shell-compatibility) section for per-OS recommended shell values and supported shell families.
+
+#### Other Common Issues
+
 | Issue | Solution |
 |---|---|
 | Device stays offline after pairing | Ensure connector is running without `--pair`. Check relay URL in config. Verify outbound WSS (port 443) not blocked. |

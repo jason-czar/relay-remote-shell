@@ -182,7 +182,8 @@ const sections: Section[] = [
     title: "Troubleshooting",
     icon: RefreshCw,
     subsections: [
-      { id: "common-issues", title: "Common Issues" },
+      { id: "blank-terminal", title: "Blank Terminal / No Output" },
+      { id: "common-issues", title: "Other Common Issues" },
       { id: "faq", title: "FAQ" },
     ],
   },
@@ -1630,8 +1631,43 @@ fly deploy`}</CodeBlock>
           {/* ─── TROUBLESHOOTING ─── */}
           <Heading id="troubleshooting" level={2}>Troubleshooting</Heading>
 
-          <Heading id="common-issues" level={3}>Common Issues</Heading>
+          <Heading id="blank-terminal" level={3}>Blank Terminal / No Output</Heading>
           <div className="space-y-4">
+            <Card className="border-border border-warning/40 bg-warning/5">
+              <CardContent className="p-4">
+                <p className="font-semibold text-sm mb-2 flex items-center gap-2">
+                  <span className="inline-block w-2 h-2 rounded-full bg-warning shrink-0" />
+                  Blank terminal / no output after connecting
+                </p>
+                <p className="text-sm text-muted-foreground mb-3">
+                  The terminal connects but shows nothing — the cursor blinks but keystrokes produce no response. This almost always means the connector's shell failed its startup probe.
+                </p>
+                <p className="text-sm text-muted-foreground mb-3">
+                  <strong className="text-foreground">How to diagnose:</strong> Check the connector logs on the remote machine. A failed probe prints a boxed error:
+                </p>
+                <div className="rounded-md bg-[hsl(var(--terminal-bg))] border border-border p-3 font-mono text-xs text-[hsl(var(--terminal-text,142,71%,45%))] mb-3 overflow-x-auto">
+                  <div>╔══════════════════════════════════════════════════════╗</div>
+                  <div>║  SHELL PROBE FAILED — sessions will not work         ║</div>
+                  <div>╠══════════════════════════════════════════════════════╣</div>
+                  <div>║  Shell : /usr/bin/fish                               ║</div>
+                  <div>║  Error : exit status 1                               ║</div>
+                  <div>║  Fix   : restart with --shell /bin/bash or /bin/sh   ║</div>
+                  <div>╚══════════════════════════════════════════════════════╝</div>
+                </div>
+                <p className="text-sm text-muted-foreground mb-3">
+                  If the device card shows an amber warning badge, click <strong className="text-foreground">Fix Shell</strong> to copy a reinstall command with <code className="text-xs bg-muted px-1 py-0.5 rounded font-mono">--shell /bin/bash</code> pre-filled.
+                  Otherwise, restart the connector manually:
+                </p>
+                <div className="rounded-md bg-[hsl(var(--terminal-bg))] border border-border p-3 font-mono text-xs text-[hsl(var(--terminal-text,142,71%,45%))] mb-3">
+                  ./relay-connector --shell /bin/bash
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  See the <a href="#connector-shell-compat" className="text-primary hover:underline">Shell Compatibility</a> section for per-OS recommended shell values and supported shell families.
+                </p>
+              </CardContent>
+            </Card>
+
+            <Heading id="common-issues" level={3}>Other Common Issues</Heading>
             <Card className="border-border">
               <CardContent className="p-4">
                 <p className="font-semibold text-sm mb-1">Device stays offline after pairing</p>
