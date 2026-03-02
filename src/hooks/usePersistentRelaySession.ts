@@ -49,6 +49,7 @@ export function usePersistentRelaySession() {
   // The logical session — just a session ID + device; no persistent WS
   const sessionIdRef = useRef<string | null>(null);
   const deviceIdRef = useRef<string | null>(null);
+  const lastSessionCreatedRef = useRef(false);
   // Active WS for the current in-flight command (for Ctrl+C / option inject)
   const activeWsRef = useRef<WebSocket | null>(null);
   const statusRef = useRef<SessionStatus>("idle");
@@ -107,7 +108,10 @@ export function usePersistentRelaySession() {
       // Verify it's still active in DB
       const { data } = await supabase.from("sessions").select("id, status")
         .eq("id", sessionIdRef.current).single();
-      if (data?.status === "active") return sessionIdRef.current;
+      if (data?.status === "active") {
+        lastSessionCreatedRef.current = false;
+        return sessionIdRef.current;
+      }
       // Session ended — fall through to find/create a new one
       sessionIdRef.current = null;
     }
@@ -121,6 +125,7 @@ export function usePersistentRelaySession() {
       if (active?.length) {
         sessionIdRef.current = active[0].id;
         deviceIdRef.current = deviceId;
+        lastSessionCreatedRef.current = false;
         mirrorSessionId(deviceId, active[0].id);
         return active[0].id;
       }
@@ -133,6 +138,7 @@ export function usePersistentRelaySession() {
     if (error || !sesData?.session_id) return null;
     sessionIdRef.current = sesData.session_id;
     deviceIdRef.current = deviceId;
+    lastSessionCreatedRef.current = true;
     mirrorSessionId(deviceId, sesData.session_id);
     return sesData.session_id;
   }, []);
@@ -157,10 +163,12 @@ export function usePersistentRelaySession() {
       statusRef.current = "busy";
 
       let settled = false;
+      let promptDeadline: ReturnType<typeof setTimeout> | null = null;
       const finish = (result: string | Error) => {
         if (settled) return;
         settled = true;
         finishRef.current = null;
+        if (promptDeadline) { clearTimeout(promptDeadline); promptDeadline = null; }
         if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null; }
         if (hardTimeoutRef.current) { clearTimeout(hardTimeoutRef.current); hardTimeoutRef.current = null; }
         // Close WS WITHOUT sending session_end so PTY stays alive in the relay
@@ -183,6 +191,36 @@ export function usePersistentRelaySession() {
 
       let commandSent = false;
       let promptBuffer = "";
+      let ptyReady = false;
+      let resumeFallbackTried = false;
+      const missingSessionRe = /session[_\s-]*not[_\s-]*found|unknown session|missing session|not found/i;
+
+      const sendCommandInput = () => {
+        if (commandSent) return;
+        commandSent = true;
+        if (promptDeadline) { clearTimeout(promptDeadline); promptDeadline = null; }
+        outputBufferRef.current = "";
+        ws.send(JSON.stringify({ type: "stdin", data: { session_id: sessionId, data_b64: btoa(command) } }));
+        resetSilence();
+      };
+
+      const tryPrompt = () => {
+        if (!ptyReady || commandSent) return;
+        const plain = stripAnsi(promptBuffer);
+        if (PROMPT_RE.test(plain)) {
+          sendCommandInput();
+        }
+      };
+
+      const markPtyReady = () => {
+        if (ptyReady) return;
+        ptyReady = true;
+        if (promptDeadline) clearTimeout(promptDeadline);
+        promptDeadline = setTimeout(() => {
+          sendCommandInput();
+        }, PROMPT_TIMEOUT_MS);
+        tryPrompt();
+      };
 
       ws.onmessage = (event) => {
         try {
@@ -190,42 +228,14 @@ export function usePersistentRelaySession() {
 
           if (msg.type === "auth_ok") {
             if (isResume) {
-              // Resume: send resize to attach to the existing PTY
-              ws.send(JSON.stringify({ type: "resize", data: { session_id: sessionId, cols: 200, rows: 50 } }));
+              // Resume: probe whether the old PTY still exists.
+              ws.send(JSON.stringify({ type: "resize", data: { session_id: sessionId, cols: 200, rows: 50, probe: true } }));
             } else {
               // New session: start the PTY
               ws.send(JSON.stringify({ type: "session_start", data: { session_id: sessionId, cols: 200, rows: 50 } }));
             }
-
-            // Wait for shell prompt before sending command
-            const promptDeadline = setTimeout(() => {
-              if (!commandSent) {
-                commandSent = true;
-                outputBufferRef.current = "";
-                ws.send(JSON.stringify({ type: "stdin", data: { session_id: sessionId, data_b64: btoa(command) } }));
-                resetSilence();
-              }
-            }, PROMPT_TIMEOUT_MS);
-
-            const tryPrompt = () => {
-              if (commandSent) return;
-              const plain = stripAnsi(promptBuffer);
-              if (PROMPT_RE.test(plain)) {
-                clearTimeout(promptDeadline);
-                commandSent = true;
-                outputBufferRef.current = "";
-                ws.send(JSON.stringify({ type: "stdin", data: { session_id: sessionId, data_b64: btoa(command) } }));
-                resetSilence();
-              }
-            };
-
-            // Patch onmessage to run prompt check on every stdout chunk
-            const base = ws.onmessage;
-            ws.onmessage = (ev) => {
-              base?.call(ws, ev);
-              if (!commandSent) tryPrompt();
-            };
-
+          } else if (msg.type === "session_started") {
+            markPtyReady();
           } else if (msg.type === "stdout" && msg.data) {
             const { data_b64 } = msg.data as { data_b64: string };
             if (!data_b64) return;
@@ -234,6 +244,7 @@ export function usePersistentRelaySession() {
 
             if (!commandSent) {
               promptBuffer += chunk;
+              tryPrompt();
             } else {
               outputBufferRef.current += chunk;
               onChunkRef.current?.(chunk);
@@ -246,14 +257,31 @@ export function usePersistentRelaySession() {
             if (d.data_b64) {
               try { promptBuffer += decodeURIComponent(escape(atob(d.data_b64))); } catch { promptBuffer += atob(d.data_b64 ?? ""); }
             }
+            if (Array.isArray(d.frames)) {
+              for (const frame of d.frames) {
+                try { promptBuffer += decodeURIComponent(escape(atob(frame.d))); } catch { promptBuffer += atob(frame.d ?? ""); }
+              }
+            }
+            tryPrompt();
           } else if (msg.type === "session_end") {
+            const reason = (msg.data as { reason?: string } | undefined)?.reason ?? "";
+            if (!ptyReady && isResume && !resumeFallbackTried && missingSessionRe.test(reason)) {
+              resumeFallbackTried = true;
+              ws.send(JSON.stringify({ type: "session_start", data: { session_id: sessionId, cols: 200, rows: 50 } }));
+              return;
+            }
             // PTY ended — next command needs a fresh session
             sessionIdRef.current = null;
             finish(outputBufferRef.current || new Error("Session ended by relay"));
           } else if (msg.type === "error") {
             const message = (msg.data as { message?: string })?.message ?? "Relay error";
-            // If relay says session not found on resume, try fresh session next time
-            if (isResume && /not found|unknown session/i.test(message)) {
+            if (!ptyReady && isResume && !resumeFallbackTried && missingSessionRe.test(message)) {
+              resumeFallbackTried = true;
+              ws.send(JSON.stringify({ type: "session_start", data: { session_id: sessionId, cols: 200, rows: 50 } }));
+              return;
+            }
+            // If relay says session not found, force a fresh DB session next time.
+            if ((isResume || resumeFallbackTried) && missingSessionRe.test(message)) {
               sessionIdRef.current = null;
             }
             finish(new Error(message));
@@ -276,12 +304,11 @@ export function usePersistentRelaySession() {
   ): Promise<string> => {
     if (!deviceId) throw new Error("No device selected");
 
-    const prevSessionId = sessionIdRef.current;
     const sessionId = await ensureSessionId(deviceId);
     if (!sessionId) throw new Error("Could not establish relay session");
 
-    // isResume = we reused an existing active session (not just created one)
-    const isResume = prevSessionId === sessionId;
+    // If this command reused an existing DB session row, treat it as resume.
+    const isResume = !lastSessionCreatedRef.current;
 
     return runCommand(deviceId, sessionId, command, opts, isResume);
   }, [ensureSessionId, runCommand]);
@@ -313,6 +340,17 @@ export function usePersistentRelaySession() {
 
     const fallbackWs = new WebSocket(`${RELAY_URL}/session`);
     activeWsRef.current = fallbackWs;
+    let inputSent = false;
+    let resumeFallbackTried = false;
+    const missingSessionRe = /session[_\s-]*not[_\s-]*found|unknown session|missing session|not found/i;
+
+    const sendInput = () => {
+      if (inputSent) return;
+      inputSent = true;
+      setTimeout(() => {
+        fallbackWs.send(JSON.stringify({ type: "stdin", data: { session_id: sessionId, data_b64 } }));
+      }, 150);
+    };
 
     fallbackWs.onopen = () => {
       fallbackWs.send(JSON.stringify({ type: "auth", data: { token: jwt, session_id: sessionId, device_id: deviceId } }));
@@ -322,12 +360,10 @@ export function usePersistentRelaySession() {
       try {
         const msg = JSON.parse(event.data);
         if (msg.type === "auth_ok") {
-          // Resume the existing PTY
-          fallbackWs.send(JSON.stringify({ type: "resize", data: { session_id: sessionId, cols: 200, rows: 50 } }));
-          // Small delay for PTY attach, then send the keystroke
-          setTimeout(() => {
-            fallbackWs.send(JSON.stringify({ type: "stdin", data: { session_id: sessionId, data_b64 } }));
-          }, 150);
+          // Probe whether the previous PTY still exists.
+          fallbackWs.send(JSON.stringify({ type: "resize", data: { session_id: sessionId, cols: 200, rows: 50, probe: true } }));
+        } else if (msg.type === "session_started") {
+          sendInput();
         } else if (msg.type === "stdout" && msg.data) {
           // Route output back through the normal chunk handler so the chat updates
           const { data_b64: b64 } = msg.data as { data_b64: string };
@@ -338,7 +374,25 @@ export function usePersistentRelaySession() {
           onChunkRef.current?.(chunk);
           substantiveWaitsRef.current = 0;
           resetSilence();
+        } else if (msg.type === "error") {
+          const message = (msg.data as { message?: string } | undefined)?.message ?? "";
+          if (!inputSent && !resumeFallbackTried && missingSessionRe.test(message)) {
+            resumeFallbackTried = true;
+            fallbackWs.send(JSON.stringify({ type: "session_start", data: { session_id: sessionId, cols: 200, rows: 50 } }));
+            return;
+          }
+          if (missingSessionRe.test(message)) {
+            sessionIdRef.current = null;
+          }
+          fallbackWs.close();
+          activeWsRef.current = null;
         } else if (msg.type === "session_end") {
+          const reason = (msg.data as { reason?: string } | undefined)?.reason ?? "";
+          if (!inputSent && !resumeFallbackTried && missingSessionRe.test(reason)) {
+            resumeFallbackTried = true;
+            fallbackWs.send(JSON.stringify({ type: "session_start", data: { session_id: sessionId, cols: 200, rows: 50 } }));
+            return;
+          }
           sessionIdRef.current = null;
           fallbackWs.close();
           activeWsRef.current = null;
@@ -358,6 +412,7 @@ export function usePersistentRelaySession() {
     activeWsRef.current = null;
     sessionIdRef.current = null;
     deviceIdRef.current = null;
+    lastSessionCreatedRef.current = false;
     statusRef.current = "idle";
   }, []);
 

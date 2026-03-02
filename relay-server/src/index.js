@@ -333,6 +333,16 @@ connectorWSS.on("connection", (ws) => {
       return;
     }
 
+    // ── error from connector → browser (terminal session scoped) ──
+    if (msg.type === "error") {
+      const sessionId = msg.data?.session_id;
+      const session = browserSessions.get(sessionId);
+      if (session?.browser?.readyState === 1) {
+        send(session.browser, msg);
+      }
+      return;
+    }
+
     // ── Forwarded messages from connector → browser ──
     if (msg.type === "stdout" || msg.type === "session_started" || msg.type === "session_end") {
       const sessionId = msg.data?.session_id;
@@ -379,6 +389,7 @@ connectorWSS.on("connection", (ws) => {
         .eq("id", deviceId);
 
       // End all active sessions for this device
+      const endedAt = new Date().toISOString();
       for (const [sessionId, session] of browserSessions) {
         if (session.device_id === deviceId) {
           if (session.browser?.readyState === 1) {
@@ -388,8 +399,16 @@ connectorWSS.on("connection", (ws) => {
             });
           }
           browserSessions.delete(sessionId);
+          await saveRecording(sessionId);
         }
       }
+
+      // Connector disconnect means PTYs are unavailable: hard-end device sessions in DB.
+      await supabase
+        .from("sessions")
+        .update({ status: "ended", ended_at: endedAt })
+        .eq("device_id", deviceId)
+        .eq("status", "active");
 
       // Close all WS proxy tunnels for this device
       for (const [tunnelId, tunnel] of wsTunnels) {

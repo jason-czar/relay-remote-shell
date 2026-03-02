@@ -57,7 +57,7 @@ export function TerminalPanel({ deviceId, deviceName, onClose }: TerminalPanelPr
     try { await supabase.functions.invoke("end-session", { body: { session_id: sessionIdRef.current } }); } catch {}
   }, []);
 
-  const connectWebSocket = async (term: Terminal, sessionId: string) => {
+  const connectWebSocket = async (term: Terminal, sessionId: string, isResume = false) => {
     const relayUrl = import.meta.env.VITE_RELAY_URL || "wss://relay.privaclaw.com";
     const { data: { session: authSession } } = await supabase.auth.getSession();
     const jwt = authSession?.access_token;
@@ -70,6 +70,24 @@ export function TerminalPanel({ deviceId, deviceName, onClose }: TerminalPanelPr
     try {
       const ws = new WebSocket(`${relayUrl}/session`);
       wsRef.current = ws;
+      let ptyReady = false;
+      let resumeFallbackTried = false;
+      const missingSessionRe = /session[_\s-]*not[_\s-]*found|unknown session|missing session|not found/i;
+
+      const markPtyReady = () => {
+        if (ptyReady) return;
+        ptyReady = true;
+        term.writeln(`\x1b[32m✓ Connected\x1b[0m`);
+        setConnectionStatus("online");
+        reconnectDelayRef.current = 1000;
+        if (pingTimerRef.current) clearInterval(pingTimerRef.current);
+        pingTimerRef.current = setInterval(() => {
+          if (ws.readyState === WebSocket.OPEN) {
+            pingSentAtRef.current = performance.now();
+            ws.send(JSON.stringify({ type: "ping" }));
+          }
+        }, 5000);
+      };
 
       ws.onopen = () => {
         ws.send(JSON.stringify({ type: "auth", data: { token: jwt, session_id: sessionId, device_id: deviceId } }));
@@ -79,25 +97,35 @@ export function TerminalPanel({ deviceId, deviceName, onClose }: TerminalPanelPr
         try {
           const msg: RelayMessage = JSON.parse(event.data);
           if (msg.type === "auth_ok") {
-            term.writeln(`\x1b[32m✓ Connected\x1b[0m`);
-            setConnectionStatus("online");
-            reconnectDelayRef.current = 1000;
-            ws.send(JSON.stringify({ type: "session_start", data: { session_id: sessionId, cols: term.cols, rows: term.rows } }));
-            if (pingTimerRef.current) clearInterval(pingTimerRef.current);
-            pingTimerRef.current = setInterval(() => {
-              if (ws.readyState === WebSocket.OPEN) { pingSentAtRef.current = performance.now(); ws.send(JSON.stringify({ type: "ping" })); }
-            }, 5000);
+            if (isResume) {
+              ws.send(JSON.stringify({ type: "resize", data: { session_id: sessionId, cols: term.cols, rows: term.rows, probe: true } }));
+            } else {
+              ws.send(JSON.stringify({ type: "session_start", data: { session_id: sessionId, cols: term.cols, rows: term.rows } }));
+            }
+          } else if (msg.type === "session_started") {
+            markPtyReady();
           } else if (msg.type === "pong") {
             setLatency(Math.round(performance.now() - pingSentAtRef.current));
           } else if (msg.type === "stdout" && msg.data) {
             const { data_b64 } = msg.data as { session_id: string; data_b64: string };
             term.write(Uint8Array.from(atob(data_b64), (c) => c.charCodeAt(0)));
           } else if (msg.type === "session_end") {
+            const { reason } = (msg.data ?? {}) as { reason?: string };
+            if (!ptyReady && isResume && !resumeFallbackTried && missingSessionRe.test(reason ?? "")) {
+              resumeFallbackTried = true;
+              ws.send(JSON.stringify({ type: "session_start", data: { session_id: sessionId, cols: term.cols, rows: term.rows } }));
+              return;
+            }
             term.writeln("\r\n\x1b[31m● Session ended by remote\x1b[0m");
             intentionalCloseRef.current = true;
             setConnectionStatus("offline");
           } else if (msg.type === "error") {
             const { message } = (msg.data ?? {}) as { message?: string };
+            if (!ptyReady && isResume && !resumeFallbackTried && missingSessionRe.test(message ?? "")) {
+              resumeFallbackTried = true;
+              ws.send(JSON.stringify({ type: "session_start", data: { session_id: sessionId, cols: term.cols, rows: term.rows } }));
+              return;
+            }
             term.writeln(`\r\n\x1b[31m✗ ${message ?? "Unknown error"}\x1b[0m`);
           }
         } catch {}
@@ -108,7 +136,7 @@ export function TerminalPanel({ deviceId, deviceName, onClose }: TerminalPanelPr
         const delay = reconnectDelayRef.current;
         term.writeln(`\r\n\x1b[33m⚠ Reconnecting in ${Math.round(delay / 1000)}s...\x1b[0m`);
         setConnectionStatus("connecting");
-        reconnectTimerRef.current = setTimeout(() => { connectWebSocket(term, sessionId); }, delay);
+        reconnectTimerRef.current = setTimeout(() => { connectWebSocket(term, sessionId, true); }, delay);
         reconnectDelayRef.current = Math.min(delay * 2, 30000);
       };
 
@@ -181,7 +209,9 @@ export function TerminalPanel({ deviceId, deviceName, onClose }: TerminalPanelPr
         .order("started_at", { ascending: false }).limit(1);
 
       let sessionId = activeSessions?.[0]?.id;
+      let isResume = false;
       if (sessionId) {
+        isResume = true;
         term.writeln(`\x1b[33m⟳ Resuming session ${sessionId.slice(0, 8)}...\x1b[0m`);
       } else {
         const { data: sesData, error: sesErr } = await supabase.functions.invoke("start-session", { body: { device_id: deviceId } });
@@ -195,7 +225,7 @@ export function TerminalPanel({ deviceId, deviceName, onClose }: TerminalPanelPr
 
       sessionIdRef.current = sessionId!;
       term.writeln(`\x1b[2m── ${dev?.name ?? deviceId} ──\x1b[0m`);
-      connectWebSocket(term, sessionId!);
+      connectWebSocket(term, sessionId!, isResume);
     };
 
     init();
@@ -211,7 +241,7 @@ export function TerminalPanel({ deviceId, deviceName, onClose }: TerminalPanelPr
         isHiddenRef.current = false;
         if (termRef.current && sessionIdRef.current) {
           intentionalCloseRef.current = false;
-          connectWebSocket(termRef.current, sessionIdRef.current);
+          connectWebSocket(termRef.current, sessionIdRef.current, true);
         }
       }
     };

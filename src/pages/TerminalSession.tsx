@@ -334,6 +334,25 @@ export default function TerminalSession() {
     try {
       const ws = new WebSocket(`${relayUrl}/session`);
       wsRef.current = ws;
+      let ptyReady = false;
+      let resumeFallbackTried = false;
+      const missingSessionRe = /session[_\s-]*not[_\s-]*found|unknown session|missing session|not found/i;
+
+      const markPtyReady = () => {
+        if (ptyReady) return;
+        ptyReady = true;
+        term.writeln(`\x1b[32m✓ Connected\x1b[0m`);
+        setConnectionStatus("online");
+        setBgReconnecting(false);
+        reconnectDelayRef.current = 1000;
+        if (pingTimerRef.current) clearInterval(pingTimerRef.current);
+        pingTimerRef.current = setInterval(() => {
+          if (ws.readyState === WebSocket.OPEN) {
+            pingSentAtRef.current = performance.now();
+            ws.send(JSON.stringify({ type: "ping" }));
+          }
+        }, 5000);
+      };
 
       ws.onopen = () => {
         ws.send(JSON.stringify({ type: "auth", data: { token: jwt, session_id: sessionId, device_id: dev?.id ?? deviceId } }));
@@ -352,34 +371,36 @@ export default function TerminalSession() {
               term.writeln(`\x1b[2m─── live ───────────────────────────────\x1b[0m`);
             }
           } else if (msg.type === "auth_ok") {
-            term.writeln(`\x1b[32m✓ Connected\x1b[0m`);
-            setConnectionStatus("online");
-            setBgReconnecting(false);
-            reconnectDelayRef.current = 1000;
-            // Only send session_start for brand-new sessions — resuming just needs a resize
+            // Only send session_start for brand-new sessions — resume probes PTY first.
             if (isResume) {
-              ws.send(JSON.stringify({ type: "resize", data: { session_id: sessionId, cols: term.cols, rows: term.rows } }));
+              ws.send(JSON.stringify({ type: "resize", data: { session_id: sessionId, cols: term.cols, rows: term.rows, probe: true } }));
             } else {
               ws.send(JSON.stringify({ type: "session_start", data: { session_id: sessionId, cols: term.cols, rows: term.rows } }));
             }
-            if (pingTimerRef.current) clearInterval(pingTimerRef.current);
-            pingTimerRef.current = setInterval(() => {
-              if (ws.readyState === WebSocket.OPEN) {
-                pingSentAtRef.current = performance.now();
-                ws.send(JSON.stringify({ type: "ping" }));
-              }
-            }, 5000);
+          } else if (msg.type === "session_started") {
+            markPtyReady();
           } else if (msg.type === "pong") {
             setLatency(Math.round(performance.now() - pingSentAtRef.current));
           } else if (msg.type === "stdout" && msg.data) {
             const { data_b64 } = msg.data as { session_id: string; data_b64: string };
             term.write(Uint8Array.from(atob(data_b64), (c) => c.charCodeAt(0)));
           } else if (msg.type === "session_end") {
+            const { reason } = (msg.data ?? {}) as { reason?: string };
+            if (!ptyReady && isResume && !resumeFallbackTried && missingSessionRe.test(reason ?? "")) {
+              resumeFallbackTried = true;
+              ws.send(JSON.stringify({ type: "session_start", data: { session_id: sessionId, cols: term.cols, rows: term.rows } }));
+              return;
+            }
             term.writeln("\r\n\x1b[31m● Session ended by remote\x1b[0m");
             intentionalCloseRef.current = true;
             setConnectionStatus("offline");
           } else if (msg.type === "error") {
             const { message } = (msg.data ?? {}) as { message?: string };
+            if (!ptyReady && isResume && !resumeFallbackTried && missingSessionRe.test(message ?? "")) {
+              resumeFallbackTried = true;
+              ws.send(JSON.stringify({ type: "session_start", data: { session_id: sessionId, cols: term.cols, rows: term.rows } }));
+              return;
+            }
             term.writeln(`\r\n\x1b[31m✗ ${message ?? "Unknown error"}\x1b[0m`);
           }
         } catch { /* ignore parse errors */ }
@@ -410,7 +431,7 @@ export default function TerminalSession() {
   const fallbackToStub = (term: Terminal, dev: Tables<"devices"> | null, sessionId: string) => {
     term.writeln(`\x1b[33m⚠ Relay unavailable — stub mode\x1b[0m`);
     term.write(`\x1b[32m${dev?.name ?? "device"}\x1b[0m $ `);
-    setConnectionStatus("online");
+    setConnectionStatus("offline");
     let line = "";
     term.onData((data) => {
       if (data === "\r" || data === "\n") {

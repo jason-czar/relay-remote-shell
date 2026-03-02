@@ -65,6 +65,25 @@ export function EmbeddedTerminal({ deviceId }: Props) {
 
       const ws = new WebSocket(`${relayUrl}/session`);
       wsRef.current = ws;
+      let ptyReady = false;
+      let resumeFallbackTried = false;
+      const missingSessionRe = /session[_\s-]*not[_\s-]*found|unknown session|missing session|not found/i;
+
+      const markPtyReady = () => {
+        if (ptyReady) return;
+        ptyReady = true;
+        setStatus("online");
+        setBgReconnecting(false);
+        reconnectDelayRef.current = 1000;
+        // Start ping once the PTY is confirmed alive.
+        if (pingTimerRef.current) clearInterval(pingTimerRef.current);
+        pingTimerRef.current = setInterval(() => {
+          if (ws.readyState === WebSocket.OPEN) {
+            pingSentAtRef.current = Date.now();
+            ws.send(JSON.stringify({ type: "ping" }));
+          }
+        }, 5000);
+      };
 
       ws.onopen = () => {
         ws.send(JSON.stringify({ type: "auth", data: { token: jwt, session_id: sessionId, device_id: deviceId } }));
@@ -75,21 +94,13 @@ export function EmbeddedTerminal({ deviceId }: Props) {
           const msg: RelayMessage = JSON.parse(event.data);
           if (msg.type === "auth_ok") {
             if (isResume) {
-              ws.send(JSON.stringify({ type: "resize", data: { session_id: sessionId, cols: term.cols, rows: term.rows } }));
+              // Probe whether the previous PTY is still alive.
+              ws.send(JSON.stringify({ type: "resize", data: { session_id: sessionId, cols: term.cols, rows: term.rows, probe: true } }));
             } else {
               ws.send(JSON.stringify({ type: "session_start", data: { session_id: sessionId, cols: term.cols, rows: term.rows } }));
             }
-            setStatus("online");
-            setBgReconnecting(false);
-            reconnectDelayRef.current = 1000;
-            // Start ping
-            if (pingTimerRef.current) clearInterval(pingTimerRef.current);
-            pingTimerRef.current = setInterval(() => {
-              if (ws.readyState === WebSocket.OPEN) {
-                pingSentAtRef.current = Date.now();
-                ws.send(JSON.stringify({ type: "ping" }));
-              }
-            }, 5000);
+          } else if (msg.type === "session_started") {
+            markPtyReady();
           } else if (msg.type === "pong") {
             setLatency(Date.now() - pingSentAtRef.current);
           } else if (msg.type === "stdout") {
@@ -98,14 +109,29 @@ export function EmbeddedTerminal({ deviceId }: Props) {
               try { term.write(atob(data_b64)); } catch { term.write(data_b64); }
             }
           } else if (msg.type === "scrollback") {
-            const { data_b64 } = (msg.data ?? {}) as { data_b64: string };
-            if (data_b64) {
+            const { data_b64, frames } = (msg.data ?? {}) as { data_b64?: string; frames?: { d: string }[] };
+            if (Array.isArray(frames) && frames.length > 0) {
+              for (const frame of frames) {
+                try { term.write(atob(frame.d)); } catch { term.write(frame.d); }
+              }
+            } else if (data_b64) {
               try { term.write(atob(data_b64)); } catch { term.write(data_b64); }
             }
           } else if (msg.type === "session_end") {
+            const { reason } = (msg.data ?? {}) as { reason?: string };
+            if (!ptyReady && isResume && !resumeFallbackTried && missingSessionRe.test(reason ?? "")) {
+              resumeFallbackTried = true;
+              ws.send(JSON.stringify({ type: "session_start", data: { session_id: sessionId, cols: term.cols, rows: term.rows } }));
+              return;
+            }
             setStatus("offline");
           } else if (msg.type === "error") {
             const { message } = (msg.data ?? {}) as { message?: string };
+            if (!ptyReady && isResume && !resumeFallbackTried && missingSessionRe.test(message ?? "")) {
+              resumeFallbackTried = true;
+              ws.send(JSON.stringify({ type: "session_start", data: { session_id: sessionId, cols: term.cols, rows: term.rows } }));
+              return;
+            }
             term.writeln(`\x1b[31m✗ ${message ?? "Relay error"}\x1b[0m`);
             setStatus("offline");
           }

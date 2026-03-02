@@ -43,6 +43,7 @@ type ResizeData struct {
 	SessionID string `json:"session_id"`
 	Cols      int    `json:"cols"`
 	Rows      int    `json:"rows"`
+	Probe     bool   `json:"probe,omitempty"`
 }
 
 // SessionEndData is the payload for session_end messages.
@@ -615,6 +616,8 @@ func (c *RelayClient) handleStdin(data StdinData) {
 	sess, ok := c.sessions[data.SessionID]
 	c.mu.Unlock()
 	if !ok {
+		log.Printf("stdin for missing session %s", data.SessionID)
+		c.sendSessionError(data.SessionID, "session_not_found")
 		return
 	}
 
@@ -631,13 +634,26 @@ func (c *RelayClient) handleResize(data ResizeData) {
 	sess, ok := c.sessions[data.SessionID]
 	c.mu.Unlock()
 	if !ok {
+		log.Printf("resize for missing session %s", data.SessionID)
+		c.sendSessionError(data.SessionID, "session_not_found")
 		return
 	}
 
-	pty.Setsize(sess.ptmx, &pty.Winsize{
+	if err := pty.Setsize(sess.ptmx, &pty.Winsize{
 		Cols: uint16(data.Cols),
 		Rows: uint16(data.Rows),
-	})
+	}); err != nil {
+		log.Printf("Failed to resize session %s: %v", data.SessionID, err)
+		c.sendSessionError(data.SessionID, "resize_failed")
+		return
+	}
+
+	// Probe resize is used by resume flows to verify the PTY still exists.
+	// A successful probe returns session_started as a readiness ack.
+	if data.Probe {
+		ackData, _ := json.Marshal(map[string]string{"session_id": data.SessionID})
+		c.sendMessage("session_started", ackData)
+	}
 }
 
 func (c *RelayClient) endSession(sessionID, reason string) {
@@ -671,4 +687,12 @@ func (c *RelayClient) sendMessage(msgType string, data json.RawMessage) {
 			log.Printf("Write error: %v", err)
 		}
 	}
+}
+
+func (c *RelayClient) sendSessionError(sessionID, message string) {
+	errData, _ := json.Marshal(map[string]string{
+		"session_id": sessionID,
+		"message":    message,
+	})
+	c.sendMessage("error", errData)
 }
