@@ -2550,8 +2550,13 @@ export default function Chat() {
               {ptySessionId && selectedDeviceId && (
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <button
-                      onClick={() => setDevicePanelOpen(true)}
+                     <button
+                      onClick={() => {
+                        setShowTerminalDrawer(v => {
+                          if (!v) setTimeout(() => drawerTerminalRef.current?.focus(), 100);
+                          return !v;
+                        });
+                      }}
                       className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium text-[hsl(var(--status-online)/0.8)] bg-[hsl(var(--status-online)/0.08)] border border-[hsl(var(--status-online)/0.18)] hover:bg-[hsl(var(--status-online)/0.15)] hover:border-[hsl(var(--status-online)/0.3)] transition-colors cursor-pointer select-none">
                       <Terminal className="h-3 w-3 shrink-0" />
                       <span className="font-mono">{ptySessionId.slice(0, 8)}…</span>
@@ -2562,8 +2567,8 @@ export default function Chat() {
                     </button>
                   </TooltipTrigger>
                   <TooltipContent side="bottom" className="text-xs max-w-xs">
-                    <p className="font-semibold mb-0.5">Open terminal panel</p>
-                    <p className="font-mono text-muted-foreground">{ptySessionId}</p>
+                    <p className="font-semibold mb-0.5">{showTerminalDrawer ? "Hide" : "Show"} terminal drawer</p>
+                    <p className="font-mono text-muted-foreground break-all">{ptySessionId}</p>
                     <p className="text-muted-foreground mt-1">Chat &amp; terminal share this PTY — shell state persists between messages.</p>
                   </TooltipContent>
                  </Tooltip>
@@ -3132,7 +3137,14 @@ export default function Chat() {
                   <Terminal className="h-3.5 w-3.5 text-muted-foreground" />
                   <span className="text-xs font-medium text-muted-foreground">Terminal</span>
                   {ptySessionId && (
-                    <span className="font-mono text-[10px] text-muted-foreground/40">{ptySessionId.slice(0, 8)}…</span>
+                    <button
+                      onClick={() => { navigator.clipboard?.writeText(ptySessionId); }}
+                      title="Copy session ID"
+                      className="flex items-center gap-1 px-1.5 py-0.5 rounded font-mono text-[10px] text-[hsl(var(--status-online)/0.7)] bg-[hsl(var(--status-online)/0.08)] border border-[hsl(var(--status-online)/0.2)] hover:bg-[hsl(var(--status-online)/0.15)] transition-colors"
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full bg-[hsl(var(--status-online))] animate-pulse shrink-0" />
+                      {ptySessionId.slice(0, 8)}…
+                    </button>
                   )}
                 </div>
                 <button
