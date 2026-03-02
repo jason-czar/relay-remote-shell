@@ -124,6 +124,7 @@ func main() {
 	fmt.Printf("Connecting to relay: %s\n", cfg.RelayURL)
 	fmt.Printf("Device ID: %s\n", cfg.DeviceID)
 	fmt.Printf("Shell: %s\n", *shell)
+	ProbeShell(*shell)
 	if *workdir != "" {
 		fmt.Printf("Workdir: %s\n", *workdir)
 	}

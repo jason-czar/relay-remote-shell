@@ -526,6 +526,51 @@ func (c *RelayClient) sendHTTPError(requestID string, statusCode int, message st
 
 // ─── PTY Session Handlers ───────────────────────────────────────────
 
+// ProbeShell runs a quick sanity check on the configured shell at startup.
+// It executes `echo ok` using the same args strategy as a real session and
+// warns loudly if anything is wrong, so misconfiguration is caught before
+// the first user connects.
+func ProbeShell(shellPath string) {
+	args := shellArgs(shellPath)
+	// Replace the login/interactive wrapper with a simple one-shot command.
+	// For every shell family we just want: shell <flag> 'echo ok'
+	var probeArgs []string
+	base := strings.ToLower(filepath.Base(shellPath))
+	if idx := strings.Index(base, "-"); idx > 0 {
+		base = base[:idx]
+	}
+	switch base {
+	case "fish":
+		probeArgs = []string{"-c", "echo ok"}
+	case "pwsh", "powershell":
+		probeArgs = []string{"-Command", "echo ok"}
+	default:
+		probeArgs = []string{"-c", "echo ok"}
+	}
+
+	log.Printf("[probe] testing shell: %s %v", shellPath, probeArgs)
+	cmd := exec.Command(shellPath, probeArgs...)
+	cmd.Env = append(os.Environ(), "TERM=dumb")
+	out, err := cmd.Output()
+	if err != nil {
+		log.Printf("╔══════════════════════════════════════════════════════╗")
+		log.Printf("║  SHELL PROBE FAILED — sessions will not work         ║")
+		log.Printf("╠══════════════════════════════════════════════════════╣")
+		log.Printf("║  Shell : %s", shellPath)
+		log.Printf("║  Args  : %v", args)
+		log.Printf("║  Error : %v", err)
+		log.Printf("║  OS    : %s/%s", runtime.GOOS, runtime.GOARCH)
+		log.Printf("║  Fix   : restart with --shell /bin/bash or /bin/sh   ║")
+		log.Printf("╚══════════════════════════════════════════════════════╝")
+		return
+	}
+	if strings.TrimSpace(string(out)) != "ok" {
+		log.Printf("[probe] WARNING: shell probe returned unexpected output: %q (expected \"ok\")", strings.TrimSpace(string(out)))
+		return
+	}
+	log.Printf("[probe] shell OK ✓  (%s)", shellPath)
+}
+
 func shellArgs(shellPath string) []string {
 	base := strings.ToLower(filepath.Base(shellPath))
 	// Strip version suffix (e.g. "bash-5.2" → "bash")
