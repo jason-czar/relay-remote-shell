@@ -213,3 +213,38 @@ Auth is via `token` query parameter (since WS upgrades cannot use Authorization 
   }
 }
 ```
+
+## Connector Metadata
+
+### Connector → Relay: `meta_update`
+
+Sent by the connector after authenticating (following `hello_ok`) to push live metadata.
+The relay stores the fields in its in-memory connector registry and fans them out to all
+active browser sessions for this device as a `device_meta` message.
+
+```json
+{
+  "type": "meta_update",
+  "data": {
+    "shell_probe_ok": true,
+    "shell_probe_shell": "/bin/bash",
+    "shell_probe_detail": ""
+  }
+}
+```
+
+### Relay → Browser: `device_meta`
+
+Broadcast to all browser sessions whose connected device emitted a `meta_update`.
+
+```json
+{
+  "type": "device_meta",
+  "data": {
+    "device_id": "uuid",
+    "shell_probe_ok": false,
+    "shell_probe_shell": "/usr/bin/fish",
+    "shell_probe_detail": "shell /usr/bin/fish returned unexpected probe output: ..."
+  }
+}
+```
