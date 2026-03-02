@@ -1438,6 +1438,7 @@ export default function Chat() {
     const displayText = text || `[${attachedFiles.map((f) => f.name).join(", ")}]`;
     const userMsg: Message = { role: "user", content: displayText };
     setMessages((prev) => [...prev, userMsg]);
+    setAwaitingApproval(null);
     setThinking(true);
     startActivity();
     setLiveLog([]);
