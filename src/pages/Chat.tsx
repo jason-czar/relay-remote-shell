@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { classifyReplStartupError, formatReplError } from "@/lib/replClassifier";
 import { usePersistentRelaySession } from "@/hooks/usePersistentRelaySession";
 import openclawImg from "@/assets/openclaw.png";
 import claudecodeImg from "@/assets/claudecode.png";
@@ -646,6 +647,9 @@ export default function Chat() {
   }>>({});
   // ── Per-session pending message queue (flushed after agent readiness) ─────
   const pendingQueueRef = useRef<Record<string, string[]>>({});
+  // ── Deferred first message — stored when sessionId is unknown at send time ─
+  // Structured so onChunkActivity doesn't rely on potentially-stale React agent state.
+  const deferredFirstMsgRef = useRef<{ agent: "codex" | "claude"; text: string } | null>(null);
   // ── PTY death cleanup — aligned with real terminal lifecycle ─────────────
   const handleSessionReset = useCallback((deadSessionId?: string) => {
     if (!deadSessionId) return;
@@ -916,6 +920,28 @@ export default function Chat() {
     // Check if a Codex/Claude agent just emitted its startup banner.
     // Only mark ready if the trust-block gate is NOT active in the buffer.
     const sessionId = relay.getSessionId();
+
+    // ── Deferred first-message migration ─────────────────────────────────
+    // If buildCommand ran before the PTY existed, it stored the first message
+    // in deferredFirstMsgRef. Once sessionId appears, register runtime state
+    // and queue the message — then apply the same 20s boot-timeout guard.
+    if (sessionId && deferredFirstMsgRef.current && !runtimeAgentsRef.current[sessionId]) {
+      const { agent: deferredAgent, text: deferredText } = deferredFirstMsgRef.current;
+      deferredFirstMsgRef.current = null;
+      runtimeAgentsRef.current[sessionId] = { agent: deferredAgent, ready: false };
+      pendingQueueRef.current[sessionId] = [deferredText];
+      setTimeout(() => {
+        const s = runtimeAgentsRef.current[sessionId];
+        if (s && !s.ready) {
+          console.warn("[REPL] Deferred boot timeout — forcing ready for session", sessionId);
+          s.ready = true;
+          const queue = pendingQueueRef.current[sessionId] ?? [];
+          delete pendingQueueRef.current[sessionId];
+          for (const q of queue) relay.sendRawStdin(sessionId, btoa(q + "\n"));
+        }
+      }, 20_000);
+    }
+
     if (sessionId) {
       const state = runtimeAgentsRef.current[sessionId];
       if (state && !state.ready) {
@@ -1315,15 +1341,18 @@ export default function Chat() {
     const sessionId = relay.getSessionId();
 
     if (conv.agent === "codex") {
+      const modelPart = modelFlag ? ` --model ${selectedModel}` : "";
       if (!sessionId) {
-        // No PTY yet — will be created by sendViaRelay; just spawn REPL
-        return "codex\n";
+        // No PTY yet — store the first message so onChunkActivity can queue it
+        // once the sessionId is established (structured ref avoids stale state).
+        deferredFirstMsgRef.current = { agent: "codex", text };
+        return `codex${modelPart}\n`;
       }
       const state = runtimeAgentsRef.current[sessionId];
       if (!state) {
-        // First message on this PTY — register and spawn
+        // First message on this PTY — register, queue first message, and spawn
         runtimeAgentsRef.current[sessionId] = { agent: "codex", ready: false };
-        const modelPart = modelFlag ? ` --model ${selectedModel}` : "";
+        pendingQueueRef.current[sessionId] = [text];
         // Fallback: if readiness banner never arrives within 20s, force-flush pending queue
         setTimeout(() => {
           const s = runtimeAgentsRef.current[sessionId];
@@ -1349,13 +1378,30 @@ export default function Chat() {
     }
 
     if (conv.agent === "claude") {
+      const modelPart = modelFlag ? ` ${modelFlag}` : "";
       if (!sessionId) {
-        return "claude\n";
+        // No PTY yet — defer first message (agent stored to avoid stale state race)
+        deferredFirstMsgRef.current = { agent: "claude", text };
+        return `claude${modelPart}\n`;
       }
       const state = runtimeAgentsRef.current[sessionId];
       if (!state) {
+        // First message on this PTY — register, queue first message, and spawn
         runtimeAgentsRef.current[sessionId] = { agent: "claude", ready: false };
-        const modelPart = modelFlag ? ` ${modelFlag}` : "";
+        pendingQueueRef.current[sessionId] = [text];
+        // Boot timeout parity with Codex — flush queue if banner never arrives
+        setTimeout(() => {
+          const s = runtimeAgentsRef.current[sessionId];
+          if (s && !s.ready) {
+            console.warn("[REPL] Claude boot timeout — forcing ready for session", sessionId);
+            s.ready = true;
+            const queue = pendingQueueRef.current[sessionId] ?? [];
+            delete pendingQueueRef.current[sessionId];
+            for (const queuedText of queue) {
+              relay.sendRawStdin(sessionId, btoa(queuedText + "\n"));
+            }
+          }
+        }, 20_000);
         return `claude${modelPart}\n`;
       }
       if (!state.ready) {
@@ -1759,6 +1805,16 @@ export default function Chat() {
         if (detectedCwd && convData?.device_id) {
           await supabase.from("devices").update({ workdir: detectedCwd }).eq("id", convData.device_id);
           setConversations((prev) => prev.map((c) => c.id === jobConvId ? { ...c, workdir: detectedCwd } : c));
+        }
+
+        // ── Auth/startup error classification ───────────────────────────────
+        // Run BEFORE the auto-retry so auth failures return actionable messages
+        // instead of triggering a pointless re-spawn that would hide the error.
+        if (!responseText.trim() && (convData?.agent === "codex" || convData?.agent === "claude")) {
+          const classifierErr = classifyReplStartupError(stdout, convData.agent as "codex" | "claude");
+          if (classifierErr) {
+            responseText = formatReplError(classifierErr);
+          }
         }
 
         // ── Auto-retry on empty response ────────────────────────────────────
