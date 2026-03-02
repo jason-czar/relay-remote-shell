@@ -655,7 +655,8 @@ export default function Chat() {
   }, []);
   // ── Readiness detection regexes ───────────────────────────────────────────
   const AGENT_READY_RE = {
-    codex: /Approval mode:|Model:|workdir:/i,
+    // Broader pattern to catch various Codex startup banner formats
+    codex: /Approval mode:|Model:|workdir:|session id:|Session \w{4,}:|openai\/codex|codex\s+v\d/i,
     claude: /Type your message|Claude Code\s+\d/i,
   };
   const TRUST_BLOCK_RE = /Not inside a trusted directory|Working with untrusted/i;
@@ -1313,6 +1314,19 @@ export default function Chat() {
         // First message on this PTY — register and spawn
         runtimeAgentsRef.current[sessionId] = { agent: "codex", ready: false };
         const modelPart = modelFlag ? ` --model ${selectedModel}` : "";
+        // Fallback: if readiness banner never arrives within 20s, force-flush pending queue
+        setTimeout(() => {
+          const s = runtimeAgentsRef.current[sessionId];
+          if (s && !s.ready) {
+            console.warn("[REPL] Boot timeout — forcing ready for session", sessionId);
+            s.ready = true;
+            const queue = pendingQueueRef.current[sessionId] ?? [];
+            delete pendingQueueRef.current[sessionId];
+            for (const queuedText of queue) {
+              relay.sendRawStdin(sessionId, btoa(queuedText + "\n"));
+            }
+          }
+        }, 20_000);
         return `codex${modelPart}\n`;
       }
       if (!state.ready) {
