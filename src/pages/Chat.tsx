@@ -15,7 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Send, ChevronDown, Paperclip, X, FileText, Image, Plus, Monitor, Terminal, Loader2, WifiOff, Square, Mic, ArrowUp, RefreshCw, SquarePen, FolderOpen, GitFork, ChevronRight, Home, Eye, EyeOff, KeyRound } from "lucide-react";
+import { Send, ChevronDown, Paperclip, X, FileText, Image, Plus, Monitor, Terminal, Loader2, WifiOff, Square, Mic, ArrowUp, RefreshCw, SquarePen, FolderOpen, GitFork, ChevronRight, Home, Eye, EyeOff, KeyRound, Code2 } from "lucide-react";
 import { PreviewPanel } from "@/components/PreviewPanel";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -699,6 +699,16 @@ export default function Chat() {
   const [projectId, setProjectId] = useState<string>("");
   const [relayStatus, setRelayStatus] = useState<"idle" | "connecting" | "retrying" | "failed">("idle");
   const relayRetryCountRef = useRef(0);
+  // REPL debug overlay — live snapshot of runtimeAgentsRef
+  const [showReplDebug, setShowReplDebug] = useState(false);
+  const [replDebugSnapshot, setReplDebugSnapshot] = useState<Record<string, { agent: string; ready: boolean; approvalMode?: string }>>({});
+  // Poll runtimeAgentsRef into state when debug overlay is open
+  useEffect(() => {
+    if (!showReplDebug) return;
+    setReplDebugSnapshot({ ...runtimeAgentsRef.current });
+    const id = setInterval(() => setReplDebugSnapshot({ ...runtimeAgentsRef.current }), 500);
+    return () => clearInterval(id);
+  }, [showReplDebug]);
   const [gitStatus, setGitStatus] = useState<{
     branch: string;
     files: number;
@@ -2514,8 +2524,81 @@ export default function Chat() {
                     <p className="font-mono text-muted-foreground">{ptySessionId}</p>
                     <p className="text-muted-foreground mt-1">Chat &amp; terminal share this PTY — shell state persists between messages.</p>
                   </TooltipContent>
-                </Tooltip>
+                 </Tooltip>
               )}
+
+              {/* REPL debug overlay button */}
+              <Popover open={showReplDebug} onOpenChange={setShowReplDebug}>
+                <PopoverTrigger asChild>
+                  <button
+                    className={cn(
+                      "hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium transition-colors",
+                      showReplDebug
+                        ? "bg-primary/10 text-primary border border-primary/20"
+                        : "text-foreground/40 hover:text-foreground hover:bg-accent"
+                    )}
+                    title="REPL agent runtime state"
+                  >
+                    <Code2 className="h-3.5 w-3.5" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent side="bottom" align="end" className="w-80 p-0 font-mono text-xs overflow-hidden">
+                  <div className="flex items-center justify-between px-3 py-2 border-b bg-muted/30">
+                    <span className="font-sans font-semibold text-foreground text-[11px] tracking-wide uppercase">REPL Runtime State</span>
+                    <span className="text-muted-foreground text-[10px]">polling 500ms</span>
+                  </div>
+                  {Object.keys(replDebugSnapshot).length === 0 ? (
+                    <div className="px-3 py-4 text-center text-muted-foreground text-[11px] font-sans">
+                      <p className="mb-1">No active REPL agents</p>
+                      <p className="text-muted-foreground/60">Send a Codex or Claude message to spawn a REPL session</p>
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-border">
+                      {Object.entries(replDebugSnapshot).map(([sid, state]) => (
+                        <div key={sid} className="px-3 py-2.5 space-y-1.5">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-muted-foreground truncate text-[10px]" title={sid}>{sid.slice(0, 8)}…{sid.slice(-4)}</span>
+                            <span className={cn(
+                              "shrink-0 px-1.5 py-0.5 rounded text-[10px] font-medium",
+                              state.ready
+                                ? "bg-[hsl(142_76%_36%/0.15)] text-[hsl(142_76%_45%)]"
+                                : "bg-[hsl(38_90%_50%/0.12)] text-[hsl(38_90%_58%)]"
+                            )}>
+                              {state.ready ? "● READY" : "○ BOOTING"}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-3 text-[11px]">
+                            <span>
+                              <span className="text-muted-foreground">agent </span>
+                              <span className="text-foreground">{state.agent}</span>
+                            </span>
+                            {state.approvalMode && (
+                              <span>
+                                <span className="text-muted-foreground">mode </span>
+                                <span className={cn(
+                                  state.approvalMode === "never" || state.approvalMode === "full-auto" ? "text-muted-foreground" : "text-primary"
+                                )}>{state.approvalMode}</span>
+                              </span>
+                            )}
+                          </div>
+                          {sid === ptySessionId && (
+                            <div className="text-[10px] text-primary/60">← active PTY</div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div className="px-3 py-2 border-t bg-muted/20 flex items-center justify-between gap-2">
+                    <span className="font-sans text-[10px] text-muted-foreground">PTY: <span className="font-mono">{ptySessionId ? `${ptySessionId.slice(0,8)}…` : "none"}</span></span>
+                    <button
+                      onClick={() => { Object.keys(runtimeAgentsRef.current).forEach(k => delete runtimeAgentsRef.current[k]); setReplDebugSnapshot({}); }}
+                      className="font-sans text-[10px] text-destructive/70 hover:text-destructive transition-colors"
+                    >
+                      Clear state
+                    </button>
+                  </div>
+                </PopoverContent>
+              </Popover>
 
               {/* Preview button */}
               {selectedDeviceId && (
