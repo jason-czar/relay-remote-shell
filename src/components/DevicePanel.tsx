@@ -610,11 +610,14 @@ export function DevicePanel({ open, onClose, devices, selectedDeviceId, onSelect
                         : "hover:bg-muted/60 text-foreground/80 border border-transparent"
                     )}
                   >
-                    {/* Status dot + name — clickable to select (online) or expand commands (offline) */}
+                    {/* Status dot + name — click to select/expand actions; double-click name to rename */}
                     <button
                       onClick={() => {
-                        if (d.status === "online") { onSelectDevice(d.id); onClose(); }
-                        else setExpandedOfflineId((prev) => prev === d.id ? null : d.id);
+                        if (d.status === "online") {
+                          onSelectDevice(selectedDeviceId === d.id ? "" : d.id);
+                        } else {
+                          setExpandedOfflineId((prev) => prev === d.id ? null : d.id);
+                        }
                       }}
                       className="flex items-center gap-3 flex-1 min-w-0 text-left"
                     >
@@ -650,142 +653,8 @@ export function DevicePanel({ open, onClose, devices, selectedDeviceId, onSelect
                       </span>
                     </button>
 
-                    {/* Actions */}
+                    {/* Delete icon — stays inline top-right */}
                     <div className="flex items-center gap-1 shrink-0">
-                      {/* Reinstall/Update — show for any device with a pairing code */}
-                      {d.pairing_code && (
-                        <button
-                          onClick={(e) => { e.stopPropagation(); setReinstallDeviceId((prev) => prev === d.id ? null : d.id); setExpandedOfflineId(null); }}
-                          title="Reinstall / Update connector"
-                          className={cn(
-                            "w-6 h-6 flex items-center justify-center rounded-md transition-colors",
-                            reinstallDeviceId === d.id
-                              ? "bg-primary/15 text-primary"
-                              : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                          )}
-                        >
-                          <RefreshCw className="h-3.5 w-3.5" />
-                        </button>
-                      )}
-                      {/* Disconnect — only meaningful when online */}
-                      {d.status === "online" && (
-                        <button
-                          onClick={() => handleDisconnect(d.id)}
-                          disabled={disconnectingId === d.id}
-                          title="Disconnect device"
-                          className="w-6 h-6 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-40"
-                        >
-                          {disconnectingId === d.id
-                            ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                            : <Power className="h-3.5 w-3.5" />}
-                        </button>
-                      )}
-                      {/* Check service status — only for online devices */}
-                      {d.status === "online" && (
-                        <button
-                          onClick={() => {
-                            if (statusCheckId === d.id) { setStatusCheckId(null); setStatusOutput(null); }
-                            else { handleStatusCheck(d.id); }
-                          }}
-                          title="Check service status"
-                          disabled={statusCheckLoading && statusCheckId === d.id}
-                          className={cn(
-                            "w-6 h-6 flex items-center justify-center rounded-md transition-colors disabled:opacity-40",
-                            statusCheckId === d.id
-                              ? "bg-primary/15 text-primary"
-                              : "text-muted-foreground hover:text-primary hover:bg-primary/10"
-                          )}
-                        >
-                          {statusCheckLoading && statusCheckId === d.id
-                            ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                            : <Activity className="h-3.5 w-3.5" />}
-                        </button>
-                      )}
-                      {/* Update agent via relay — only for online devices */}
-                      {d.status === "online" && (
-                        <div className="flex items-center gap-0.5">
-                          {/* Version check badge */}
-                          {(() => {
-                            const vs = versionChecks[d.id];
-                            if (!vs) return (
-                              <button
-                                onClick={() => handleVersionCheck(d.id)}
-                                title="Check if update is available"
-                                className="h-5 px-1.5 rounded text-[10px] font-medium text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors border border-transparent hover:border-primary/20"
-                              >
-                                Check
-                              </button>
-                            );
-                            if (vs === "checking") return (
-                              <span className="h-5 px-1.5 rounded text-[10px] font-medium text-muted-foreground flex items-center gap-1">
-                                <Loader2 className="h-2.5 w-2.5 animate-spin" />
-                              </span>
-                            );
-                            if (vs === "up-to-date") return (
-                              <button
-                                onClick={() => handleVersionCheck(d.id)}
-                                title="Up to date — click to re-check"
-                                className="h-5 px-1.5 rounded text-[10px] font-medium text-status-online bg-status-online/10 hover:bg-status-online/20 transition-colors"
-                              >
-                                ✓ Up to date
-                              </button>
-                            );
-                            if (vs === "available") return (
-                              <button
-                                onClick={() => handleVersionCheck(d.id)}
-                                title="Update available — click to re-check"
-                                className="h-5 px-1.5 rounded text-[10px] font-medium text-warning bg-warning/10 hover:bg-warning/20 transition-colors animate-pulse"
-                              >
-                                ↑ Update available
-                              </button>
-                            );
-                            return (
-                              <button
-                                onClick={() => handleVersionCheck(d.id)}
-                                title="Check failed — click to retry"
-                                className="h-5 px-1.5 rounded text-[10px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                              >
-                                Retry
-                              </button>
-                            );
-                          })()}
-                          {/* Update trigger button */}
-                          <button
-                            onClick={() => {
-                              if (updateAgentId === d.id) { setUpdateAgentId(null); setUpdateAgentLog(""); setUpdateAgentDone(false); }
-                              else { handleUpdateAgent(d.id); }
-                            }}
-                            title={versionChecks[d.id] === "up-to-date" ? "Force update agent" : "Update agent on device"}
-                            disabled={updateAgentId === d.id && !updateAgentDone}
-                            className={cn(
-                              "w-6 h-6 flex items-center justify-center rounded-md transition-colors disabled:opacity-60",
-                              updateAgentId === d.id
-                                ? "bg-primary/15 text-primary"
-                                : versionChecks[d.id] === "available"
-                                  ? "text-warning hover:text-warning hover:bg-warning/10"
-                                  : "text-muted-foreground hover:text-primary hover:bg-primary/10"
-                            )}
-                          >
-                            {updateAgentId === d.id && !updateAgentDone
-                              ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                              : <ArrowUpCircle className="h-3.5 w-3.5" />}
-                          </button>
-                        </div>
-                      )}
-                      {/* Uninstall agent */}
-                      <button
-                        onClick={() => { setConfirmUninstallId((prev) => prev === d.id ? null : d.id); setConfirmDeleteId(null); }}
-                        title="Uninstall agent from device & remove"
-                        className={cn(
-                          "w-6 h-6 flex items-center justify-center rounded-md transition-colors",
-                          confirmUninstallId === d.id
-                            ? "bg-warning/15 text-warning"
-                            : "text-muted-foreground hover:text-warning hover:bg-warning/10"
-                        )}
-                      >
-                        <PackageX className="h-3.5 w-3.5" />
-                      </button>
-                      {/* Delete */}
                       {confirmDeleteId === d.id ? (
                         <div className="flex items-center gap-1">
                           <button
@@ -813,6 +682,113 @@ export function DevicePanel({ open, onClose, devices, selectedDeviceId, onSelect
                       )}
                     </div>
                   </div>
+
+                  {/* ── Action button rows ── */}
+                  {selectedDeviceId === d.id && (
+                    <div className="flex flex-col gap-1 px-3 pb-2.5 pt-0.5">
+                      {/* Online-only actions */}
+                      {d.status === "online" && (
+                        <>
+                          {/* Disconnect */}
+                          <button
+                            onClick={() => handleDisconnect(d.id)}
+                            disabled={disconnectingId === d.id}
+                            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-foreground/80 bg-muted/40 hover:bg-muted/70 border border-border/40 transition-colors disabled:opacity-40"
+                          >
+                            {disconnectingId === d.id
+                              ? <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" />
+                              : <Power className="h-3.5 w-3.5 shrink-0" />}
+                            Disconnect
+                          </button>
+
+                          {/* Check service status */}
+                          <button
+                            onClick={() => {
+                              if (statusCheckId === d.id) { setStatusCheckId(null); setStatusOutput(null); }
+                              else { handleStatusCheck(d.id); }
+                            }}
+                            disabled={statusCheckLoading && statusCheckId === d.id}
+                            className={cn(
+                              "w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium border transition-colors disabled:opacity-40",
+                              statusCheckId === d.id
+                                ? "bg-primary/10 text-primary border-primary/20"
+                                : "text-foreground/80 bg-muted/40 hover:bg-muted/70 border-border/40"
+                            )}
+                          >
+                            {statusCheckLoading && statusCheckId === d.id
+                              ? <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" />
+                              : <Activity className="h-3.5 w-3.5 shrink-0" />}
+                            Check Service Status
+                          </button>
+
+                          {/* Update agent */}
+                          <button
+                            onClick={() => {
+                              if (updateAgentId === d.id) { setUpdateAgentId(null); setUpdateAgentLog(""); setUpdateAgentDone(false); }
+                              else { handleUpdateAgent(d.id); }
+                            }}
+                            disabled={updateAgentId === d.id && !updateAgentDone}
+                            className={cn(
+                              "w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium border transition-colors disabled:opacity-60",
+                              updateAgentId === d.id
+                                ? "bg-primary/10 text-primary border-primary/20"
+                                : versionChecks[d.id] === "available"
+                                  ? "bg-warning/10 text-warning border-warning/20 hover:bg-warning/20"
+                                  : "text-foreground/80 bg-muted/40 hover:bg-muted/70 border-border/40"
+                            )}
+                          >
+                            {updateAgentId === d.id && !updateAgentDone
+                              ? <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" />
+                              : <ArrowUpCircle className="h-3.5 w-3.5 shrink-0" />}
+                            Update Agent
+                            {(() => {
+                              const vs = versionChecks[d.id];
+                              if (!vs) return (
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleVersionCheck(d.id); }}
+                                  className="ml-auto text-[10px] text-muted-foreground hover:text-primary transition-colors"
+                                >Check version</button>
+                              );
+                              if (vs === "checking") return <Loader2 className="ml-auto h-2.5 w-2.5 animate-spin text-muted-foreground" />;
+                              if (vs === "up-to-date") return <span className="ml-auto text-[10px] text-status-online">✓ Up to date</span>;
+                              if (vs === "available") return <span className="ml-auto text-[10px] text-warning animate-pulse">↑ Update ready</span>;
+                              return <button onClick={(e) => { e.stopPropagation(); handleVersionCheck(d.id); }} className="ml-auto text-[10px] text-muted-foreground hover:text-foreground">Retry</button>;
+                            })()}
+                          </button>
+                        </>
+                      )}
+
+                      {/* Reinstall / Update connector — any device with pairing code */}
+                      {d.pairing_code && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setReinstallDeviceId((prev) => prev === d.id ? null : d.id); setExpandedOfflineId(null); }}
+                          className={cn(
+                            "w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium border transition-colors",
+                            reinstallDeviceId === d.id
+                              ? "bg-primary/10 text-primary border-primary/20"
+                              : "text-foreground/80 bg-muted/40 hover:bg-muted/70 border-border/40"
+                          )}
+                        >
+                          <RefreshCw className="h-3.5 w-3.5 shrink-0" />
+                          Reinstall / Update Connector
+                        </button>
+                      )}
+
+                      {/* Uninstall agent */}
+                      <button
+                        onClick={() => { setConfirmUninstallId((prev) => prev === d.id ? null : d.id); setConfirmDeleteId(null); }}
+                        className={cn(
+                          "w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium border transition-colors",
+                          confirmUninstallId === d.id
+                            ? "bg-warning/10 text-warning border-warning/20"
+                            : "text-foreground/80 bg-muted/40 hover:bg-muted/70 border-border/40"
+                        )}
+                      >
+                        <PackageX className="h-3.5 w-3.5 shrink-0" />
+                        Uninstall Agent
+                      </button>
+                    </div>
+                  )}
 
                   {/* Uninstall agent confirm / progress panel */}
                   {confirmUninstallId === d.id && (
