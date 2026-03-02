@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
-import { X, Terminal, Wifi, WifiOff, Plus, Copy, Check, Loader2, Info, AlertCircle, Trash2, Power, RefreshCw, PackageX, Activity, ArrowUpCircle } from "lucide-react";
+import { X, Terminal, Wifi, WifiOff, Plus, Copy, Check, Loader2, Info, AlertCircle, Trash2, Power, RefreshCw, PackageX, Activity, ArrowUpCircle, ShieldOff } from "lucide-react";
 import type { Tables } from "@/integrations/supabase/types";
 
 const API_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
@@ -310,6 +310,16 @@ export function DevicePanel({ open, onClose, devices, selectedDeviceId, onSelect
   const [updateAgentLog, setUpdateAgentLog] = useState<string>("");
   const [updateAgentDone, setUpdateAgentDone] = useState(false);
   const updateLogRef = useRef<HTMLPreElement>(null);
+  // Agent trust reset — tracks which devices have a stored trust key
+  const [trustedDeviceIds, setTrustedDeviceIds] = useState<Set<string>>(() => {
+    const s = new Set<string>();
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k?.startsWith("agent-trust-")) s.add(k.replace("agent-trust-", ""));
+    }
+    return s;
+  });
+  const [trustResetId, setTrustResetId] = useState<string | null>(null);
   useEffect(() => {
     if (updateLogRef.current) {
       updateLogRef.current.scrollTop = updateLogRef.current.scrollHeight;
@@ -798,6 +808,24 @@ export function DevicePanel({ open, onClose, devices, selectedDeviceId, onSelect
                         <PackageX className="h-3.5 w-3.5 shrink-0" />
                         Uninstall Agent
                       </button>
+
+                      {/* Reset agent trust */}
+                      {trustedDeviceIds.has(d.id) && (
+                        <button
+                          onClick={() => {
+                            localStorage.removeItem(`agent-trust-${d.id}`);
+                            setTrustedDeviceIds(prev => { const n = new Set(prev); n.delete(d.id); return n; });
+                            setTrustResetId(d.id);
+                            setTimeout(() => setTrustResetId(null), 2000);
+                          }}
+                          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium border transition-colors text-foreground/80 bg-muted/40 hover:bg-muted/70 border-border/40"
+                        >
+                          {trustResetId === d.id
+                            ? <Check className="h-3.5 w-3.5 shrink-0 text-status-online" />
+                            : <ShieldOff className="h-3.5 w-3.5 shrink-0" />}
+                          {trustResetId === d.id ? "Trust cleared" : "Reset Agent Trust"}
+                        </button>
+                      )}
                     </div>
                   )}
 
