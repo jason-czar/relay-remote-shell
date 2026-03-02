@@ -1277,7 +1277,7 @@ export default function Chat() {
   };
 
   // ── Trust-prompt detector (used for auto-trust) ───────────────────────────
-  const TRUST_PROMPT_RE = /Do you trust|Not inside a trusted directory|Working with untrusted|trust this directory/i;
+  const TRUST_PROMPT_RE = /Do you trust|Not inside a trusted directory|Working with untrusted|trust this directory|trust this folder|Is this a project you|Enter to confirm/i;
 
   // ── Relay send — delegates to the persistent session hook ───────────────
   const sendViaRelay = useCallback(async (command: string, isOpenClaw = false, onChunk?: (chunk: string) => void): Promise<string> => {
