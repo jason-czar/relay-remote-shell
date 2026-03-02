@@ -743,14 +743,46 @@ export default function Chat() {
       if (!jwt) return;
       await new Promise<void>((resolve) => {
         const ws = new WebSocket(`${relayUrl}/session`);
-        let buf = ""; let done = false;
-        const finish = () => { if (!done) { done = true; ws.close(); supabase.functions.invoke("end-session", { body: { session_id: sesData.session_id } }).catch(() => {}); resolve(); } };
+        let buf = ""; let done = false; let cmdSent = false;
+        let silTimer: ReturnType<typeof setTimeout> | null = null;
+        const PROMPT_RE = /[$%#>]\s*$/m;
+
+        const finish = () => {
+          if (!done) {
+            done = true;
+            if (silTimer) clearTimeout(silTimer);
+            ws.close();
+            supabase.functions.invoke("end-session", { body: { session_id: sesData.session_id } }).catch(() => {});
+            resolve();
+          }
+        };
+
+        // Hard deadline — give plenty of time for -lic shell startup + command
+        const hardDeadline = setTimeout(finish, 18000);
+
+        const resetSilence = () => {
+          if (silTimer) clearTimeout(silTimer);
+          // Once the command has been sent, finish 1.5s after last stdout chunk
+          if (cmdSent) silTimer = setTimeout(() => { clearTimeout(hardDeadline); finish(); }, 1500);
+        };
+
         ws.onopen = () => ws.send(JSON.stringify({ type: "auth", data: { token: jwt, session_id: sesData.session_id, device_id: selectedDeviceId } }));
         ws.onmessage = (e) => {
           try {
             const msg = JSON.parse(e.data);
-            if (msg.type === "auth_ok") { ws.send(JSON.stringify({ type: "session_start", data: { session_id: sesData.session_id, cols: 220, rows: 50 } })); setTimeout(() => ws.send(JSON.stringify({ type: "stdin", data: { session_id: sesData.session_id, data_b64: btoa(cmd) } })), 1500); setTimeout(finish, 6000); }
-            else if (msg.type === "stdout") { const d = (msg.data as { data_b64?: string })?.data_b64; if (d) { try { buf += decodeURIComponent(escape(atob(d))); } catch { buf += atob(d); } } }
+            if (msg.type === "auth_ok") {
+              ws.send(JSON.stringify({ type: "session_start", data: { session_id: sesData.session_id, cols: 220, rows: 50 } }));
+            } else if (msg.type === "stdout") {
+              const d = (msg.data as { data_b64?: string })?.data_b64;
+              if (d) { try { buf += decodeURIComponent(escape(atob(d))); } catch { buf += atob(d); } }
+
+              // Wait for shell prompt before sending command (handles slow -lic startup)
+              if (!cmdSent && PROMPT_RE.test(buf)) {
+                cmdSent = true;
+                ws.send(JSON.stringify({ type: "stdin", data: { session_id: sesData.session_id, data_b64: btoa(cmd) } }));
+              }
+              resetSilence();
+            }
           } catch {/* */}
         };
         ws.onclose = () => {
