@@ -689,6 +689,15 @@ export function DevicePanel({ open, onClose, devices, selectedDeviceId, onSelect
                       {/* Online-only actions */}
                       {d.status === "online" && (
                         <>
+                          {/* Open Terminal */}
+                          <button
+                            onClick={() => { window.location.href = `/terminal/${d.id}`; }}
+                            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-primary-foreground bg-primary hover:bg-primary/90 border border-primary/20 transition-colors"
+                          >
+                            <Terminal className="h-3.5 w-3.5 shrink-0" />
+                            Open Terminal
+                          </button>
+
                           {/* Disconnect */}
                           <button
                             onClick={() => handleDisconnect(d.id)}
