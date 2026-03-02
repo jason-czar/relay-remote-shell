@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 // Bump this whenever MAIN_GO or CLIENT_GO changes so --self-update-check can detect stale binaries.
-const SOURCE_VERSION = "2026-03-01T00:00:00Z";
+const SOURCE_VERSION = "2026-03-02T00:00:00Z";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -199,8 +199,10 @@ const plistTmpl = \`<?xml version="1.0" encoding="UTF-8"?>
   <key>Label</key><string>com.privaclaw.connector</string>
   <key>ProgramArguments</key>
   <array><string>{{.Exe}}</string></array>
+  <key>ProcessType</key><string>Background</string>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><true/>
+  <key>ThrottleInterval</key><integer>5</integer>
   <key>StandardOutPath</key><string>{{.Log}}</string>
   <key>StandardErrorPath</key><string>{{.Log}}</string>
 </dict>
@@ -216,18 +218,22 @@ func installAgentDarwin(exe string) error {
 \tlogPath := filepath.Join(home, "relay-connector", "relay.log")
 \tos.MkdirAll(filepath.Dir(logPath), 0755)
 \tos.MkdirAll(filepath.Dir(plistPath()), 0755)
+\t// Strip Gatekeeper quarantine before writing plist so launchd can spawn it.
+\trun("xattr", "-d", "com.apple.quarantine", exe)
+\trun("xattr", "-c", exe)
 \tt, _ := template.New("p").Parse(plistTmpl)
 \tf, err := os.Create(plistPath())
 \tif err != nil { return err }
-\tdefer f.Close()
 \tt.Execute(f, struct{ Exe, Log string }{exe, logPath})
-\t// Strip Gatekeeper quarantine before launchctl spawns the binary.
-\t// Without this the OS sends SIGKILL (Killed: 9) to the service process.
-\trun("xattr", "-d", "com.apple.quarantine", exe)
-\trun("xattr", "-c", exe)
+\t// Flush + close before handing off to launchctl — avoids exit 5 I/O error
+\t// that occurs when launchctl reads a partially-written plist.
+\tif err := f.Sync(); err != nil { f.Close(); return fmt.Errorf("sync plist: %w", err) }
+\tf.Close()
 \tuid := fmt.Sprintf("gui/%d", os.Getuid())
 \tlabel := "com.privaclaw.connector"
+\t// Unload any previously registered instance (ignore error if not loaded).
 \trun("launchctl", "bootout", uid+"/"+label)
+\ttime.Sleep(500 * time.Millisecond) // give launchd time to process bootout
 \tif err := runMust("launchctl", "bootstrap", uid, plistPath()); err != nil { return err }
 \trunMust("launchctl", "enable", uid+"/"+label)
 \trunMust("launchctl", "kickstart", "-k", uid+"/"+label)
