@@ -34,13 +34,55 @@ go build -o relay-connector .
 relay-connector [flags]
 
 Flags:
-  --pair <code>     Pairing code from the web UI (pairs device, then exits)
-  --name <name>     Device name (optional, used during pairing)
-  --api <url>       Edge Function base URL (required for pairing)
-  --config <path>   Config file path (default: ~/.relay-connector.json)
-  --shell <path>    Shell to spawn (default: $SHELL or /bin/sh)
-  --workdir <path>  Working directory for sessions (default: home directory)
+  --pair <code>          Pairing code from the web UI (pairs device, then exits)
+  --name <name>          Device name (optional, used during pairing)
+  --api <url>            Edge Function base URL (required for pairing)
+  --config <path>        Config file path (default: ~/.relay-connector.json)
+  --shell <path>         Shell to spawn (default: $SHELL or /bin/sh)
+  --workdir <path>       Working directory for sessions (default: home directory)
+  --install-agent        Register binary as a background service and start it
+  --uninstall-agent      Stop and remove the background service
+  --status               Print service install/running status
+  --update               Download latest binary, replace self on disk, re-register service
+  --self-update-check    Check whether a newer binary is available without downloading
 ```
+
+## Shell Compatibility
+
+The connector auto-detects your shell family and applies the appropriate launch flags. At startup it runs a quick **shell probe** (`echo ok`) and warns loudly in logs if the shell fails to respond.
+
+| Shell family | Examples | Launch strategy |
+|---|---|---|
+| **bash / zsh** | `/bin/bash`, `/bin/zsh` | `-lic exec <shell>` — login + interactive, sources profiles |
+| **POSIX sh** | `/bin/sh`, `/bin/dash`, `/bin/ash`, `ksh`, `mksh` | `-i` — interactive only |
+| **fish** | `/usr/bin/fish` | `--login --interactive` |
+| **PowerShell** | `pwsh`, `powershell.exe` | `-NoExit -Interactive` |
+
+### Overriding the shell
+
+Pass `--shell` to force a specific shell when the default is wrong or unsupported:
+
+```bash
+# Use bash explicitly (e.g. on systems where $SHELL is set to fish but you want bash)
+./relay-connector --shell /bin/bash
+
+# Use zsh
+./relay-connector --shell /usr/bin/zsh
+
+# Windows: use PowerShell Core
+.\relay-connector.exe --shell "C:\Program Files\PowerShell\7\pwsh.exe"
+```
+
+### Per-OS recommendations
+
+| OS | Recommended `--shell` value | Notes |
+|---|---|---|
+| **macOS** | `/bin/zsh` (default on macOS 10.15+) | `/bin/bash` works too; avoid `/bin/sh` for interactive use |
+| **Ubuntu / Debian** | `/bin/bash` | `/bin/dash` is the default `sh` but lacks interactive features |
+| **Alpine / BusyBox** | `/bin/sh` or `/bin/bash` (if installed) | BusyBox `ash` uses `-i` strategy; install bash for full compatibility |
+| **Arch / Fedora** | `/bin/bash` or `/usr/bin/zsh` | |
+| **Windows (WSL)** | `/bin/bash` inside WSL | Run the Linux connector build inside WSL |
+| **Windows (native)** | `pwsh.exe` or `powershell.exe` | PowerShell Core (`pwsh`) recommended over Windows PowerShell |
 
 ## How It Works
 

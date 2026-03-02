@@ -54,6 +54,7 @@ const sections: Section[] = [
       { id: "connector-install", title: "Installation" },
       { id: "connector-pairing", title: "Pairing" },
       { id: "connector-usage", title: "Usage & Flags" },
+      { id: "connector-shell-compat", title: "Shell Compatibility" },
       { id: "connector-config-file", title: "Configuration File" },
       { id: "connector-cross-compile", title: "Cross-Compilation" },
     ],
@@ -719,10 +720,68 @@ go build -o relay-connector .`}</CodeBlock>
                 <tr className="border-b border-border"><td className="p-3 font-mono text-xs">--name &lt;name&gt;</td><td className="p-3 text-muted-foreground">Device name (used during pairing)</td><td className="p-3 text-muted-foreground">—</td></tr>
                 <tr className="border-b border-border"><td className="p-3 font-mono text-xs">--api &lt;url&gt;</td><td className="p-3 text-muted-foreground">Edge Function base URL</td><td className="p-3 text-muted-foreground">Required for pairing</td></tr>
                 <tr className="border-b border-border"><td className="p-3 font-mono text-xs">--config &lt;path&gt;</td><td className="p-3 text-muted-foreground">Config file path</td><td className="p-3 text-muted-foreground">~/.relay-connector.json</td></tr>
-                <tr><td className="p-3 font-mono text-xs">--shell &lt;path&gt;</td><td className="p-3 text-muted-foreground">Shell to spawn</td><td className="p-3 text-muted-foreground">$SHELL or /bin/sh</td></tr>
+                <tr className="border-b border-border"><td className="p-3 font-mono text-xs">--shell &lt;path&gt;</td><td className="p-3 text-muted-foreground">Shell to spawn</td><td className="p-3 text-muted-foreground">$SHELL or /bin/sh</td></tr>
+                <tr className="border-b border-border"><td className="p-3 font-mono text-xs">--workdir &lt;path&gt;</td><td className="p-3 text-muted-foreground">Working directory for sessions</td><td className="p-3 text-muted-foreground">Home directory</td></tr>
+                <tr className="border-b border-border"><td className="p-3 font-mono text-xs">--install-agent</td><td className="p-3 text-muted-foreground">Register as a background service and start</td><td className="p-3 text-muted-foreground">—</td></tr>
+                <tr className="border-b border-border"><td className="p-3 font-mono text-xs">--uninstall-agent</td><td className="p-3 text-muted-foreground">Stop and remove the background service</td><td className="p-3 text-muted-foreground">—</td></tr>
+                <tr className="border-b border-border"><td className="p-3 font-mono text-xs">--status</td><td className="p-3 text-muted-foreground">Print service install / running status</td><td className="p-3 text-muted-foreground">—</td></tr>
+                <tr className="border-b border-border"><td className="p-3 font-mono text-xs">--update</td><td className="p-3 text-muted-foreground">Download latest binary and re-register service</td><td className="p-3 text-muted-foreground">—</td></tr>
+                <tr><td className="p-3 font-mono text-xs">--self-update-check</td><td className="p-3 text-muted-foreground">Check for a newer binary without downloading</td><td className="p-3 text-muted-foreground">—</td></tr>
               </tbody>
             </table>
           </div>
+
+          <Heading id="connector-shell-compat" level={3}>Shell Compatibility</Heading>
+          <p className="text-sm text-muted-foreground leading-relaxed mb-3">
+            The connector auto-detects your shell family and applies the appropriate launch flags. On startup it runs a quick <strong>shell probe</strong> (<code className="text-xs bg-muted px-1 py-0.5 rounded font-mono">echo ok</code>) and logs a warning if the shell fails to respond — so misconfigurations are caught before the first user connects.
+          </p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm border border-border rounded-lg overflow-hidden my-4">
+              <thead className="bg-muted/50"><tr>
+                <th className="p-3 text-left font-semibold">Shell family</th>
+                <th className="p-3 text-left font-semibold">Examples</th>
+                <th className="p-3 text-left font-semibold">Launch strategy</th>
+              </tr></thead>
+              <tbody>
+                <tr className="border-b border-border"><td className="p-3 font-mono text-xs">bash / zsh</td><td className="p-3 text-muted-foreground">/bin/bash, /bin/zsh</td><td className="p-3 text-muted-foreground font-mono text-xs">-lic exec &lt;shell&gt;</td></tr>
+                <tr className="border-b border-border"><td className="p-3 font-mono text-xs">POSIX sh</td><td className="p-3 text-muted-foreground">/bin/sh, dash, ash, ksh, mksh</td><td className="p-3 text-muted-foreground font-mono text-xs">-i</td></tr>
+                <tr className="border-b border-border"><td className="p-3 font-mono text-xs">fish</td><td className="p-3 text-muted-foreground">/usr/bin/fish</td><td className="p-3 text-muted-foreground font-mono text-xs">--login --interactive</td></tr>
+                <tr><td className="p-3 font-mono text-xs">PowerShell</td><td className="p-3 text-muted-foreground">pwsh, powershell.exe</td><td className="p-3 text-muted-foreground font-mono text-xs">-NoExit -Interactive</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <InfoBox variant="tip">
+            Override the shell at any time with <code className="text-xs bg-muted px-1 py-0.5 rounded font-mono">--shell /path/to/shell</code>. The connector re-probes on every start, so fixing the path and restarting is all that's needed.
+          </InfoBox>
+          <p className="text-sm text-muted-foreground leading-relaxed mb-3">Per-OS recommendations:</p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm border border-border rounded-lg overflow-hidden my-4">
+              <thead className="bg-muted/50"><tr>
+                <th className="p-3 text-left font-semibold">OS</th>
+                <th className="p-3 text-left font-semibold">Recommended <code className="text-xs font-mono">--shell</code></th>
+                <th className="p-3 text-left font-semibold">Notes</th>
+              </tr></thead>
+              <tbody>
+                <tr className="border-b border-border"><td className="p-3">macOS</td><td className="p-3 font-mono text-xs">/bin/zsh</td><td className="p-3 text-muted-foreground text-xs">Default since macOS 10.15 Catalina. /bin/bash also works.</td></tr>
+                <tr className="border-b border-border"><td className="p-3">Ubuntu / Debian</td><td className="p-3 font-mono text-xs">/bin/bash</td><td className="p-3 text-muted-foreground text-xs">/bin/dash is the default sh but lacks interactive features.</td></tr>
+                <tr className="border-b border-border"><td className="p-3">Alpine / BusyBox</td><td className="p-3 font-mono text-xs">/bin/sh</td><td className="p-3 text-muted-foreground text-xs">BusyBox ash uses the -i strategy. Install bash for full compatibility.</td></tr>
+                <tr className="border-b border-border"><td className="p-3">Arch / Fedora</td><td className="p-3 font-mono text-xs">/bin/bash</td><td className="p-3 text-muted-foreground text-xs">Or /usr/bin/zsh if preferred.</td></tr>
+                <tr className="border-b border-border"><td className="p-3">Windows (WSL)</td><td className="p-3 font-mono text-xs">/bin/bash</td><td className="p-3 text-muted-foreground text-xs">Run the Linux connector build inside WSL.</td></tr>
+                <tr><td className="p-3">Windows (native)</td><td className="p-3 font-mono text-xs">pwsh.exe</td><td className="p-3 text-muted-foreground text-xs">PowerShell Core (pwsh) recommended over legacy powershell.exe.</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <CodeBlock language="bash">{`# macOS: force zsh
+./relay-connector --shell /bin/zsh
+
+# Ubuntu: force bash
+./relay-connector --shell /bin/bash
+
+# Alpine: use installed bash
+./relay-connector --shell /usr/bin/bash
+
+# Windows (native): PowerShell Core
+.\\relay-connector.exe --shell "C:\\Program Files\\PowerShell\\7\\pwsh.exe"`}</CodeBlock>
 
           <Heading id="connector-config-file" level={3}>Configuration File</Heading>
           <p className="text-sm text-muted-foreground leading-relaxed mb-2">
@@ -1631,7 +1690,12 @@ fly deploy`}</CodeBlock>
             </div>
             <div>
               <p className="font-semibold text-sm mb-1">Q: What shell does the connector spawn?</p>
-              <p className="text-sm text-muted-foreground">By default, it uses the <code className="text-xs bg-muted px-1 py-0.5 rounded font-mono">$SHELL</code> environment variable, falling back to <code className="text-xs bg-muted px-1 py-0.5 rounded font-mono">/bin/sh</code>. Override with the <code className="text-xs bg-muted px-1 py-0.5 rounded font-mono">--shell</code> flag.</p>
+              <p className="text-sm text-muted-foreground">
+                By default, it uses the <code className="text-xs bg-muted px-1 py-0.5 rounded font-mono">$SHELL</code> environment variable, falling back to <code className="text-xs bg-muted px-1 py-0.5 rounded font-mono">/bin/sh</code>.
+                The connector auto-detects the shell family (bash/zsh, fish, POSIX sh, PowerShell) and applies the right launch flags.
+                Override with <code className="text-xs bg-muted px-1 py-0.5 rounded font-mono">--shell /path/to/shell</code> — e.g. <code className="text-xs bg-muted px-1 py-0.5 rounded font-mono">--shell /bin/bash</code> on Alpine or <code className="text-xs bg-muted px-1 py-0.5 rounded font-mono">--shell pwsh.exe</code> on Windows.
+                See the <a href="#connector-shell-compat" className="text-primary underline underline-offset-2">Shell Compatibility</a> section for per-OS recommendations.
+              </p>
             </div>
             <div>
               <p className="font-semibold text-sm mb-1">Q: Can I use the PrivaClaw skill without the web app?</p>
