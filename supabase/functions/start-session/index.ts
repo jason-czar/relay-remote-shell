@@ -67,16 +67,21 @@ Deno.serve(async (req) => {
     // Verify device exists using admin client, then check access via RLS function
     const { data: device, error: devErr } = await supabaseAdmin
       .from("devices")
-      .select("*")
+      .select("id, user_id, project_id")
       .eq("id", device_id)
-      .single();
+      .maybeSingle();
 
-    if (devErr || !device) {
-      console.error("[start-session] Device lookup failed", {
+    if (devErr) {
+      console.error("[start-session] Device lookup error", {
         device_id,
         user_id: user.id,
-        error: devErr?.message ?? "not found",
+        error: devErr.message,
       });
+      return json({ error: "Device not found or access denied" }, 404);
+    }
+
+    if (!device) {
+      console.error("[start-session] Device not found", { device_id, user_id: user.id });
       return json({ error: "Device not found or access denied" }, 404);
     }
 
