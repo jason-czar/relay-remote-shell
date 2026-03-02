@@ -123,16 +123,27 @@ export function EmbeddedTerminal({ deviceId, convId }: Props) {
           } else if (msg.type === "stdout") {
             const { data_b64 } = (msg.data ?? {}) as { data_b64: string };
             if (data_b64) {
-              try { term.write(atob(data_b64)); } catch { term.write(data_b64); }
+              try {
+                const bin = atob(data_b64);
+                const bytes = new Uint8Array(bin.length);
+                for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+                term.write(bytes);
+              } catch { term.write(data_b64); }
             }
           } else if (msg.type === "scrollback") {
             const { data_b64, frames } = (msg.data ?? {}) as { data_b64?: string; frames?: { d: string }[] };
+            const writeB64 = (b64: string) => {
+              try {
+                const bin = atob(b64);
+                const bytes = new Uint8Array(bin.length);
+                for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+                term.write(bytes);
+              } catch { term.write(b64); }
+            };
             if (Array.isArray(frames) && frames.length > 0) {
-              for (const frame of frames) {
-                try { term.write(atob(frame.d)); } catch { term.write(frame.d); }
-              }
+              for (const frame of frames) writeB64(frame.d);
             } else if (data_b64) {
-              try { term.write(atob(data_b64)); } catch { term.write(data_b64); }
+              writeB64(data_b64);
             }
           } else if (msg.type === "session_end") {
             const { reason } = (msg.data ?? {}) as { reason?: string };
