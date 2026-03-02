@@ -1253,15 +1253,16 @@ export default function Chat() {
     return match ? match[1] : null;
   };
 
-  // ── Parse Codex session id from JSONL stdout ──────────────────────────
-  // Codex JSONL lines contain objects with "id" fields like:
-  //   {"id":"rs_<sessionHex>...","type":"reasoning",...}
-  //   {"id":"msg_<sessionHex>...","type":"message",...}
-  // The session ID Codex accepts for --resume is the hex portion shared
-  // across all JSONL objects in a single run (after the rs_/msg_ prefix).
-  // We prefer the explicit "session_id" field if present, then fall back
-  // to extracting from the first rs_ or msg_ id.
+  // ── Parse Codex session id from stdout ───────────────────────────────
+  // `codex exec` emits a banner header: "session id: <uuid>"
+  // It also emits JSONL lines with "session_id" fields or rs_/msg_ id prefixes.
+  // We prefer the banner UUID (most reliable), then JSONL fields, then id prefixes.
   const extractCodexSessionId = (stdout: string): string | null => {
+    // 0. Plain-text header banner: "session id: 019caf88-df39-7880-90df-6da242fd2ee3"
+    //    Emitted by `codex exec` at the top of output
+    const banner = stdout.match(/session\s+id:\s*([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i);
+    if (banner) return banner[1];
+
     // 1. Explicit session_id field in any JSONL line
     const explicit = stdout.match(/"session_id"\s*:\s*"([^"]+)"/);
     if (explicit) return explicit[1];
