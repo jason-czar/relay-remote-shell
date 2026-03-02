@@ -1,89 +1,171 @@
 
-## Root Cause Analysis
+## Plan: Fix First-Prompt Drop Bug in Chat.tsx + Auth Error Classification
 
-### ChatGPT's diagnosis is WRONG for this architecture
+### What to build
 
-ChatGPT assumed the connector allocates PTY from the *host terminal* (like `ssh` does). That's incorrect. The Go connector uses `github.com/creack/pty` — `pty.StartWithSize()` — which creates a **kernel-level pseudo-terminal** entirely in userspace. It does NOT need the LaunchAgent to have a host `/dev/tty` attached. PTY allocation works fine from a background daemon.
+Four precise changes inside `src/pages/Chat.tsx` and one new pure helper file `src/lib/replClassifier.ts`.
 
-### The real bug: `connect` is an unknown command
+---
 
-Look at the plist template in `download-connector/index.ts` (line 201):
-```xml
-<array><string>{{.Exe}}</string><string>connect</string></array>
+### 1. New file: `src/lib/replClassifier.ts`
+
+A tiny pure module (no React, no imports from Chat) with two exported functions:
+
+```ts
+// Classify stdout from a Codex/Claude REPL boot as an error type
+export type ReplStartupError =
+  | { kind: "auth"; agent: "codex" | "claude"; message: string }
+  | { kind: "not_found"; agent: "codex" | "claude"; message: string }
+  | null;
+
+export function classifyReplStartupError(stdout: string, agent: "codex" | "claude"): ReplStartupError
+
+// Returns actionable user-facing string, or null if no error
+export function formatReplError(err: NonNullable<ReplStartupError>): string
 ```
 
-But in `main.go`, `flag.Parse()` is called and there is **no `connect` subcommand**. The program only handles `--pair`, `--install-agent`, `--uninstall-agent`, `--status`, `--update`, `--self-update-check` flags. 
+Patterns to detect:
+- **Codex auth**: `/not logged in|please run.*codex login|authentication required/i`
+- **Claude auth**: `/not logged in|please run.*claude auth login|authentication required|no api key/i`
+- **Not found (both)**: `/command not found|no such file.*directory|enoent/i`
 
-When the LaunchAgent runs `relay-connector connect`, Go's `flag` package treats `connect` as a **positional argument** — it's passed to `flag.Args()` and silently ignored. The binary then tries to load `~/.relay-connector.json` and run... which should actually work.
+This is the only testable pure logic extracted per the user's instruction. Tests go in `src/test/replClassifier.test.ts`.
 
-Wait — let me re-examine. Actually `flag.Parse()` + no subcommand handling means `connect` IS silently ignored and execution falls through to the connect logic. So this isn't the issue either.
+---
 
-### The actual issue: `$SHELL` environment variable is missing in LaunchAgent context
+### 2. Add `deferredFirstMsgRef` to Chat.tsx
 
-When macOS LaunchAgent launches a process, it runs with a **minimal environment** — specifically, `$SHELL` is often **not set** in the LaunchAgent environment. 
-
-In `main.go`:
-```go
-shell := flag.String("shell", defaultShell(), "Shell to spawn")
+New ref with structured type:
+```ts
+const deferredFirstMsgRef = useRef<{ agent: "codex" | "claude"; text: string } | null>(null);
 ```
 
-And `defaultShell()`:
-```go
-func defaultShell() string {
-    if s := os.Getenv("SHELL"); s != "" {
-        return s
-    }
-    return "/bin/sh"
+This stores the user's first message when `buildCommand` is called before a `sessionId` exists, along with the agent type (read from the conversation's `agent` field at the time `buildCommand` runs — not from React state to avoid staleness).
+
+---
+
+### 3. Patch `buildCommand` — two drop points
+
+**Drop point 1 — `!sessionId` path (both agents):**
+
+```ts
+// BEFORE
+if (!sessionId) {
+  return "codex\n";
+}
+
+// AFTER
+if (!sessionId) {
+  deferredFirstMsgRef.current = { agent: "codex", text };
+  return `codex${modelPart}\n`;  // modelPart computed before the guard
 }
 ```
 
-When run via LaunchAgent, `$SHELL` is typically empty, so the connector falls back to `/bin/sh`. On macOS, `/bin/sh` is `dash`, which uses the `-i` strategy (just `-i`, no login). This means:
-- No `.zshrc` / `.bash_profile` sourced → `$PATH` is minimal
-- No user environment → tools like `codex`, `node`, `python` not found
+Same fix mirrored for the `claude` branch. Note: `modelPart` is computed from `selectedModel` which is available at this point — move it above the `!sessionId` guard.
 
-But more importantly: the shell used when you manually run `relay-connector connect` is **your interactive zsh** (set in `$SHELL`), while the LaunchAgent uses `/bin/sh`.
+**Drop point 2 — `!state` path (both agents):**
 
-### The fix
+```ts
+// BEFORE (codex)
+runtimeAgentsRef.current[sessionId] = { agent: "codex", ready: false };
+// boot timeout...
+return `codex${modelPart}\n`;
 
-The plist needs to explicitly pass `--shell` with the user's shell path. We need to capture `$SHELL` at install time (when `--install-agent` runs) and bake it into the plist template as `<string>--shell</string><string>/bin/zsh</string>`.
-
-Additionally, the LaunchAgent environment needs `HOME` and `PATH` set via `EnvironmentVariables` to ensure the user's tools are accessible.
-
-### Changes needed
-
-**1. `connector/main.go` — plistTemplate: add `--shell` and `EnvironmentVariables`**
-
-The `installAgentDarwin` function captures the resolved exe path. We need to also capture the shell path and home directory and pass them into the template.
-
-Change `plistTemplate` to:
-```xml
-<key>ProgramArguments</key>
-<array>
-  <string>{{.Exe}}</string>
-  <string>--shell</string>
-  <string>{{.Shell}}</string>
-</array>
-<key>EnvironmentVariables</key>
-<dict>
-  <key>HOME</key><string>{{.Home}}</string>
-  <key>SHELL</key><string>{{.Shell}}</string>
-  <key>PATH</key><string>{{.Path}}</string>
-</dict>
+// AFTER
+runtimeAgentsRef.current[sessionId] = { agent: "codex", ready: false };
+pendingQueueRef.current[sessionId] = [text];   // ← queue the first message
+// boot timeout... (unchanged)
+return `codex${modelPart}\n`;
 ```
 
-Where `{{.Shell}}` = `os.Getenv("SHELL")` (or `/bin/zsh` on macOS fallback), `{{.Home}}` = `os.UserHomeDir()`, `{{.Path}}` = `os.Getenv("PATH")`.
+Same for `claude` `!state` branch.
 
-**2. `supabase/functions/download-connector/index.ts` — MAIN_GO: same change in the embedded `plistTmpl`**
+---
 
-The edge function embeds the full Go source. The `plistTmpl` constant in `MAIN_GO` (line ~195 in the file) needs the same fix so newly downloaded binaries have the correct behavior.
+### 4. Patch `onChunkActivity` — migrate deferred message when session appears
 
-**3. Bump `SOURCE_VERSION`** to force a new binary build so users who run `--update` get the fix.
+In the REPL readiness detection block (around line 918), add a block **before** the existing state check:
 
-### Summary of changes
+```ts
+// Migrate deferred first message once sessionId is established
+if (sessionId && deferredFirstMsgRef.current && !runtimeAgentsRef.current[sessionId]) {
+  const { agent, text } = deferredFirstMsgRef.current;
+  deferredFirstMsgRef.current = null;
+  runtimeAgentsRef.current[sessionId] = { agent, ready: false };
+  pendingQueueRef.current[sessionId] = [text];
+  // Start boot timeout for this newly-registered session
+  setTimeout(() => {
+    const s = runtimeAgentsRef.current[sessionId];
+    if (s && !s.ready) {
+      s.ready = true;
+      const queue = pendingQueueRef.current[sessionId] ?? [];
+      delete pendingQueueRef.current[sessionId];
+      for (const q of queue) relay.sendRawStdin(sessionId, btoa(q + "\n"));
+    }
+  }, 20_000);
+}
+```
+
+This gives the deferred-session path the same boot-timeout protection as the `!state` path.
+
+---
+
+### 5. Add Claude boot timeout (parity with Codex)
+
+In the `claude` `!state` branch (~line 1356), add the same 20s timeout guard that Codex already has. Currently the Claude branch has none — if the readiness banner never fires, the queue stalls forever.
+
+---
+
+### 6. Auth error classification — run BEFORE empty-response retry
+
+At line ~1764, before the `if (!responseText.trim())` auto-retry block, insert:
+
+```ts
+// ── Auth/startup error classification ───────────────────────────────────
+if (!responseText.trim() && (convData?.agent === "codex" || convData?.agent === "claude")) {
+  const err = classifyReplStartupError(stdout, convData.agent);
+  if (err) {
+    responseText = formatReplError(err);
+    // Skip the auto-retry — retrying an auth failure just re-spawns and hides the error
+  }
+}
+```
+
+This runs **before** the retry block so auth failures produce actionable messages instead of triggering a pointless re-run.
+
+---
+
+### 7. Tests: `src/test/replClassifier.test.ts`
+
+Unit tests for the pure classifier only (aligned with Codex's guidance):
+- Codex auth error strings → `{ kind: "auth", agent: "codex" }`
+- Claude auth error strings → `{ kind: "auth", agent: "claude" }`
+- "command not found" → `{ kind: "not_found" }`
+- Clean stdout → `null`
+- `formatReplError` produces actionable strings with the right commands
+
+---
+
+### 8. Validation step (documentation / comment in plan)
+
+**Not a code change** — a manual step the user must do on the connector host after the fix is deployed:
+
+```sh
+claude auth login        # Claude is currently logged out per auth status
+claude auth status       # Confirm logged in
+codex login status       # Confirm still logged in
+```
+
+Claude will not work until host auth is fixed regardless of the frontend fix. This should be surfaced clearly in the assistant response after the code lands.
+
+---
+
+### Files changed
 
 | File | Change |
 |---|---|
-| `connector/main.go` | Update `plistTemplate`: add `--shell {{.Shell}}`, `EnvironmentVariables` block with HOME/SHELL/PATH; update `installAgentDarwin` to pass Shell/Home/Path to template data |
-| `supabase/functions/download-connector/index.ts` | Same fix to `plistTmpl` inside `MAIN_GO` constant; bump `SOURCE_VERSION` |
+| `src/lib/replClassifier.ts` | New — pure classifier + formatter |
+| `src/test/replClassifier.test.ts` | New — unit tests for classifier |
+| `src/pages/Chat.tsx` | Add `deferredFirstMsgRef`; patch two `!sessionId` drop points; patch two `!state` drop points to queue first message; add deferred-session migration + timeout in `onChunkActivity`; add Claude boot timeout; insert auth error classification before retry |
 
-This is the minimal, correct fix. No `/dev/tty` hackery needed — that would actually break things since macOS LaunchAgents can't safely reference `/dev/tty`.
+No backend changes. No plist changes. OpenClaw path untouched.
