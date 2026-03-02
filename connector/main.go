@@ -128,6 +128,24 @@ func main() {
 		fmt.Printf("Workdir: %s\n", *workdir)
 	}
 
+	// Background startup version check – warn if a newer binary is available.
+	// Derives the API URL from the relay URL (same Supabase project).
+	go func() {
+		apiURL := deriveAPIURL(cfg.RelayURL)
+		if apiURL == "" {
+			return
+		}
+		available, reason, err := checkUpdateAvailable(apiURL)
+		if err != nil {
+			// Non-fatal: silently ignore network/server errors on startup.
+			return
+		}
+		if available {
+			fmt.Printf("\n⚠️  A newer version of the connector is available (%s).\n", reason)
+			fmt.Printf("   Run: %s --update --api %s\n\n", os.Args[0], apiURL)
+		}
+	}()
+
 	// Set up signal handling for clean shutdown
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
@@ -608,6 +626,103 @@ func selfUpdate(apiURL string) error {
 		return fmt.Errorf("--install-agent after update: %w", err)
 	}
 	return nil
+}
+
+// ─── deriveAPIURL ─────────────────────────────────────────────────────────────
+// Derives the Supabase Edge Function base URL from a relay URL.
+// The relay URL is typically wss://xyz.supabase.co/... or https://...
+// We just need https://<host>/functions/v1
+func deriveAPIURL(relayURL string) string {
+	if relayURL == "" {
+		return ""
+	}
+	// Normalise scheme: wss → https, ws → http
+	url := relayURL
+	if len(url) >= 6 && url[:6] == "wss://" {
+		url = "https://" + url[6:]
+	} else if len(url) >= 5 && url[:5] == "ws://" {
+		url = "http://" + url[5:]
+	}
+	// Strip any path after the host
+	// Find third slash (after scheme://)
+	schemeEnd := 0
+	for i := 0; i < len(url)-2; i++ {
+		if url[i] == '/' && url[i+1] == '/' {
+			schemeEnd = i + 2
+			break
+		}
+	}
+	hostEnd := len(url)
+	for i := schemeEnd; i < len(url); i++ {
+		if url[i] == '/' {
+			hostEnd = i
+			break
+		}
+	}
+	return url[:hostEnd] + "/functions/v1"
+}
+
+// checkUpdateAvailable performs a HEAD request to compare the running binary's
+// SHA-256 against the ETag returned by the download-connector edge function.
+// Returns (updateAvailable, description, error).
+func checkUpdateAvailable(apiURL string) (bool, string, error) {
+	exe, err := os.Executable()
+	if err != nil {
+		return false, "", err
+	}
+	exe, err = filepath.EvalSymlinks(exe)
+	if err != nil {
+		return false, "", err
+	}
+
+	f, err := os.Open(exe)
+	if err != nil {
+		return false, "", err
+	}
+	h := sha256.New()
+	_, err = io.Copy(h, f)
+	f.Close()
+	if err != nil {
+		return false, "", err
+	}
+	localHash := hex.EncodeToString(h.Sum(nil))
+
+	checkURL := fmt.Sprintf("%s/download-connector?os=%s&arch=%s", apiURL, runtime.GOOS, runtime.GOARCH)
+	req, err := http.NewRequest(http.MethodHead, checkURL, nil)
+	if err != nil {
+		return false, "", err
+	}
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return false, "", err
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return false, "", fmt.Errorf("server HTTP %d", resp.StatusCode)
+	}
+
+	etag := resp.Header.Get("ETag")
+	if etag == "" {
+		// No ETag – conservatively assume update is available.
+		return true, "server ETag unavailable", nil
+	}
+	serverHash := etag
+	if len(serverHash) >= 2 && serverHash[0] == '"' && serverHash[len(serverHash)-1] == '"' {
+		serverHash = serverHash[1 : len(serverHash)-1]
+	}
+
+	// Also check X-Connector-Version header for a human-readable version string.
+	version := resp.Header.Get("X-Connector-Version")
+	desc := "sha256 mismatch"
+	if version != "" {
+		desc = "server version " + version
+	}
+
+	if serverHash != localHash {
+		return true, desc, nil
+	}
+	return false, "", nil
 }
 
 // ─── selfUpdateCheck ──────────────────────────────────────────────────────────
