@@ -2958,9 +2958,9 @@ export default function Chat() {
 
               {/* ── Approval prompt UI ── shown when a blocking PTY prompt is detected */}
               {awaitingApproval && (
-                <div className="mb-2 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2.5 flex flex-col gap-2">
-                  <div className="flex items-center gap-2 text-xs text-amber-400/80 font-medium">
-                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                <div className="mb-2 rounded-lg border border-warning/30 bg-warning/5 px-3 py-2.5 flex flex-col gap-2">
+                  <div className="flex items-center gap-2 text-xs text-warning/80 font-medium">
+                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-warning animate-pulse" />
                     Agent is waiting for your input
                   </div>
                   <div className="flex flex-wrap gap-2">
@@ -2972,18 +2972,17 @@ export default function Chat() {
                           className={cn(
                             "px-3 py-1 text-xs rounded-md border font-medium transition-colors",
                             /yes|approve|allow|trust|continue|proceed/i.test(opt)
-                              ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20"
-                              : "border-red-500/40 bg-red-500/10 text-red-400 hover:bg-red-500/20"
+                              ? "border-primary/40 bg-primary/10 text-primary hover:bg-primary/20"
+                              : "border-destructive/40 bg-destructive/10 text-destructive hover:bg-destructive/20"
                           )}
                         >
                           {opt}
                         </button>
                       ))
                     ) : (
-                      /* Fallback: generic yes/no when no options were parsed */
                       <>
-                        <button onClick={() => handleApprovalChoice("Yes")} className="px-3 py-1 text-xs rounded-md border border-emerald-500/50 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 font-medium transition-colors">Yes</button>
-                        <button onClick={() => handleApprovalChoice("No")} className="px-3 py-1 text-xs rounded-md border border-red-500/40 bg-red-500/10 text-red-400 hover:bg-red-500/20 font-medium transition-colors">No</button>
+                        <button onClick={() => handleApprovalChoice("Yes")} className="px-3 py-1 text-xs rounded-md border border-primary/40 bg-primary/10 text-primary hover:bg-primary/20 font-medium transition-colors">Yes</button>
+                        <button onClick={() => handleApprovalChoice("No")} className="px-3 py-1 text-xs rounded-md border border-destructive/40 bg-destructive/10 text-destructive hover:bg-destructive/20 font-medium transition-colors">No</button>
                       </>
                     )}
                     <button
