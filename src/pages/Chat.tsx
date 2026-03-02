@@ -2197,10 +2197,20 @@ export default function Chat() {
 
 
   const handleNew = useCallback(() => {
+    // Reset all per-conversation UI state so the new blank conversation is clean.
+    // Any running background job for the previous conversation continues unaffected —
+    // it checks activeConvIdRef.current === jobConvId before touching UI state.
     setMessages([]);
     setInput("");
+    setThinking(false);
+    stopActivity();
+    setLiveLog([]);
+    liveLogAccRef.current = "";
+    setAwaitingApproval(null);
+    setStreamingMsgIndex(null);
+    setAgentSwitchPending(null);
     setTimeout(() => textareaRef.current?.focus(), 50);
-  }, []);
+  }, [stopActivity]);
 
   // Register handleNew with context so sidebar "New" button triggers it
   useEffect(() => {
@@ -2668,7 +2678,7 @@ export default function Chat() {
                 <RefreshCw className="h-5 w-5" />
               </button>
               <button
-                onClick={() => setActiveConvId(null)}
+                onClick={() => { setActiveConvId(null); handleNew(); }}
                 className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-accent text-foreground transition-all duration-150"
                 title="New conversation">
 
