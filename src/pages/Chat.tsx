@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { usePersistentRelaySession } from "@/hooks/usePersistentRelaySession";
 import openclawImg from "@/assets/openclaw.png";
 import claudecodeImg from "@/assets/claudecode.png";
 import codexImg from "@/assets/codex.png";
@@ -655,12 +656,8 @@ export default function Chat() {
     return localStorage.getItem("chat-device-id") ?? "";
   });
   const [input, setInput] = useState("");
-  // Tracks the live relay session so option buttons can inject stdin directly
-  const activeRelaySessionRef = useRef<{
-    ws: WebSocket;
-    sessionId: string;
-    resetSilence: () => void;
-  } | null>(null);
+  // Persistent relay session — one WebSocket+PTY for the lifetime of the chat view
+  const relay = usePersistentRelaySession();
   const [thinking, setThinking] = useState(false);
   const [agentSwitchPending, setAgentSwitchPending] = useState<"openclaw" | "claude" | "codex" | "terminal" | null>(null);
   const [streamingMsgIndex, setStreamingMsgIndex] = useState<number | null>(null);
@@ -924,6 +921,9 @@ export default function Chat() {
   const setSelectedDeviceId = useCallback((id: string) => {
     setSelectedDeviceIdState(id);
     localStorage.setItem("chat-device-id", id);
+    // Disconnect the persistent relay so the next command creates a fresh session
+    // for the new device instead of reusing the old one.
+    relay.disconnect();
     // Restore the agent & model last used with this device
     const savedAgent = localStorage.getItem(`chat-agent-${id}`);
     // Only restore device-level agent/model when there's no active conversation
@@ -931,7 +931,7 @@ export default function Chat() {
     if (savedAgent && !activeConvId) setAgent(savedAgent as "openclaw" | "claude" | "codex" | "terminal");
     const savedModel = localStorage.getItem(`chat-model-${id}`);
     if (savedModel) setModel(savedModel);
-  }, []);
+  }, [relay]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Ref to suppress device-localStorage write when agent is set by conversation sync (not user)
   const agentFromConvRef = useRef(false);
@@ -1173,201 +1173,20 @@ export default function Chat() {
     await supabase.from("chat_conversations").update({ updated_at: new Date().toISOString() }).eq("id", convId);
   };
 
-  // ── Relay send (with auto-retry + status banner) ───────────────────────
+  // ── Relay send — delegates to the persistent session hook ───────────────
   const sendViaRelay = useCallback(async (command: string, isOpenClaw = false, onChunk?: (chunk: string) => void): Promise<string> => {
-    const MAX_RETRIES = 3;
-    const RETRY_DELAYS = [1000, 2500, 5000];
-
-    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-      if (attempt === 0) {
-        setRelayStatus("connecting");
-        relayRetryCountRef.current = 0;
-      } else {
-        relayRetryCountRef.current = attempt;
-        setRelayStatus("retrying");
-        await new Promise((r) => setTimeout(r, RETRY_DELAYS[attempt - 1] ?? 5000));
-      }
-
-      try {
-        const result = await sendViaRelayOnce(command, isOpenClaw, onChunk);
-        setRelayStatus("idle");
-        return result;
-      } catch (err) {
-        if (attempt === MAX_RETRIES) {
-          setRelayStatus("failed");
-          throw err;
-        }
-        // loop to retry
-      }
+    if (!selectedDeviceId) throw new Error("No device selected");
+    setRelayStatus("connecting");
+    relayRetryCountRef.current = 0;
+    try {
+      const result = await relay.sendCommand(selectedDeviceId, command, { isOpenClaw, onChunk });
+      setRelayStatus("idle");
+      return result;
+    } catch (err) {
+      setRelayStatus("failed");
+      throw err;
     }
-    throw new Error("Relay unreachable");
-  }, [selectedDeviceId]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const sendViaRelayOnce = useCallback(async (command: string, isOpenClaw = false, onChunk?: (chunk: string) => void): Promise<string> => {
-    // 1. Start session
-    const { data: sesData, error: sesErr } = await supabase.functions.invoke("start-session", {
-      body: { device_id: selectedDeviceId }
-    });
-    if (sesErr || !sesData?.session_id) throw new Error(sesData?.error || sesErr?.message || "Failed to start session");
-    const sessionId: string = sesData.session_id;
-
-    // 2. Connect WebSocket
-    const relayUrl = import.meta.env.VITE_RELAY_URL || "wss://relay.privaclaw.com";
-    const { data: { session: authSession } } = await supabase.auth.getSession();
-    const jwt = authSession?.access_token;
-    if (!jwt) throw new Error("No auth session");
-
-    return new Promise((resolve, reject) => {
-      const ws = new WebSocket(`${relayUrl}/session`);
-      let outputBuffer = "";
-      let silenceTimer: ReturnType<typeof setTimeout> | null = null;
-      let hardTimeout: ReturnType<typeof setTimeout> | null = null;
-
-      const finish = (result: string | Error) => {
-        if (silenceTimer) clearTimeout(silenceTimer);
-        if (hardTimeout) clearTimeout(hardTimeout);
-        if (ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({ type: "session_end", data: { session_id: sessionId, reason: "done" } }));
-          ws.close();
-        }
-        supabase.functions.invoke("end-session", { body: { session_id: sessionId } }).catch(() => {});
-        // Clear the active session ref so option buttons know the session is over
-        if (activeRelaySessionRef.current?.sessionId === sessionId) {
-          activeRelaySessionRef.current = null;
-        }
-        if (result instanceof Error) reject(result);else
-        resolve(result);
-      };
-
-      let substantiveWaitCount = 0;
-      const MAX_SUBSTANTIVE_WAITS = 6; // up to 6 × SILENCE_MS extra waits before giving up
-      const resetSilence = () => {
-        if (silenceTimer) clearTimeout(silenceTimer);
-        // If the output already contains a CLI error line, finish immediately
-        const hasError = /^Error:/m.test(outputBuffer) || /^error:/im.test(outputBuffer);
-        if (hasError) {finish(outputBuffer);return;}
-        silenceTimer = setTimeout(() => {
-          // For OpenClaw: detect complete JSON object and finish immediately — no need to wait full 8s
-          if (isOpenClaw) {
-            if (!outputBuffer.includes("{")) {
-              // No JSON started yet — keep waiting if we haven't exceeded wait budget
-              if (substantiveWaitCount++ < MAX_SUBSTANTIVE_WAITS) { resetSilence(); return; }
-            }
-            // Walk the buffer to find a balanced top-level { ... } and finish early
-            const firstBrace = outputBuffer.indexOf("{");
-            let depth = 0,inStr = false,esc = false;
-            for (let i = firstBrace; i < outputBuffer.length; i++) {
-              const c = outputBuffer[i];
-              if (esc) {esc = false;continue;}
-              if (c === "\\" && inStr) {esc = true;continue;}
-              if (c === '"') {inStr = !inStr;continue;}
-              if (inStr) continue;
-              if (c === "{") depth++;else
-              if (c === "}") {depth--;if (depth === 0) {finish(outputBuffer);return;}}
-            }
-            return; // JSON not yet complete, keep waiting
-          }
-          // For Claude Code: keep waiting until we have at least 10 non-noise characters
-          if (!isOpenClaw) {
-            const stripped = outputBuffer.replace(/\x1b[\s\S]{1,10}/g, "").replace(/[%$#>\[\]?;=\r\n\s]/g, "");
-            if (stripped.length < 10) {
-              // Not enough substantive content yet — reschedule up to budget
-              if (substantiveWaitCount++ < MAX_SUBSTANTIVE_WAITS) { resetSilence(); return; }
-            }
-          }
-          finish(outputBuffer);
-        }, SILENCE_MS);
-      };
-
-      hardTimeout = setTimeout(() => finish(new Error("Response timed out after 30s")), RELAY_TIMEOUT_MS);
-
-      ws.onopen = () => {
-        ws.send(JSON.stringify({
-          type: "auth",
-          data: { token: jwt, session_id: sessionId, device_id: selectedDeviceId }
-        }));
-        // Expose this session so option buttons can inject stdin directly
-        activeRelaySessionRef.current = { ws, sessionId, resetSilence };
-        // Mirror session ID into the key TerminalSession reads so opening the
-        // terminal page resumes this exact PTY session rather than starting a new one.
-        if (selectedDeviceId) {
-          const key = `relay-session-${selectedDeviceId}`;
-          sessionStorage.setItem(key, sessionId);
-          localStorage.setItem(key, sessionId);
-        }
-      };
-
-      ws.onmessage = (event) => {
-        try {
-          const msg: RelayMsg = JSON.parse(event.data);
-          if (msg.type === "auth_ok") {
-            ws.send(JSON.stringify({ type: "session_start", data: { session_id: sessionId, cols: 200, rows: 50 } }));
-            // Prompt detection: wait until stdout contains a recognisable shell prompt
-            // before sending the command, rather than relying on fixed delays.
-            let promptSent = false;
-            const PROMPT_RE = /(?:[%$#➜❯>]\s*$)|(?:\$\s+$)/m;
-            const PROMPT_TIMEOUT = 5000;
-            const promptDeadline = setTimeout(() => {
-              if (!promptSent) { promptSent = true; sendCommand(); }
-            }, PROMPT_TIMEOUT);
-            const checkPrompt = () => {
-              if (promptSent) return;
-              // Strip ANSI from the accumulated buffer before testing
-              const plain = outputBuffer
-                .replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, "")
-                .replace(/\x1b\[[\x30-\x3f]*[\x20-\x2f]*[\x40-\x7e]/g, "")
-                .replace(/\x1b[^[\]]/g, "")
-                .replace(/\x1b/g, "");
-              if (PROMPT_RE.test(plain)) {
-                clearTimeout(promptDeadline);
-                promptSent = true;
-                sendCommand();
-              }
-            };
-            const sendCommand = () => {
-              outputBuffer = ""; // discard shell init noise
-              ws.send(JSON.stringify({ type: "stdin", data: { session_id: sessionId, data_b64: btoa(command) } }));
-              resetSilence();
-            };
-            // Patch the stdout handler to also run the prompt check
-            const origOnMessage = ws.onmessage;
-            ws.onmessage = (event) => {
-              origOnMessage?.call(ws, event);
-              if (!promptSent) checkPrompt();
-            };
-          } else if (msg.type === "stdout") {
-            const { data_b64 } = (msg.data ?? {}) as {data_b64: string;};
-            if (data_b64) {
-              try {
-                const chunk = decodeURIComponent(escape(atob(data_b64)));
-                outputBuffer += chunk;
-                onChunk?.(chunk);
-                substantiveWaitCount = 0;
-                resetSilence();
-              } catch {
-                const chunk = atob(data_b64);
-                outputBuffer += chunk;
-                onChunk?.(chunk);
-                substantiveWaitCount = 0;
-                resetSilence();
-              }
-            }
-          } else if (msg.type === "session_end") {
-            finish(outputBuffer);
-          } else if (msg.type === "error") {
-            const { message } = (msg.data ?? {}) as {message?: string;};
-            finish(new Error(message ?? "Relay error"));
-          }
-        } catch {/* ignore */}
-      };
-
-      ws.onerror = (e) => {console.error("[Relay] WebSocket error", e);finish(new Error("WebSocket error"));};
-      ws.onclose = (e) => {
-        // If the WebSocket closes unexpectedly (e.g. relay rejected the session) and we haven't finished yet, resolve with whatever we have
-        if (silenceTimer || hardTimeout) finish(outputBuffer || new Error(`WebSocket closed (code ${e.code})`));
-      };
-    });
-  }, [selectedDeviceId]);
+  }, [selectedDeviceId, relay]);
 
   // ── Build command string ───────────────────────────────────────────────
   const buildCommand = useCallback(async (text: string, convId: string, selectedModel: string): Promise<string> => {
@@ -2020,12 +1839,9 @@ export default function Chat() {
   // ── Abort streaming ────────────────────────────────────────────────────
   const handleAbort = useCallback(() => {
     // Send Ctrl+C (\x03) to the active PTY session so the agent process actually terminates
-    const session = activeRelaySessionRef.current;
-    if (session && session.ws.readyState === WebSocket.OPEN) {
-      session.ws.send(JSON.stringify({
-        type: "stdin",
-        data: { session_id: session.sessionId, data_b64: btoa("\x03") },
-      }));
+    const sessionId = relay.getSessionId();
+    if (sessionId) {
+      relay.sendRawStdin(sessionId, btoa("\x03"));
     }
     abortStreamRef.current = true;
     if (streamIntervalRef.current) {
@@ -2036,7 +1852,7 @@ export default function Chat() {
     setThinking(false);
     stopActivity();
     setTimeout(() => textareaRef.current?.focus(), 50);
-  }, [stopActivity]);
+  }, [stopActivity, relay]);
 
   // ── Option-select: inject stdin directly into the active PTY session ──────
   // This is the correct way to respond to agent prompts (tool approvals, yes/no, etc.)
@@ -2044,8 +1860,8 @@ export default function Chat() {
   const handleOptionSelect = useCallback((opt: string, msgIndex: number) => {
     // Mark this message as answered so its option buttons disappear
     setAnsweredMsgIndices(prev => new Set([...prev, msgIndex]));
-    const session = activeRelaySessionRef.current;
-    if (session && session.ws.readyState === WebSocket.OPEN) {
+    const sessionId = relay.getSessionId();
+    if (sessionId && relay.getSessionStatus() !== "idle") {
       // Normalize: map friendly labels back to the single-char / short form the agent expects
       // e.g. "Approve" → "y", "Deny" → "n", "Yes" → "y", "No" → "n"
       const normalized = (() => {
@@ -2055,10 +1871,7 @@ export default function Chat() {
         return opt.trim();
       })();
       const payload = normalized + "\n";
-      session.ws.send(JSON.stringify({
-        type: "stdin",
-        data: { session_id: session.sessionId, data_b64: btoa(payload) }
-      }));
+      relay.sendRawStdin(sessionId, btoa(payload));
       // Show the selected option as a user message for visual context
       setMessages(prev => [...prev, { role: "user", content: opt }]);
       // Re-enter thinking state so the live activity feed shows agent is processing
@@ -2066,8 +1879,6 @@ export default function Chat() {
       startActivity();
       setLiveLog([]);
       liveLogAccRef.current = "";
-      // Reset the silence timer — the agent will produce more output after receiving input
-      session.resetSilence();
     } else {
       // Fallback: no active session (agent already finished), start a new message
       setInput(opt);
