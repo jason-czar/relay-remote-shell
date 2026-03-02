@@ -952,7 +952,9 @@ if [ -f "$CONFIG" ] && grep -q '"device_id"' "$CONFIG" 2>/dev/null; then
   echo "ℹ️  Already paired — skipping pairing step"
 else
   echo "🔗 Pairing device..."
-  "$FULL_BINARY" --pair "$PAIR_CODE" --api "$API_URL" --name "$(hostname)"
+  # Do NOT pass --name here — the device record already has the user-chosen name
+  # from the setup wizard. Passing hostname would overwrite it.
+  "$FULL_BINARY" --pair "$PAIR_CODE" --api "$API_URL"
 fi
 
 # Remove quarantine again right before launch (launchctl spawns a fresh process
