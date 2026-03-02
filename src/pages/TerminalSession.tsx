@@ -230,30 +230,16 @@ export default function TerminalSession() {
       devRef.current = dev;
       setDevice(dev);
 
+      // Always attempt to resume a persisted session — the relay probe (+ 3 s fallback)
+      // is the sole authority on whether the PTY is still alive.  We intentionally skip
+      // the DB status check here because the relay marks sessions "ended" as soon as the
+      // browser WebSocket closes, even during a temporary page reload.
       let sessionId = resumeSessionId ?? getPersistedSessionId();
       let isResume = false;
 
       if (sessionId) {
-        const { data: existing } = await supabase.from("sessions").select("id, status").eq("id", sessionId).single();
-        if (!existing || existing.status !== "active") {
-          sessionId = null;
-          clearPersistedSessionId();
-        } else {
-          isResume = true;
-          term.writeln(`\x1b[33m⟳ Resuming session ${sessionId.slice(0, 8)}...\x1b[0m`);
-        }
-      }
-
-      if (!sessionId) {
-        const { data: activeSessions } = await supabase
-          .from("sessions").select("id")
-          .eq("device_id", deviceId).eq("user_id", user!.id).eq("status", "active")
-          .order("started_at", { ascending: false }).limit(1);
-        if (activeSessions?.length) {
-          sessionId = activeSessions[0].id;
-          isResume = true;
-          term.writeln(`\x1b[33m⟳ Resuming active session ${sessionId.slice(0, 8)}...\x1b[0m`);
-        }
+        isResume = true;
+        term.writeln(`\x1b[33m⟳ Resuming session ${sessionId.slice(0, 8)}...\x1b[0m`);
       }
 
       if (!sessionId) {
