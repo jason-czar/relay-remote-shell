@@ -2366,17 +2366,19 @@ export default function Chat() {
               {ptySessionId && selectedDeviceId && (
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium text-[hsl(var(--status-online)/0.8)] bg-[hsl(var(--status-online)/0.08)] border border-[hsl(var(--status-online)/0.18)] select-none cursor-default">
+                    <button
+                      onClick={() => setDevicePanelOpen(true)}
+                      className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium text-[hsl(var(--status-online)/0.8)] bg-[hsl(var(--status-online)/0.08)] border border-[hsl(var(--status-online)/0.18)] hover:bg-[hsl(var(--status-online)/0.15)] hover:border-[hsl(var(--status-online)/0.3)] transition-colors cursor-pointer select-none">
                       <Terminal className="h-3 w-3 shrink-0" />
                       <span className="font-mono">{ptySessionId.slice(0, 8)}…</span>
                       <span className={cn(
                         "w-1.5 h-1.5 rounded-full shrink-0 bg-[hsl(var(--status-online))]",
                         thinking ? "animate-pulse" : "opacity-50"
                       )} />
-                    </div>
+                    </button>
                   </TooltipTrigger>
                   <TooltipContent side="bottom" className="text-xs max-w-xs">
-                    <p className="font-semibold mb-0.5">Shared terminal session</p>
+                    <p className="font-semibold mb-0.5">Open terminal panel</p>
                     <p className="font-mono text-muted-foreground">{ptySessionId}</p>
                     <p className="text-muted-foreground mt-1">Chat &amp; terminal share this PTY — shell state persists between messages.</p>
                   </TooltipContent>
