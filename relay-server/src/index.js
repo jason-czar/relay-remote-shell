@@ -333,6 +333,20 @@ connectorWSS.on("connection", (ws) => {
       return;
     }
 
+    // ── meta_update from connector — store in connectorMeta and fan-out to browsers ──
+    if (msg.type === "meta_update") {
+      const existingMeta = connectorMeta.get(deviceId) || {};
+      connectorMeta.set(deviceId, { ...existingMeta, ...(msg.data || {}) });
+      console.log(`[connector] ${deviceId.slice(0, 8)} meta_update:`, msg.data);
+      // Broadcast to all browser sessions currently connected to this device
+      for (const [, session] of browserSessions) {
+        if (session.device_id === deviceId && session.browser?.readyState === 1) {
+          send(session.browser, { type: "device_meta", data: { device_id: deviceId, ...(msg.data || {}) } });
+        }
+      }
+      return;
+    }
+
     // ── error from connector → browser (terminal session scoped) ──
     if (msg.type === "error") {
       const sessionId = msg.data?.session_id;

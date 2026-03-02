@@ -104,6 +104,7 @@ type RelayClient struct {
 	config        *Config
 	shell         string
 	workdir       string
+	probeResult   *ShellProbeResult // set before Connect(); emitted after hello_ok
 	conn          *websocket.Conn
 	sessions      map[string]*PTYSession
 	wsTunnels     map[string]*WSTunnel
@@ -231,6 +232,15 @@ func (c *RelayClient) handleMessage(msg Message) {
 					c.workdir = helloOkData.Workdir
 				}
 			}
+		}
+		// Emit shell probe result to relay so the UI can show live compatibility status
+		if c.probeResult != nil {
+			probeData, _ := json.Marshal(map[string]interface{}{
+				"shell_probe_ok":     c.probeResult.OK,
+				"shell_probe_shell":  c.probeResult.Shell,
+				"shell_probe_detail": c.probeResult.Detail,
+			})
+			c.sendMessage("meta_update", probeData)
 		}
 
 	case "session_start":
@@ -526,14 +536,17 @@ func (c *RelayClient) sendHTTPError(requestID string, statusCode int, message st
 
 // ─── PTY Session Handlers ───────────────────────────────────────────
 
+// ShellProbeResult holds the result of a shell compatibility probe.
+type ShellProbeResult struct {
+	OK     bool   `json:"ok"`
+	Shell  string `json:"shell"`
+	Detail string `json:"detail,omitempty"`
+}
+
 // ProbeShell runs a quick sanity check on the configured shell at startup.
-// It executes `echo ok` using the same args strategy as a real session and
-// warns loudly if anything is wrong, so misconfiguration is caught before
-// the first user connects.
-func ProbeShell(shellPath string) {
+// Returns a ShellProbeResult so callers can emit the result to the relay.
+func ProbeShell(shellPath string) ShellProbeResult {
 	args := shellArgs(shellPath)
-	// Replace the login/interactive wrapper with a simple one-shot command.
-	// For every shell family we just want: shell <flag> 'echo ok'
 	var probeArgs []string
 	base := strings.ToLower(filepath.Base(shellPath))
 	if idx := strings.Index(base, "-"); idx > 0 {
@@ -553,6 +566,7 @@ func ProbeShell(shellPath string) {
 	cmd.Env = append(os.Environ(), "TERM=dumb")
 	out, err := cmd.Output()
 	if err != nil {
+		detail := fmt.Sprintf("shell %s failed to start: %v (os=%s/%s, args=%v) — restart with --shell /bin/bash", shellPath, err, runtime.GOOS, runtime.GOARCH, args)
 		log.Printf("╔══════════════════════════════════════════════════════╗")
 		log.Printf("║  SHELL PROBE FAILED — sessions will not work         ║")
 		log.Printf("╠══════════════════════════════════════════════════════╣")
@@ -562,13 +576,15 @@ func ProbeShell(shellPath string) {
 		log.Printf("║  OS    : %s/%s", runtime.GOOS, runtime.GOARCH)
 		log.Printf("║  Fix   : restart with --shell /bin/bash or /bin/sh   ║")
 		log.Printf("╚══════════════════════════════════════════════════════╝")
-		return
+		return ShellProbeResult{OK: false, Shell: shellPath, Detail: detail}
 	}
 	if strings.TrimSpace(string(out)) != "ok" {
-		log.Printf("[probe] WARNING: shell probe returned unexpected output: %q (expected \"ok\")", strings.TrimSpace(string(out)))
-		return
+		detail := fmt.Sprintf("shell %s returned unexpected probe output: %q", shellPath, strings.TrimSpace(string(out)))
+		log.Printf("[probe] WARNING: %s", detail)
+		return ShellProbeResult{OK: false, Shell: shellPath, Detail: detail}
 	}
 	log.Printf("[probe] shell OK ✓  (%s)", shellPath)
+	return ShellProbeResult{OK: true, Shell: shellPath}
 }
 
 func shellArgs(shellPath string) []string {

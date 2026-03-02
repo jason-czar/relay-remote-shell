@@ -363,7 +363,12 @@ export function DevicePanel({ open, onClose, devices, selectedDeviceId, onSelect
 
   // Reset state when panel closes
   useEffect(() => {
-    if (!open) { setShowAdd(false); setConfirmDeleteId(null); setExpandedOfflineId(null); }
+    if (!open) {
+      setShowAdd(false); setConfirmDeleteId(null); setExpandedOfflineId(null);
+      // Close all monitor WebSockets
+      Object.values(metaMonitorWsRef.current).forEach((ws) => ws.close());
+      metaMonitorWsRef.current = {};
+    }
   }, [open]);
 
   const handleDeviceAdded = useCallback((d: Tables<"devices">) => {
@@ -590,12 +595,60 @@ export function DevicePanel({ open, onClose, devices, selectedDeviceId, onSelect
 
   // ── Auto-trigger version check when a device comes online ─────────────────
   const prevStatusRef = useRef<Record<string, string>>({});
+  // Track monitor WebSockets for device_meta subscription (deviceId → ws)
+  const metaMonitorWsRef = useRef<Record<string, WebSocket>>({});
+
   useEffect(() => {
     const prev = prevStatusRef.current;
     devices.forEach((d) => {
       if (d.status === "online" && prev[d.id] !== "online") {
         if (!versionChecks[d.id]) handleVersionCheck(d.id);
         if (!shellProbes[d.id]) handleShellProbe(d.id);
+
+        // Open a persistent monitor WS to receive real-time device_meta pushes
+        if (!metaMonitorWsRef.current[d.id]) {
+          (async () => {
+            const { data: sesData } = await supabase.functions.invoke("start-session", { body: { device_id: d.id } });
+            if (!sesData?.session_id) return;
+            const relayUrl = (import.meta.env.VITE_RELAY_URL || "wss://relay.privaclaw.com")
+              .replace("https://", "wss://").replace("http://", "ws://");
+            const { data: { session: authSession } } = await supabase.auth.getSession();
+            const jwt = authSession?.access_token;
+            if (!jwt) return;
+            const ws = new WebSocket(`${relayUrl}/session`);
+            metaMonitorWsRef.current[d.id] = ws;
+            ws.onopen = () => {
+              ws.send(JSON.stringify({ type: "auth", data: { token: jwt, session_id: sesData.session_id, device_id: d.id } }));
+            };
+            ws.onmessage = (event) => {
+              try {
+                const msg = JSON.parse(event.data);
+                if (msg.type === "device_meta" && msg.data) {
+                  const { shell_probe_ok, shell_probe_shell, shell_probe_detail } = msg.data as {
+                    shell_probe_ok?: boolean; shell_probe_shell?: string; shell_probe_detail?: string;
+                  };
+                  if (shell_probe_ok !== undefined) {
+                    setShellProbes((prev) => ({
+                      ...prev,
+                      [d.id]: {
+                        status: shell_probe_ok ? "ok" : "warning",
+                        shell: shell_probe_shell,
+                        detail: shell_probe_detail,
+                      },
+                    }));
+                  }
+                }
+              } catch { /* ignore */ }
+            };
+            ws.onclose = () => { delete metaMonitorWsRef.current[d.id]; };
+            ws.onerror = () => { delete metaMonitorWsRef.current[d.id]; };
+          })();
+        }
+      }
+      // Close monitor WS when device goes offline
+      if (d.status === "offline" && metaMonitorWsRef.current[d.id]) {
+        metaMonitorWsRef.current[d.id].close();
+        delete metaMonitorWsRef.current[d.id];
       }
     });
     const next: Record<string, string> = {};
