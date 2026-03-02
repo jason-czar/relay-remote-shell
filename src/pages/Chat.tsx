@@ -646,6 +646,13 @@ export default function Chat() {
   }>>({});
   // ── Per-session pending message queue (flushed after agent readiness) ─────
   const pendingQueueRef = useRef<Record<string, string[]>>({});
+  // ── PTY death cleanup — aligned with real terminal lifecycle ─────────────
+  const handleSessionReset = useCallback((deadSessionId?: string) => {
+    if (!deadSessionId) return;
+    delete runtimeAgentsRef.current[deadSessionId];
+    delete pendingQueueRef.current[deadSessionId];
+    setAwaitingApproval(null);
+  }, []);
   // ── Readiness detection regexes ───────────────────────────────────────────
   const AGENT_READY_RE = {
     codex: /Approval mode:|Model:|workdir:/i,
@@ -1261,12 +1268,7 @@ export default function Chat() {
           if (mode === "never" || mode === "full-auto") return;
           setAwaitingApproval({ sessionId: sid, options });
         },
-        onSessionReset: (deadSessionId: string) => {
-          // PTY died — clear runtime agent state and pending queue for this session
-          delete runtimeAgentsRef.current[deadSessionId];
-          delete pendingQueueRef.current[deadSessionId];
-          setAwaitingApproval(null);
-        },
+        onSessionReset: handleSessionReset,
       });
       setRelayStatus("idle");
       return result;
