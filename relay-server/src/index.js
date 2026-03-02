@@ -551,18 +551,25 @@ browserWSS.on("connection", (ws) => {
         return;
       }
 
-      // Check connector is online
-      const connectorWs = connectors.get(device_id);
+      // Canonicalize device_id from the session record (don't trust client-provided value)
+      const canonicalDeviceId = session.device_id;
+      if (device_id !== canonicalDeviceId) {
+        console.warn(`[browser] session ${session_id.slice(0, 8)} device_id mismatch: client=${device_id?.slice(0, 8)} db=${canonicalDeviceId?.slice(0, 8)} — using DB value`);
+      }
+
+      // Check connector is online using the canonical device_id from DB
+      const connectorWs = connectors.get(canonicalDeviceId);
       if (!connectorWs || connectorWs.readyState !== 1) {
+        console.warn(`[browser] connector offline for device ${canonicalDeviceId?.slice(0, 8)} (session ${session_id.slice(0, 8)})`);
         send(ws, { type: "error", data: { message: "Device connector is not online" } });
         ws.close(4003, "Connector offline");
         return;
       }
 
       sessionId = session_id;
-      deviceId = device_id;
+      deviceId = canonicalDeviceId;
       authenticated = true;
-      browserSessions.set(session_id, { browser: ws, device_id });
+      browserSessions.set(session_id, { browser: ws, device_id: canonicalDeviceId });
 
       // Cancel any pending grace-period timer for this session (iOS app-switch reconnect)
       const graceTimer = sessionGraceTimers.get(session_id);
@@ -581,7 +588,7 @@ browserWSS.on("connection", (ws) => {
         });
       }
 
-      console.log(`[browser] session ${session_id.slice(0, 8)} → device ${device_id.slice(0, 8)}`);
+      console.log(`[browser] auth_ok session ${session_id.slice(0, 8)} → device ${canonicalDeviceId.slice(0, 8)} (client sent ${device_id?.slice(0, 8)})`);
 
       // Send scrollback buffer if there's existing output for this session
       const existingRec = sessionRecordings.get(session_id);
