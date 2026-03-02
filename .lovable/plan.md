@@ -1,70 +1,64 @@
 
-## What we're implementing
+## Understanding the Problem
 
-Three targeted fixes to the existing plan, confirmed by ChatGPT's final review. The core REPL spawn architecture, runtimeAgentsRef, pendingQueueRef, readiness detection, and approval UI are all already in the plan — we only need these 3 surgical additions before proceeding.
+The user is pointing out that when Codex (or Claude) is running as an agent in a chat conversation, the system sends messages to Codex by:
+1. Running `codex\n` on the PTY to spawn the Codex REPL (first message)
+2. Sending subsequent messages as raw stdin directly into that running Codex REPL process
 
----
+This means the conversation with Codex happens **inside the running PTY** — the user types in the chat composer, which gets piped as stdin to the Codex process running in the terminal. The bottom terminal pane should show exactly what's happening in that PTY — the Codex banner, the user's typed messages appearing at the Codex prompt, and Codex's responses.
 
-## Fix 1 — Trust-gate readiness guard (`Chat.tsx`)
+**The user confirmed**: they manually ran `codex` in their terminal to start a session, and are typing into that Codex window. The chat system is supposed to be doing this automatically and the terminal drawer should show it live.
 
-**Problem:** Codex can print `"Approval mode: suggest"` *before* the trust gate prompt, causing `AGENT_READY_RE` to fire too early, marking the agent ready while it's still blocked on the trust check.
+## The Real Issue
 
-**Fix:** Add `TRUST_BLOCK_RE` and gate readiness on both conditions:
+The terminal drawer in Chat.tsx currently uses `convId={null}` which means it reads from the **device-level** session key (`relay-session-${deviceId}`). But the actual chat session for that conversation might be stored under a conversation-scoped key.
 
-```ts
-const TRUST_BLOCK_RE = /Not inside a trusted directory|Working with untrusted/i;
-```
+More critically: the `EmbeddedTerminal` component connects via its **own WebSocket** to the relay. It's showing the PTY output, but there's a disconnect:
 
-In the `onChunk` readiness detection:
-```ts
-// Only mark ready if banner seen AND trust block is NOT active in the buffer
-if (AGENT_READY_RE.codex.test(chunk) && !TRUST_BLOCK_RE.test(outputBuffer)) {
-  state.ready = true;
-  // flush pending queue...
-}
-```
+1. `sendViaRelay` (in `usePersistentRelaySession`) uses its own short-lived WebSocket per command, writing stdin and reading stdout
+2. `EmbeddedTerminal` uses a **separate** persistent WebSocket to the same PTY session
+3. Both should show the same PTY output IF they're connected to the same `sessionId`
 
----
+The core question is: **why isn't the terminal drawer showing the output?**
 
-## Fix 2 — Session-scoped pending queue (`Chat.tsx`)
+Looking at `mirrorSessionId` — it writes to both `localStorage` and `sessionStorage` with both the conv-scoped key AND the device-level key. So `convId={null}` in EmbeddedTerminal should pick up the same session.
 
-**Problem:** `pendingQueueRef = useRef<string[]>([])` is global. In a multi-device setup, messages queued for one PTY could flush into another.
+BUT: `EmbeddedTerminal` reads from `getPersistedSessionId()` which reads from `localStorage` with the device key. When a new conversation starts or `codex\n` is sent, the session ID gets mirrored. However the EmbeddedTerminal **initializes once** and doesn't re-subscribe when the session ID changes — it only re-initializes when `convId` or `deviceId` props change.
 
-**Fix:** Change type to `Record<string, string[]>` keyed by sessionId:
+## Root Cause
 
-```ts
-const pendingQueueRef = useRef<Record<string, string[]>>({});
-```
+The terminal drawer's `EmbeddedTerminal` component initializes when `showTerminalDrawer` becomes `true`. At that point, it reads the persisted session ID and connects. But the problem is likely that:
 
-All queue reads/writes use `pendingQueueRef.current[sessionId]`.  
-PTY death cleanup adds: `delete pendingQueueRef.current[deadSessionId]`.
+1. The EmbeddedTerminal connects to the PTY but `EmbeddedTerminal` uses its own `sessionStorage` key lookup, and the timing between "session created" and "terminal connected" might cause it to miss the session
+2. The terminal is showing — the user sees "Connected" in the screenshot — but the Codex output from `sendViaRelay` isn't showing because `sendViaRelay` uses its own separate WS connection
 
----
+The real fix: The terminal drawer needs to use the **same session ID** that the chat relay hook is using for the active conversation. The most reliable approach is to pass `convId={activeConvId}` instead of `null`, so both the relay hook and the terminal use the same session key lookup.
 
-## Fix 3 — Only call `onAwaitingInput` for blocking prompts (`usePersistentRelaySession.ts`)
+But wait — looking at the previous diff, `convId={null}` was set intentionally because "device-level key is mirrored on every command". The problem is that `EmbeddedTerminal` connects **once** at mount and stays connected. When `sendViaRelay` finishes a command, it **closes the WebSocket** (line: `if (ws.readyState === WebSocket.OPEN) ws.close()`). The terminal's separate persistent WS however stays open and receives stdout in real-time from the relay's broadcast.
 
-**Problem:** The current plan calls `onAwaitingInput` whenever `AWAITING_INPUT_RE` matches. This would surface buttons for informational agent suggestions like "Would you like to refactor this?" which are not blocking prompts.
+So the terminal SHOULD be showing output... unless the terminal drawer's WS isn't connecting to the right session, or the relay isn't broadcasting stdout to multiple WS connections simultaneously.
 
-**Fix:** Add `BLOCKING_PROMPT_RE` and gate `onAwaitingInput` on both:
+## The Architectural Fix
 
-```ts
-const BLOCKING_PROMPT_RE = /Do you trust|Not inside a trusted directory|Working with untrusted|\[Y\/n\]|\(y\/n\)|password:|Proceed\?|Continue\?/i;
-```
+The cleanest solution is:
 
-In `resetSilence`, only call `onAwaitingInput` when both fire:
-```ts
-if (AWAITING_INPUT_RE.test(stripped) && BLOCKING_PROMPT_RE.test(stripped)) {
-  onAwaitingInputRef.current?.(extractOptions(stripped));
-}
-```
+**Pass `convId={activeConvId}` to the EmbeddedTerminal in the drawer** so it uses the exact same session key as the relay hook. Then ensure it re-connects when `activeConvId` changes.
 
----
+The `mirrorSessionId` function already writes to the conversation-scoped key AND the device-level key. So passing `convId={activeConvId}` means the terminal looks up `relay-session-${deviceId}-${convId}` — exactly what the relay hook stores.
 
-## Files to change
+Additionally, the EmbeddedTerminal needs to reconnect whenever the session ID changes (e.g., when a new conversation is created and a new PTY session is started). Currently the terminal only re-initializes if the `convId` prop changes. Since `activeConvId` is passed as a prop and changes when switching conversations, this will naturally trigger re-initialization.
 
-| File | Change |
-|---|---|
-| `src/hooks/usePersistentRelaySession.ts` | Add `BLOCKING_PROMPT_RE`; gate `onAwaitingInput` call on both `AWAITING_INPUT_RE` + `BLOCKING_PROMPT_RE` |
-| `src/pages/Chat.tsx` | Add `TRUST_BLOCK_RE`; guard readiness with trust-block check; change `pendingQueueRef` to `Record<string, string[]>` keyed by sessionId; update all queue accesses and PTY death cleanup |
+## Plan
 
-These are small, surgical changes — no new files, no structural rewrites. The full REPL spawn implementation from the prior plan is still needed and will be built alongside these.
+**File to edit: `src/pages/Chat.tsx`**
+
+1. Change `<EmbeddedTerminal deviceId={selectedDeviceId} convId={null} />` to `<EmbeddedTerminal deviceId={selectedDeviceId} convId={activeConvId} />` in the terminal drawer
+
+This ensures:
+- The terminal drawer connects to `relay-session-${deviceId}-${convId}` — the exact same session key the relay hook populates
+- When the user switches conversations, the terminal automatically reconnects to that conversation's PTY session
+- When a new message is sent, `mirrorSessionId` updates this key, and the EmbeddedTerminal (which is already connected and listening) sees the output in real-time
+
+**File to check: `src/components/EmbeddedTerminal.tsx`** — verify that `convId` changes trigger a proper reconnect (re-run the useEffect initialization).
+
+This is a minimal, targeted fix.
