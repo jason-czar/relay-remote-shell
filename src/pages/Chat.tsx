@@ -1538,6 +1538,8 @@ export default function Chat() {
       s.
       // OSC sequences: ESC ] ... BEL or ESC \
       replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, "").
+      // Cursor-forward (ESC [ n C) used by Claude Code as word spacing → replace with space
+      replace(/\x1b\[(\d+)C/g, (_, n) => " ".repeat(Math.min(Number(n), 4))).
       // CSI sequences: ESC [ ... final-byte
       replace(/\x1b\[[\x30-\x3f]*[\x20-\x2f]*[\x40-\x7e]/g, "").
       // DCS/SOS/PM/APC/ST sequences
@@ -2152,6 +2154,7 @@ export default function Chat() {
       (async () => {
         const stripAnsi = (s: string) =>
         s.replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, "").
+        replace(/\x1b\[(\d+)C/g, (_, n) => " ".repeat(Math.min(Number(n), 4))).
         replace(/\x1b\[[\x30-\x3f]*[\x20-\x2f]*[\x40-\x7e]/g, "").
         replace(/\x1b[PX^_].*?\x1b\\/g, "").
         replace(/\x1b[^[\]PX^_]/g, "").

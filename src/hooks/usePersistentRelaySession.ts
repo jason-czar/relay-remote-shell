@@ -59,6 +59,7 @@ export function extractOptions(text: string): string[] {
 function stripAnsi(s: string): string {
   return s
     .replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, "")
+    .replace(/\x1b\[(\d+)C/g, (_, n) => " ".repeat(Math.min(Number(n), 4)))
     .replace(/\x1b\[[\x30-\x3f]*[\x20-\x2f]*[\x40-\x7e]/g, "")
     .replace(/\x1b[^[\]]/g, "")
     .replace(/\x1b/g, "");
