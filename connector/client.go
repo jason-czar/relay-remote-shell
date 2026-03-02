@@ -526,10 +526,10 @@ func (c *RelayClient) sendHTTPError(requestID string, statusCode int, message st
 func (c *RelayClient) startSession(data SessionStartData) {
 	log.Printf("Starting session %s (%dx%d)", data.SessionID, data.Cols, data.Rows)
 
-	// Spawn as a login shell (-l) so that /etc/profile, ~/.zprofile, ~/.bash_profile
-	// are sourced. This ensures npm/node global binaries (codex, claude, openclaw, etc.)
-	// installed via nvm or npm global are on PATH, matching a normal interactive terminal.
-	cmd := exec.Command(c.shell, "-l")
+	// Spawn as a login interactive shell (-lic) so that /etc/profile, ~/.zprofile,
+	// ~/.bash_profile are sourced and interactive PATH (npm globals, nvm, brew, etc.)
+	// is fully loaded — matching a real terminal session.
+	cmd := exec.Command(c.shell, "-lic", "exec "+c.shell)
 	cmd.Env = append(os.Environ(), "TERM=xterm-256color")
 
 	// Set working directory: prefer --workdir flag, fallback to home directory
