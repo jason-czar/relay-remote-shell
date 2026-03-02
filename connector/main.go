@@ -380,6 +380,8 @@ Wants=network-online.target
 ExecStart={{.Exe}}
 Restart=always
 RestartSec=5
+Environment="TERM=xterm-256color"
+Environment="COLORTERM=truecolor"
 
 [Install]
 WantedBy=default.target

@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 // Bump this whenever MAIN_GO or CLIENT_GO changes so --self-update-check can detect stale binaries.
-const SOURCE_VERSION = "2026-03-02T10:30:00Z";
+const SOURCE_VERSION = "2026-03-02T11:00:00Z";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -305,6 +305,8 @@ Wants=network-online.target
 ExecStart={{.Exe}}
 Restart=always
 RestartSec=5
+Environment="TERM=xterm-256color"
+Environment="COLORTERM=truecolor"
 
 [Install]
 WantedBy=default.target\`
