@@ -709,6 +709,9 @@ export default function Chat() {
   const [awaitingApproval, setAwaitingApproval] = useState<{ sessionId: string; options: string[] } | null>(null);
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [showTerminalDrawer, setShowTerminalDrawer] = useState(false);
+  const [terminalDrawerHeight, setTerminalDrawerHeight] = useState(380);
+  const terminalDragRef = useRef<{ startY: number; startH: number } | null>(null);
   const [showWizard, setShowWizard] = useState(false);
   const [projectId, setProjectId] = useState<string>("");
   const [relayStatus, setRelayStatus] = useState<"idle" | "connecting" | "retrying" | "failed">("idle");
@@ -2638,6 +2641,21 @@ export default function Chat() {
                 </PopoverContent>
               </Popover>
 
+              {/* Terminal drawer toggle */}
+              {selectedDeviceId && agent !== "terminal" && (
+                <button
+                  onClick={() => setShowTerminalDrawer(v => !v)}
+                  className={cn(
+                    "hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium transition-colors",
+                    showTerminalDrawer ? "bg-primary/10 text-primary" : "text-foreground/50 hover:text-foreground hover:bg-accent"
+                  )}
+                  title="Toggle terminal"
+                >
+                  <Terminal className="h-3.5 w-3.5" />
+                  <span>Terminal</span>
+                </button>
+              )}
+
               {/* Preview button */}
               {selectedDeviceId && (
                 <Popover open={previewPopoverOpen} onOpenChange={setPreviewPopoverOpen}>
@@ -3096,6 +3114,74 @@ export default function Chat() {
               onSwitchToChat={() => setPreviewTab("chat")}
               onTabChange={(tab) => setPreviewTab(tab)}
             />
+          </div>
+        )}
+
+        {/* ── Bottom Terminal Drawer ──────────────────────────────────────────── */}
+        {showTerminalDrawer && selectedDeviceId && agent !== "terminal" && (
+          <div
+            className="absolute inset-x-0 bottom-0 z-40 flex flex-col rounded-t-2xl border border-border/50 bg-background shadow-2xl"
+            style={{ height: terminalDrawerHeight }}
+          >
+            {/* Drag handle + header */}
+            <div
+              className="flex items-center justify-between px-4 py-2 cursor-ns-resize shrink-0 select-none border-b border-border/30"
+              onMouseDown={(e) => {
+                terminalDragRef.current = { startY: e.clientY, startH: terminalDrawerHeight };
+                const onMove = (mv: MouseEvent) => {
+                  if (!terminalDragRef.current) return;
+                  const delta = terminalDragRef.current.startY - mv.clientY;
+                  const newH = Math.max(180, Math.min(window.innerHeight * 0.85, terminalDragRef.current.startH + delta));
+                  setTerminalDrawerHeight(newH);
+                };
+                const onUp = () => {
+                  terminalDragRef.current = null;
+                  window.removeEventListener("mousemove", onMove);
+                  window.removeEventListener("mouseup", onUp);
+                };
+                window.addEventListener("mousemove", onMove);
+                window.addEventListener("mouseup", onUp);
+              }}
+              onTouchStart={(e) => {
+                const touch = e.touches[0];
+                terminalDragRef.current = { startY: touch.clientY, startH: terminalDrawerHeight };
+                const onMove = (mv: TouchEvent) => {
+                  if (!terminalDragRef.current) return;
+                  const delta = terminalDragRef.current.startY - mv.touches[0].clientY;
+                  const newH = Math.max(180, Math.min(window.innerHeight * 0.85, terminalDragRef.current.startH + delta));
+                  setTerminalDrawerHeight(newH);
+                };
+                const onUp = () => {
+                  terminalDragRef.current = null;
+                  window.removeEventListener("touchmove", onMove);
+                  window.removeEventListener("touchend", onUp);
+                };
+                window.addEventListener("touchmove", onMove);
+                window.addEventListener("touchend", onUp);
+              }}
+            >
+              {/* Drag pill */}
+              <div className="absolute left-1/2 top-2 -translate-x-1/2 w-10 h-1 rounded-full bg-border/60" />
+              <div className="flex items-center gap-2 mt-1">
+                <Terminal className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-xs font-medium text-muted-foreground">Terminal</span>
+                {ptySessionId && (
+                  <span className="font-mono text-[10px] text-muted-foreground/40">{ptySessionId.slice(0, 8)}…</span>
+                )}
+              </div>
+              <button
+                onClick={() => setShowTerminalDrawer(false)}
+                className="mt-1 flex items-center justify-center w-6 h-6 rounded-full hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+                title="Close terminal"
+              >
+                <ChevronDown className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Terminal itself */}
+            <div className="flex-1 min-h-0 overflow-hidden">
+              <EmbeddedTerminal deviceId={selectedDeviceId} convId={activeConvId} />
+            </div>
           </div>
         )}
       </div>
