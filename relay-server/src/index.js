@@ -21,7 +21,7 @@ const startedAt = Date.now();
 const connectors = new Map();
 // device_id → { connected_at, last_heartbeat, meta }
 const connectorMeta = new Map();
-// session_id → { browser: ws, device_id: string }
+// session_id → { browsers: Set<ws>, device_id: string }
 const browserSessions = new Map();
 // session_id → { frames: [{t, d}], startedAt: number }
 const sessionRecordings = new Map();
@@ -340,8 +340,10 @@ connectorWSS.on("connection", (ws) => {
       console.log(`[connector] ${deviceId.slice(0, 8)} meta_update:`, msg.data);
       // Broadcast to all browser sessions currently connected to this device
       for (const [, session] of browserSessions) {
-        if (session.device_id === deviceId && session.browser?.readyState === 1) {
-          send(session.browser, { type: "device_meta", data: { device_id: deviceId, ...(msg.data || {}) } });
+        if (session.device_id === deviceId) {
+          for (const bws of session.browsers) {
+            if (bws.readyState === 1) send(bws, { type: "device_meta", data: { device_id: deviceId, ...(msg.data || {}) } });
+          }
         }
       }
       return;
@@ -351,8 +353,10 @@ connectorWSS.on("connection", (ws) => {
     if (msg.type === "error") {
       const sessionId = msg.data?.session_id;
       const session = browserSessions.get(sessionId);
-      if (session?.browser?.readyState === 1) {
-        send(session.browser, msg);
+      if (session) {
+        for (const bws of session.browsers) {
+          if (bws.readyState === 1) send(bws, msg);
+        }
       }
       return;
     }
@@ -361,8 +365,10 @@ connectorWSS.on("connection", (ws) => {
     if (msg.type === "stdout" || msg.type === "session_started" || msg.type === "session_end") {
       const sessionId = msg.data?.session_id;
       const session = browserSessions.get(sessionId);
-      if (session?.browser?.readyState === 1) {
-        send(session.browser, msg);
+      if (session) {
+        for (const bws of session.browsers) {
+          if (bws.readyState === 1) send(bws, msg);
+        }
       }
 
       // ── Record stdout frames ──
@@ -406,11 +412,15 @@ connectorWSS.on("connection", (ws) => {
       const endedAt = new Date().toISOString();
       for (const [sessionId, session] of browserSessions) {
         if (session.device_id === deviceId) {
-          if (session.browser?.readyState === 1) {
-            send(session.browser, {
-              type: "session_end",
-              data: { session_id: sessionId, reason: "connector_disconnected" },
-            });
+          if (session.browsers) {
+            for (const bws of session.browsers) {
+              if (bws.readyState === 1) {
+                send(bws, {
+                  type: "session_end",
+                  data: { session_id: sessionId, reason: "connector_disconnected" },
+                });
+              }
+            }
           }
           browserSessions.delete(sessionId);
           await saveRecording(sessionId);
@@ -583,7 +593,13 @@ browserWSS.on("connection", (ws) => {
       sessionId = session_id;
       deviceId = canonicalDeviceId;
       authenticated = true;
-      browserSessions.set(session_id, { browser: ws, device_id: canonicalDeviceId });
+      // Add this WS to the Set of subscribers for this session (multi-client broadcast)
+      const existing = browserSessions.get(session_id);
+      if (existing) {
+        existing.browsers.add(ws);
+      } else {
+        browserSessions.set(session_id, { browsers: new Set([ws]), device_id: canonicalDeviceId });
+      }
 
       // Cancel any pending grace-period timer for this session (iOS app-switch reconnect)
       const graceTimer = sessionGraceTimers.get(session_id);
@@ -640,8 +656,16 @@ browserWSS.on("connection", (ws) => {
   ws.on("close", async () => {
     clearInterval(heartbeat);
     if (sessionId && deviceId) {
+      // Remove this WS from the subscriber Set for the session
+      const session = browserSessions.get(sessionId);
+      if (session) {
+        session.browsers.delete(ws);
+        // Only trigger grace timer when the LAST subscriber disconnects
+        if (session.browsers.size > 0) return;
+        browserSessions.delete(sessionId);
+      }
+
       console.log(`[browser] session ${sessionId.slice(0, 8)} disconnected — grace period ${SESSION_GRACE_MS / 1000}s`);
-      browserSessions.delete(sessionId);
 
       // Give the browser (especially iOS) a grace window to reconnect before ending the session
       const timer = setTimeout(async () => {
@@ -730,7 +754,7 @@ process.on("SIGTERM", () => {
     ws.close(1001, "Server shutting down");
   }
   for (const [id, session] of browserSessions) {
-    session.browser?.close(1001, "Server shutting down");
+    for (const bws of session.browsers) bws.close(1001, "Server shutting down");
   }
   for (const [id, tunnel] of wsTunnels) {
     tunnel.close(1001, "Server shutting down");
