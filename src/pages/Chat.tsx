@@ -3140,7 +3140,11 @@ export default function Chat() {
 
               {/* Terminal itself */}
               <div className="flex-1 min-h-0 overflow-hidden">
-                <EmbeddedTerminal deviceId={selectedDeviceId} convId={activeConvId} />
+                {/* Pass null so it always uses the device-level session key,
+                    which usePersistentRelaySession mirrors on every command.
+                    This means the drawer always shows the live PTY regardless
+                    of which conversation is active. */}
+                <EmbeddedTerminal deviceId={selectedDeviceId} convId={null} />
               </div>
             </div>
           )}
