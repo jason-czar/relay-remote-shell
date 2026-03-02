@@ -1,64 +1,89 @@
 
-## Understanding the Problem
+## Root Cause Analysis
 
-The user is pointing out that when Codex (or Claude) is running as an agent in a chat conversation, the system sends messages to Codex by:
-1. Running `codex\n` on the PTY to spawn the Codex REPL (first message)
-2. Sending subsequent messages as raw stdin directly into that running Codex REPL process
+### ChatGPT's diagnosis is WRONG for this architecture
 
-This means the conversation with Codex happens **inside the running PTY** — the user types in the chat composer, which gets piped as stdin to the Codex process running in the terminal. The bottom terminal pane should show exactly what's happening in that PTY — the Codex banner, the user's typed messages appearing at the Codex prompt, and Codex's responses.
+ChatGPT assumed the connector allocates PTY from the *host terminal* (like `ssh` does). That's incorrect. The Go connector uses `github.com/creack/pty` — `pty.StartWithSize()` — which creates a **kernel-level pseudo-terminal** entirely in userspace. It does NOT need the LaunchAgent to have a host `/dev/tty` attached. PTY allocation works fine from a background daemon.
 
-**The user confirmed**: they manually ran `codex` in their terminal to start a session, and are typing into that Codex window. The chat system is supposed to be doing this automatically and the terminal drawer should show it live.
+### The real bug: `connect` is an unknown command
 
-## The Real Issue
+Look at the plist template in `download-connector/index.ts` (line 201):
+```xml
+<array><string>{{.Exe}}</string><string>connect</string></array>
+```
 
-The terminal drawer in Chat.tsx currently uses `convId={null}` which means it reads from the **device-level** session key (`relay-session-${deviceId}`). But the actual chat session for that conversation might be stored under a conversation-scoped key.
+But in `main.go`, `flag.Parse()` is called and there is **no `connect` subcommand**. The program only handles `--pair`, `--install-agent`, `--uninstall-agent`, `--status`, `--update`, `--self-update-check` flags. 
 
-More critically: the `EmbeddedTerminal` component connects via its **own WebSocket** to the relay. It's showing the PTY output, but there's a disconnect:
+When the LaunchAgent runs `relay-connector connect`, Go's `flag` package treats `connect` as a **positional argument** — it's passed to `flag.Args()` and silently ignored. The binary then tries to load `~/.relay-connector.json` and run... which should actually work.
 
-1. `sendViaRelay` (in `usePersistentRelaySession`) uses its own short-lived WebSocket per command, writing stdin and reading stdout
-2. `EmbeddedTerminal` uses a **separate** persistent WebSocket to the same PTY session
-3. Both should show the same PTY output IF they're connected to the same `sessionId`
+Wait — let me re-examine. Actually `flag.Parse()` + no subcommand handling means `connect` IS silently ignored and execution falls through to the connect logic. So this isn't the issue either.
 
-The core question is: **why isn't the terminal drawer showing the output?**
+### The actual issue: `$SHELL` environment variable is missing in LaunchAgent context
 
-Looking at `mirrorSessionId` — it writes to both `localStorage` and `sessionStorage` with both the conv-scoped key AND the device-level key. So `convId={null}` in EmbeddedTerminal should pick up the same session.
+When macOS LaunchAgent launches a process, it runs with a **minimal environment** — specifically, `$SHELL` is often **not set** in the LaunchAgent environment. 
 
-BUT: `EmbeddedTerminal` reads from `getPersistedSessionId()` which reads from `localStorage` with the device key. When a new conversation starts or `codex\n` is sent, the session ID gets mirrored. However the EmbeddedTerminal **initializes once** and doesn't re-subscribe when the session ID changes — it only re-initializes when `convId` or `deviceId` props change.
+In `main.go`:
+```go
+shell := flag.String("shell", defaultShell(), "Shell to spawn")
+```
 
-## Root Cause
+And `defaultShell()`:
+```go
+func defaultShell() string {
+    if s := os.Getenv("SHELL"); s != "" {
+        return s
+    }
+    return "/bin/sh"
+}
+```
 
-The terminal drawer's `EmbeddedTerminal` component initializes when `showTerminalDrawer` becomes `true`. At that point, it reads the persisted session ID and connects. But the problem is likely that:
+When run via LaunchAgent, `$SHELL` is typically empty, so the connector falls back to `/bin/sh`. On macOS, `/bin/sh` is `dash`, which uses the `-i` strategy (just `-i`, no login). This means:
+- No `.zshrc` / `.bash_profile` sourced → `$PATH` is minimal
+- No user environment → tools like `codex`, `node`, `python` not found
 
-1. The EmbeddedTerminal connects to the PTY but `EmbeddedTerminal` uses its own `sessionStorage` key lookup, and the timing between "session created" and "terminal connected" might cause it to miss the session
-2. The terminal is showing — the user sees "Connected" in the screenshot — but the Codex output from `sendViaRelay` isn't showing because `sendViaRelay` uses its own separate WS connection
+But more importantly: the shell used when you manually run `relay-connector connect` is **your interactive zsh** (set in `$SHELL`), while the LaunchAgent uses `/bin/sh`.
 
-The real fix: The terminal drawer needs to use the **same session ID** that the chat relay hook is using for the active conversation. The most reliable approach is to pass `convId={activeConvId}` instead of `null`, so both the relay hook and the terminal use the same session key lookup.
+### The fix
 
-But wait — looking at the previous diff, `convId={null}` was set intentionally because "device-level key is mirrored on every command". The problem is that `EmbeddedTerminal` connects **once** at mount and stays connected. When `sendViaRelay` finishes a command, it **closes the WebSocket** (line: `if (ws.readyState === WebSocket.OPEN) ws.close()`). The terminal's separate persistent WS however stays open and receives stdout in real-time from the relay's broadcast.
+The plist needs to explicitly pass `--shell` with the user's shell path. We need to capture `$SHELL` at install time (when `--install-agent` runs) and bake it into the plist template as `<string>--shell</string><string>/bin/zsh</string>`.
 
-So the terminal SHOULD be showing output... unless the terminal drawer's WS isn't connecting to the right session, or the relay isn't broadcasting stdout to multiple WS connections simultaneously.
+Additionally, the LaunchAgent environment needs `HOME` and `PATH` set via `EnvironmentVariables` to ensure the user's tools are accessible.
 
-## The Architectural Fix
+### Changes needed
 
-The cleanest solution is:
+**1. `connector/main.go` — plistTemplate: add `--shell` and `EnvironmentVariables`**
 
-**Pass `convId={activeConvId}` to the EmbeddedTerminal in the drawer** so it uses the exact same session key as the relay hook. Then ensure it re-connects when `activeConvId` changes.
+The `installAgentDarwin` function captures the resolved exe path. We need to also capture the shell path and home directory and pass them into the template.
 
-The `mirrorSessionId` function already writes to the conversation-scoped key AND the device-level key. So passing `convId={activeConvId}` means the terminal looks up `relay-session-${deviceId}-${convId}` — exactly what the relay hook stores.
+Change `plistTemplate` to:
+```xml
+<key>ProgramArguments</key>
+<array>
+  <string>{{.Exe}}</string>
+  <string>--shell</string>
+  <string>{{.Shell}}</string>
+</array>
+<key>EnvironmentVariables</key>
+<dict>
+  <key>HOME</key><string>{{.Home}}</string>
+  <key>SHELL</key><string>{{.Shell}}</string>
+  <key>PATH</key><string>{{.Path}}</string>
+</dict>
+```
 
-Additionally, the EmbeddedTerminal needs to reconnect whenever the session ID changes (e.g., when a new conversation is created and a new PTY session is started). Currently the terminal only re-initializes if the `convId` prop changes. Since `activeConvId` is passed as a prop and changes when switching conversations, this will naturally trigger re-initialization.
+Where `{{.Shell}}` = `os.Getenv("SHELL")` (or `/bin/zsh` on macOS fallback), `{{.Home}}` = `os.UserHomeDir()`, `{{.Path}}` = `os.Getenv("PATH")`.
 
-## Plan
+**2. `supabase/functions/download-connector/index.ts` — MAIN_GO: same change in the embedded `plistTmpl`**
 
-**File to edit: `src/pages/Chat.tsx`**
+The edge function embeds the full Go source. The `plistTmpl` constant in `MAIN_GO` (line ~195 in the file) needs the same fix so newly downloaded binaries have the correct behavior.
 
-1. Change `<EmbeddedTerminal deviceId={selectedDeviceId} convId={null} />` to `<EmbeddedTerminal deviceId={selectedDeviceId} convId={activeConvId} />` in the terminal drawer
+**3. Bump `SOURCE_VERSION`** to force a new binary build so users who run `--update` get the fix.
 
-This ensures:
-- The terminal drawer connects to `relay-session-${deviceId}-${convId}` — the exact same session key the relay hook populates
-- When the user switches conversations, the terminal automatically reconnects to that conversation's PTY session
-- When a new message is sent, `mirrorSessionId` updates this key, and the EmbeddedTerminal (which is already connected and listening) sees the output in real-time
+### Summary of changes
 
-**File to check: `src/components/EmbeddedTerminal.tsx`** — verify that `convId` changes trigger a proper reconnect (re-run the useEffect initialization).
+| File | Change |
+|---|---|
+| `connector/main.go` | Update `plistTemplate`: add `--shell {{.Shell}}`, `EnvironmentVariables` block with HOME/SHELL/PATH; update `installAgentDarwin` to pass Shell/Home/Path to template data |
+| `supabase/functions/download-connector/index.ts` | Same fix to `plistTmpl` inside `MAIN_GO` constant; bump `SOURCE_VERSION` |
 
-This is a minimal, targeted fix.
+This is the minimal, correct fix. No `/dev/tty` hackery needed — that would actually break things since macOS LaunchAgents can't safely reference `/dev/tty`.
