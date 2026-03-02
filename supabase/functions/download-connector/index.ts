@@ -221,6 +221,10 @@ func installAgentDarwin(exe string) error {
 \tif err != nil { return err }
 \tdefer f.Close()
 \tt.Execute(f, struct{ Exe, Log string }{exe, logPath})
+\t// Strip Gatekeeper quarantine before launchctl spawns the binary.
+\t// Without this the OS sends SIGKILL (Killed: 9) to the service process.
+\trun("xattr", "-d", "com.apple.quarantine", exe)
+\trun("xattr", "-c", exe)
 \tuid := fmt.Sprintf("gui/%d", os.Getuid())
 \tlabel := "com.privaclaw.connector"
 \trun("launchctl", "bootout", uid+"/"+label)
@@ -949,6 +953,13 @@ if [ -f "$CONFIG" ] && grep -q '"device_id"' "$CONFIG" 2>/dev/null; then
 else
   echo "🔗 Pairing device..."
   "$FULL_BINARY" --pair "$PAIR_CODE" --api "$API_URL" --name "$(hostname)"
+fi
+
+# Remove quarantine again right before launch (launchctl spawns a fresh process
+# which macOS re-checks; stripping here ensures the spawned service is not killed)
+if [[ "$(uname)" == "Darwin" ]]; then
+  xattr -d com.apple.quarantine "$FULL_BINARY" 2>/dev/null || true
+  xattr -c "$FULL_BINARY" 2>/dev/null || true
 fi
 
 # Register service (binary owns all platform-specific service logic)
