@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"syscall"
@@ -573,7 +574,22 @@ func (c *RelayClient) startSession(data SessionStartData) {
 
 	ptmx, err := pty.StartWithSize(cmd, winSize)
 	if err != nil {
-		log.Printf("Failed to start PTY: %v", err)
+		hostname, _ := os.Hostname()
+		diagMsg := fmt.Sprintf(
+			"Shell failed to start.\n\nShell: %s\nArgs:  %v\nError: %v\n\nOS: %s/%s\nHost: %s\n\nTip: try restarting the connector with --shell /bin/bash",
+			c.shell, args, err,
+			runtime.GOOS, runtime.GOARCH,
+			hostname,
+		)
+		log.Printf("[session] PTY start failed — shell=%s args=%v err=%v os=%s/%s host=%s",
+			c.shell, args, err, runtime.GOOS, runtime.GOARCH, hostname)
+		// Emit a human-readable stdout chunk so the terminal displays the diagnostic
+		diagB64 := base64.StdEncoding.EncodeToString([]byte("\r\n\033[1;31m" + diagMsg + "\033[0m\r\n"))
+		stdoutData, _ := json.Marshal(map[string]string{
+			"session_id": data.SessionID,
+			"data_b64":   diagB64,
+		})
+		c.sendMessage("stdout", stdoutData)
 		endData, _ := json.Marshal(map[string]string{
 			"session_id": data.SessionID,
 			"reason":     "pty_error",
