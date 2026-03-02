@@ -128,9 +128,9 @@ export function PreviewPanel({
       </div>
 
       {/* ── Preview iframe content ─────────────────────────────────── */}
-      <div className="flex-1 min-h-0 overflow-hidden">
+      <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
       {submittedUrl ? (
-        <div className="flex-1 min-h-0 overflow-hidden [&>div>div:first-child]:hidden">
+        <div className="flex-1 min-h-0 overflow-hidden flex flex-col [&>div>div:first-child]:hidden [&>div]:flex-1 [&>div]:min-h-0">
           <WebPanel
             key={`${reloadKey}-${submittedUrl}`}
             initialUrl={submittedUrl}
