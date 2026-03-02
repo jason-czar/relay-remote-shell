@@ -290,6 +290,8 @@ export function DevicePanel({ open, onClose, devices, selectedDeviceId, onSelect
   const [disconnectingId, setDisconnectingId] = useState<string | null>(null);
   const [expandedOfflineId, setExpandedOfflineId] = useState<string | null>(null);
   const [reinstallDeviceId, setReinstallDeviceId] = useState<string | null>(null);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
   const [copiedReinstallId, setCopiedReinstallId] = useState<string | null>(null);
   const [offlineCopiedId, setOfflineCopiedId] = useState<string | null>(null);
   const [confirmUninstallId, setConfirmUninstallId] = useState<string | null>(null);
@@ -352,6 +354,13 @@ export function DevicePanel({ open, onClose, devices, selectedDeviceId, onSelect
     onSelectDevice(d.id);
     setShowAdd(false);
   }, [onDeviceAdded, onSelectDevice]);
+
+  const handleRename = useCallback(async (id: string, newName: string) => {
+    const trimmed = newName.trim();
+    if (!trimmed) { setRenamingId(null); return; }
+    await supabase.from("devices").update({ name: trimmed }).eq("id", id);
+    setRenamingId(null);
+  }, []);
 
   const handleDisconnect = useCallback(async (id: string) => {
     setDisconnectingId(id);
@@ -613,7 +622,26 @@ export function DevicePanel({ open, onClose, devices, selectedDeviceId, onSelect
                         "w-2 h-2 rounded-full shrink-0 transition-colors",
                         d.status === "online" ? "bg-status-online animate-pulse" : "bg-muted-foreground/30"
                       )} />
-                      <span className="flex-1 truncate font-medium">{d.name}</span>
+                      {renamingId === d.id ? (
+                        <input
+                          autoFocus
+                          className="flex-1 min-w-0 bg-transparent border-b border-primary outline-none text-sm font-medium"
+                          value={renameValue}
+                          onChange={(e) => setRenameValue(e.target.value)}
+                          onBlur={() => handleRename(d.id, renameValue)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") handleRename(d.id, renameValue);
+                            if (e.key === "Escape") setRenamingId(null);
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      ) : (
+                        <span
+                          className="flex-1 truncate font-medium cursor-text hover:text-primary transition-colors"
+                          onDoubleClick={(e) => { e.stopPropagation(); setRenamingId(d.id); setRenameValue(d.name); }}
+                          title="Double-click to rename"
+                        >{d.name}</span>
+                      )}
                       <span className={cn(
                         "text-[11px] font-medium shrink-0",
                         d.status === "online" ? "text-status-online" : "text-muted-foreground/50"
