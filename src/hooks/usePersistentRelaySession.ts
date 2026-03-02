@@ -21,6 +21,8 @@ const PROMPT_TIMEOUT_MS = 8000;
 const MAX_SUBSTANTIVE_WAITS = 8;
 // Matches when the agent is waiting for user input (approval prompts)
 const AWAITING_INPUT_RE = /\b(yes|no|approve|deny|allow|reject|y\/n|proceed|confirm)\b.*[?:]\s*$|>\s*$/im;
+// Only surface blocking prompts — not informational suggestions
+const BLOCKING_PROMPT_RE = /Do you trust|Not inside a trusted directory|Working with untrusted|\[Y\/n\]|\[y\/N\]|\(y\/n\)|password:|passphrase:|Proceed\?|Continue\?|Are you sure/i;
 // How long to keep the WS open while waiting for user to click Approve/Deny (5 min)
 const AWAIT_INPUT_HOLD_MS = 5 * 60 * 1000;
 
@@ -29,12 +31,21 @@ type SessionStatus = "idle" | "ready" | "busy" | "offline";
 interface SendOptions {
   isOpenClaw?: boolean;
   onChunk?: (chunk: string) => void;
+  onAwaitingInput?: (options: string[]) => void;
+  onSessionReset?: (sessionId: string) => void;
 }
 
 function mirrorSessionId(deviceId: string, sessionId: string) {
   const key = `relay-session-${deviceId}`;
   sessionStorage.setItem(key, sessionId);
   localStorage.setItem(key, sessionId);
+}
+
+/** Extract numbered / keyword choices from terminal prompt text */
+export function extractOptions(text: string): string[] {
+  return text.split("\n").map((l) => l.trim())
+    .filter((l) => /^\d+\./.test(l) || /(yes|no|continue|quit|trust|exit|proceed|allow|deny)/i.test(l))
+    .map((l) => l.replace(/^\d+\.\s*/, ""));
 }
 
 function stripAnsi(s: string): string {
@@ -61,6 +72,8 @@ export function usePersistentRelaySession() {
   const substantiveWaitsRef = useRef(0);
   const isOpenClawRef = useRef(false);
   const onChunkRef = useRef<((chunk: string) => void) | null>(null);
+  const onAwaitingInputRef = useRef<((options: string[]) => void) | null>(null);
+  const onSessionResetRef = useRef<((sessionId: string) => void) | null>(null);
   const finishRef = useRef<((result: string | Error) => void) | null>(null);
 
   const resetSilence = useCallback(() => {
@@ -72,6 +85,10 @@ export function usePersistentRelaySession() {
     // If so, hold the WS open much longer so the user has time to click a button.
     const stripped = stripAnsi(buf);
     const isAwaitingInput = AWAITING_INPUT_RE.test(stripped);
+    // Only fire onAwaitingInput for blocking prompts (not informational suggestions)
+    if (isAwaitingInput && BLOCKING_PROMPT_RE.test(stripped)) {
+      onAwaitingInputRef.current?.(extractOptions(stripped));
+    }
     const delay = isAwaitingInput ? AWAIT_INPUT_HOLD_MS : SILENCE_MS;
 
     silenceTimerRef.current = setTimeout(() => {
@@ -160,6 +177,8 @@ export function usePersistentRelaySession() {
       substantiveWaitsRef.current = 0;
       isOpenClawRef.current = !!opts.isOpenClaw;
       onChunkRef.current = opts.onChunk ?? null;
+      onAwaitingInputRef.current = opts.onAwaitingInput ?? null;
+      onSessionResetRef.current = opts.onSessionReset ?? null;
       statusRef.current = "busy";
 
       let settled = false;
@@ -272,6 +291,7 @@ export function usePersistentRelaySession() {
             }
             // PTY ended — next command needs a fresh session
             sessionIdRef.current = null;
+            onSessionResetRef.current?.(sessionId);
             finish(outputBufferRef.current || new Error("Session ended by relay"));
           } else if (msg.type === "error") {
             const message = (msg.data as { message?: string })?.message ?? "Relay error";

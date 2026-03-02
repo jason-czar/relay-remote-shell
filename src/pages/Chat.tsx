@@ -638,6 +638,20 @@ export default function Chat() {
   const rawStdoutMapRef = useRef<Map<number, string>>(new Map());
   // Store tool calls used per message (session-only, not persisted)
   const toolCallsMapRef = useRef<Map<number, string[]>>(new Map());
+  // ── REPL agent runtime state (keyed by PTY sessionId) ────────────────────
+  const runtimeAgentsRef = useRef<Record<string, {
+    agent: "codex" | "claude";
+    ready: boolean;
+    approvalMode?: string;
+  }>>({});
+  // ── Per-session pending message queue (flushed after agent readiness) ─────
+  const pendingQueueRef = useRef<Record<string, string[]>>({});
+  // ── Readiness detection regexes ───────────────────────────────────────────
+  const AGENT_READY_RE = {
+    codex: /Approval mode:|Model:|workdir:/i,
+    claude: /Type your message|Claude Code\s+\d/i,
+  };
+  const TRUST_BLOCK_RE = /Not inside a trusted directory|Working with untrusted/i;
   // Store tool call log entries (tool_use/tool_result cards) per message
   const toolCallEntriesMapRef = useRef<Map<number, LiveLogEntry[]>>(new Map());
   // Store codex reasoning summaries keyed by message array index
@@ -867,6 +881,30 @@ export default function Chat() {
     // Parse for structured live log entry
     liveLogAccRef.current += chunk;
     const entry = parseChunkForLog(chunk, liveLogAccRef.current);
+
+    // ── REPL readiness detection ─────────────────────────────────────────
+    // Check if a Codex/Claude agent just emitted its startup banner.
+    // Only mark ready if the trust-block gate is NOT active in the buffer.
+    const sessionId = relay.getSessionId();
+    if (sessionId) {
+      const state = runtimeAgentsRef.current[sessionId];
+      if (state && !state.ready) {
+        // Extract approval mode if present
+        const modeMatch = chunk.match(/Approval mode:\s*(\S+)/i);
+        if (modeMatch) state.approvalMode = modeMatch[1].toLowerCase();
+
+        const buf = liveLogAccRef.current;
+        if (AGENT_READY_RE[state.agent].test(chunk) && !TRUST_BLOCK_RE.test(buf)) {
+          state.ready = true;
+          // Flush any queued messages
+          const queue = pendingQueueRef.current[sessionId] ?? [];
+          delete pendingQueueRef.current[sessionId];
+          for (const queuedText of queue) {
+            relay.sendRawStdin(sessionId, btoa(queuedText + "\n"));
+          }
+        }
+      }
+    }
     if (entry) {
       // tool_result: patch the matching tool_call entry rather than appending
       if (entry.type === "tool_call" && entry.toolCallData?.name === "__result__") {
@@ -912,7 +950,7 @@ export default function Chat() {
         setDetectedPreviewPort(port);
       }
     }
-  }, []);
+  }, [relay]);
   const prevMsgCountRef = useRef(0);
 
   const isMobile = useIsMobile();
@@ -1188,7 +1226,15 @@ export default function Chat() {
     setRelayStatus("connecting");
     relayRetryCountRef.current = 0;
     try {
-      const result = await relay.sendCommand(selectedDeviceId, command, { isOpenClaw, onChunk });
+      const result = await relay.sendCommand(selectedDeviceId, command, {
+        isOpenClaw,
+        onChunk,
+        onSessionReset: (deadSessionId: string) => {
+          // PTY died — clear runtime agent state and pending queue for this session
+          delete runtimeAgentsRef.current[deadSessionId];
+          delete pendingQueueRef.current[deadSessionId];
+        },
+      });
       setRelayStatus("idle");
       return result;
     } catch (err) {
@@ -1197,7 +1243,7 @@ export default function Chat() {
     }
   }, [selectedDeviceId, relay]);
 
-  // ── Build command string ───────────────────────────────────────────────
+  // ── Build command string (REPL spawn model for Codex + Claude) ───────────
   const buildCommand = useCallback(async (text: string, convId: string, selectedModel: string): Promise<string> => {
     const { data: conv } = await supabase.
     from("chat_conversations").
@@ -1211,25 +1257,58 @@ export default function Chat() {
     const modelFlag = selectedModel !== "auto" ? `--model ${selectedModel}` : "";
 
     if (conv.agent === "openclaw") {
+      // OpenClaw is stateless per-message — unchanged
       const sid = conv.openclaw_session_id ?? crypto.randomUUID();
       const modelPart = modelFlag ? ` ${modelFlag}` : "";
       return `openclaw agent --agent main --session-id ${sid}${modelPart} --message "${escaped}" --json --local\n`;
-    } else if (conv.agent === "codex") {
-      // Modern Codex CLI no longer supports -q flag; pass prompt as positional arg
-      const modelPart = modelFlag ? ` --model ${selectedModel}` : "";
-      if (conv.claude_session_id) {
-        return `codex exec --skip-git-repo-check${modelPart} --resume ${conv.claude_session_id} "${escaped}"\n`;
-      }
-      return `codex exec --skip-git-repo-check${modelPart} "${escaped}"\n`;
-    } else {
-      // claude — stream-json with verbose + partial messages for real-time streaming
-      const modelPart = modelFlag ? ` ${modelFlag}` : "";
-      if (conv.claude_session_id) {
-        return `claude --resume ${conv.claude_session_id}${modelPart} --print --output-format stream-json --include-partial-messages --verbose "${escaped}"\n`;
-      }
-      return `claude${modelPart} --print --output-format stream-json --include-partial-messages --verbose "${escaped}"\n`;
     }
-  }, []);
+
+    // ── REPL spawn model for Codex + Claude ──────────────────────────────
+    // The PTY is the session. We spawn the REPL once; subsequent messages
+    // are sent as raw stdin after the readiness banner is detected.
+    const sessionId = relay.getSessionId();
+
+    if (conv.agent === "codex") {
+      if (!sessionId) {
+        // No PTY yet — will be created by sendViaRelay; just spawn REPL
+        return "codex\n";
+      }
+      const state = runtimeAgentsRef.current[sessionId];
+      if (!state) {
+        // First message on this PTY — register and spawn
+        runtimeAgentsRef.current[sessionId] = { agent: "codex", ready: false };
+        const modelPart = modelFlag ? ` --model ${selectedModel}` : "";
+        return `codex${modelPart}\n`;
+      }
+      if (!state.ready) {
+        // REPL booting — queue for flush on readiness
+        pendingQueueRef.current[sessionId] = [...(pendingQueueRef.current[sessionId] ?? []), text];
+        return "";
+      }
+      // REPL ready — send as stdin
+      return text + "\n";
+    }
+
+    if (conv.agent === "claude") {
+      if (!sessionId) {
+        return "claude\n";
+      }
+      const state = runtimeAgentsRef.current[sessionId];
+      if (!state) {
+        runtimeAgentsRef.current[sessionId] = { agent: "claude", ready: false };
+        const modelPart = modelFlag ? ` ${modelFlag}` : "";
+        return `claude${modelPart}\n`;
+      }
+      if (!state.ready) {
+        pendingQueueRef.current[sessionId] = [...(pendingQueueRef.current[sessionId] ?? []), text];
+        return "";
+      }
+      return text + "\n";
+    }
+
+    // Fallback (should not reach here for known agents)
+    return `${conv.agent} "${escaped}"\n`;
+  }, [relay]);
 
 
   // ── Parse Claude/Claude Code session id from stdout ─────────────────
