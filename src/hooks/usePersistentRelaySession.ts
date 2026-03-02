@@ -1,12 +1,13 @@
 /**
  * usePersistentRelaySession
  *
- * Maintains a SINGLE WebSocket + PTY session per device for the lifetime of
- * the chat view.  Every agent message reuses the same shell rather than
- * creating a brand-new session, so:
- *   - the working directory and shell state persist across messages
- *   - the Terminal page can join the exact same session at any time
- *   - the relay's 10-min grace period keeps it alive between messages
+ * Reuses the same PTY session ID across all messages in a conversation.
+ * Each command gets its own short-lived WebSocket (how the relay works),
+ * but they all share the same session_id → same PTY process → shell state
+ * (CWD, env vars) persists between messages.
+ *
+ * The session ID is mirrored to localStorage so clicking "Open Terminal"
+ * resumes the exact same PTY the chat has been using.
  */
 
 import { useRef, useCallback, useEffect } from "react";
@@ -19,371 +20,245 @@ const PROMPT_RE = /(?:[%$#➜❯>]\s*$)|(?:\$\s+$)/m;
 const PROMPT_TIMEOUT_MS = 8000;
 const MAX_SUBSTANTIVE_WAITS = 8;
 
-type Status = "idle" | "connecting" | "ready" | "busy" | "offline";
-
-interface ActiveSession {
-  ws: WebSocket;
-  sessionId: string;
-  deviceId: string;
-  status: Status;
-}
+type SessionStatus = "idle" | "ready" | "busy" | "offline";
 
 interface SendOptions {
   isOpenClaw?: boolean;
   onChunk?: (chunk: string) => void;
 }
 
-// Mirrors the session ID into the storage key that EmbeddedTerminal /
-// TerminalSession.tsx both read, so they transparently resume this PTY.
 function mirrorSessionId(deviceId: string, sessionId: string) {
   const key = `relay-session-${deviceId}`;
   sessionStorage.setItem(key, sessionId);
   localStorage.setItem(key, sessionId);
 }
 
-export function usePersistentRelaySession() {
-  const sessionRef = useRef<ActiveSession | null>(null);
-  // Queue: at most one pending command at a time (agent messages are sequential)
-  const pendingRef = useRef<{
-    command: string;
-    opts: SendOptions;
-    resolve: (v: string) => void;
-    reject: (e: Error) => void;
-  } | null>(null);
+function stripAnsi(s: string): string {
+  return s
+    .replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, "")
+    .replace(/\x1b\[[\x30-\x3f]*[\x20-\x2f]*[\x40-\x7e]/g, "")
+    .replace(/\x1b[^[\]]/g, "")
+    .replace(/\x1b/g, "");
+}
 
-  // Buffer for the current command's stdout
+export function usePersistentRelaySession() {
+  // The logical session — just a session ID + device; no persistent WS
+  const sessionIdRef = useRef<string | null>(null);
+  const deviceIdRef = useRef<string | null>(null);
+  // Active WS for the current in-flight command (for Ctrl+C / option inject)
+  const activeWsRef = useRef<WebSocket | null>(null);
+  const statusRef = useRef<SessionStatus>("idle");
+
+  // Silence-detection state for the current command
   const outputBufferRef = useRef("");
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hardTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const substantiveWaitsRef = useRef(0);
-  const promptSentRef = useRef(false);
+  const isOpenClawRef = useRef(false);
+  const onChunkRef = useRef<((chunk: string) => void) | null>(null);
+  const finishRef = useRef<((result: string | Error) => void) | null>(null);
 
-  // ── Silence / finish helpers ─────────────────────────────────────────────
-  const finishCommand = useCallback((result: string | Error) => {
-    if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null; }
-    if (hardTimeoutRef.current) { clearTimeout(hardTimeoutRef.current); hardTimeoutRef.current = null; }
-    const pending = pendingRef.current;
-    pendingRef.current = null;
-    outputBufferRef.current = "";
-    substantiveWaitsRef.current = 0;
-    promptSentRef.current = false;
-
-    if (sessionRef.current) sessionRef.current.status = "ready";
-
-    if (pending) {
-      if (result instanceof Error) pending.reject(result);
-      else pending.resolve(result);
-    }
-  }, []);
-
-  const resetSilence = useCallback((isOpenClaw: boolean) => {
+  const resetSilence = useCallback(() => {
     if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-
     const buf = outputBufferRef.current;
-
-    // Fast-finish on CLI error lines
-    if (/^Error:/m.test(buf) || /^error:/im.test(buf)) {
-      finishCommand(buf);
-      return;
-    }
+    if (/^Error:/m.test(buf) || /^error:/im.test(buf)) { finishRef.current?.(buf); return; }
 
     silenceTimerRef.current = setTimeout(() => {
-      const currentBuf = outputBufferRef.current;
-
-      if (isOpenClaw) {
-        if (!currentBuf.includes("{")) {
-          if (substantiveWaitsRef.current++ < MAX_SUBSTANTIVE_WAITS) { resetSilence(isOpenClaw); return; }
+      const cur = outputBufferRef.current;
+      if (isOpenClawRef.current) {
+        if (!cur.includes("{")) {
+          if (substantiveWaitsRef.current++ < MAX_SUBSTANTIVE_WAITS) { resetSilence(); return; }
         }
-        // Check if JSON is balanced
-        const firstBrace = currentBuf.indexOf("{");
+        const fb = cur.indexOf("{");
         let depth = 0, inStr = false, esc = false;
-        for (let i = firstBrace; i < currentBuf.length; i++) {
-          const c = currentBuf[i];
+        for (let i = fb; i < cur.length; i++) {
+          const c = cur[i];
           if (esc) { esc = false; continue; }
           if (c === "\\" && inStr) { esc = true; continue; }
           if (c === '"') { inStr = !inStr; continue; }
           if (inStr) continue;
           if (c === "{") depth++;
-          else if (c === "}") { depth--; if (depth === 0) { finishCommand(currentBuf); return; } }
+          else if (c === "}") { depth--; if (depth === 0) { finishRef.current?.(cur); return; } }
         }
-        return; // JSON not yet complete — keep waiting
+        return;
       }
-
-      // Non-OpenClaw: wait for substantive content
-      const stripped = currentBuf.replace(/\x1b[\s\S]{1,10}/g, "").replace(/[%$#>\[\]?;=\r\n\s]/g, "");
+      const stripped = cur.replace(/\x1b[\s\S]{1,10}/g, "").replace(/[%$#>\[\]?;=\r\n\s]/g, "");
       if (stripped.length < 10) {
-        if (substantiveWaitsRef.current++ < MAX_SUBSTANTIVE_WAITS) { resetSilence(isOpenClaw); return; }
+        if (substantiveWaitsRef.current++ < MAX_SUBSTANTIVE_WAITS) { resetSilence(); return; }
       }
-
-      finishCommand(currentBuf);
+      finishRef.current?.(cur);
     }, SILENCE_MS);
-  }, [finishCommand]);
+  }, []);
 
-  // ── Handle incoming stdout ────────────────────────────────────────────────
-  const handleStdout = useCallback((data_b64: string) => {
-    let chunk = "";
-    try { chunk = decodeURIComponent(escape(atob(data_b64))); }
-    catch { chunk = atob(data_b64); }
-
-    outputBufferRef.current += chunk;
-    pendingRef.current?.opts.onChunk?.(chunk);
-    substantiveWaitsRef.current = 0;
-
-    const pending = pendingRef.current;
-    if (!pending) return;
-
-    // If prompt hasn't been sent yet (very unusual for persistent session mid-flow), check now
-    if (!promptSentRef.current) {
-      const plain = outputBufferRef.current
-        .replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, "")
-        .replace(/\x1b\[[\x30-\x3f]*[\x20-\x2f]*[\x40-\x7e]/g, "")
-        .replace(/\x1b[^[\]]/g, "").replace(/\x1b/g, "");
-      if (PROMPT_RE.test(plain)) {
-        promptSentRef.current = true;
-        sendCurrentCommand();
-      }
-      return; // don't resetSilence until after prompt
+  // ── Ensure we have a session ID for this device ──────────────────────────
+  const ensureSessionId = useCallback(async (deviceId: string): Promise<string | null> => {
+    // Reuse existing session for same device
+    if (sessionIdRef.current && deviceIdRef.current === deviceId) {
+      // Verify it's still active in DB
+      const { data } = await supabase.from("sessions").select("id, status")
+        .eq("id", sessionIdRef.current).single();
+      if (data?.status === "active") return sessionIdRef.current;
+      // Session ended — fall through to find/create a new one
+      sessionIdRef.current = null;
     }
 
-    resetSilence(!!pending.opts.isOpenClaw);
-  }, [resetSilence]);
-
-  // ── Send the buffered command into the open PTY ──────────────────────────
-  const sendCurrentCommand = useCallback(() => {
-    const pending = pendingRef.current;
-    const sess = sessionRef.current;
-    if (!pending || !sess || sess.ws.readyState !== WebSocket.OPEN) return;
-
-    outputBufferRef.current = ""; // discard shell init / prompt noise
-    sess.ws.send(JSON.stringify({
-      type: "stdin",
-      data: { session_id: sess.sessionId, data_b64: btoa(pending.command) },
-    }));
-    promptSentRef.current = true;
-    resetSilence(!!pending.opts.isOpenClaw);
-  }, [resetSilence]);
-
-  // ── (Re-)connect to relay with an existing session ID ────────────────────
-  const connectToSession = useCallback(async (deviceId: string, sessionId: string): Promise<boolean> => {
-    const { data: { session: authSession } } = await supabase.auth.getSession();
-    const jwt = authSession?.access_token;
-    if (!jwt) return false;
-
-    return new Promise((resolve) => {
-      // Close any stale connection
-      if (sessionRef.current?.ws.readyState === WebSocket.OPEN) {
-        sessionRef.current.ws.close();
-      }
-
-      const ws = new WebSocket(`${RELAY_URL}/session`);
-      const newSession: ActiveSession = { ws, sessionId, deviceId, status: "connecting" };
-      sessionRef.current = newSession;
-
-      const onAuthOk = () => {
-        newSession.status = "ready";
-        mirrorSessionId(deviceId, sessionId);
-        // Attach stdout handler for live command streaming
-        ws.onmessage = (event) => {
-          try {
-            const msg = JSON.parse(event.data);
-            if (msg.type === "stdout" && msg.data) {
-              handleStdout((msg.data as { data_b64: string }).data_b64);
-            } else if (msg.type === "session_end") {
-              if (pendingRef.current) finishCommand(outputBufferRef.current || new Error("Session ended"));
-              newSession.status = "offline";
-              sessionRef.current = null;
-            } else if (msg.type === "error") {
-              const message = (msg.data as { message?: string })?.message ?? "Relay error";
-              if (pendingRef.current) finishCommand(new Error(message));
-            }
-          } catch { /* ignore parse errors */ }
-        };
-
-        ws.onclose = () => {
-          if (newSession.status !== "offline") {
-            newSession.status = "offline";
-            if (pendingRef.current) finishCommand(outputBufferRef.current || new Error("WebSocket closed"));
-            sessionRef.current = null;
-          }
-        };
-
-        resolve(true);
-      };
-
-      ws.onopen = () => {
-        ws.send(JSON.stringify({ type: "auth", data: { token: jwt, session_id: sessionId, device_id: deviceId } }));
-      };
-
-      ws.onmessage = (event) => {
-        try {
-          const msg = JSON.parse(event.data);
-          if (msg.type === "auth_ok") {
-            // Resume: just resize to announce ourselves (no session_start — PTY already exists)
-            ws.send(JSON.stringify({ type: "resize", data: { session_id: sessionId, cols: 200, rows: 50 } }));
-            onAuthOk();
-          } else if (msg.type === "error") {
-            ws.close();
-            resolve(false);
-          }
-        } catch { resolve(false); }
-      };
-
-      ws.onerror = () => { ws.close(); resolve(false); };
-
-      setTimeout(() => {
-        if (newSession.status === "connecting") { ws.close(); resolve(false); }
-      }, 10000);
-    });
-  }, [handleStdout, finishCommand]);
-
-  // ── Create a brand-new session and connect ───────────────────────────────
-  const createAndConnect = useCallback(async (deviceId: string): Promise<boolean> => {
-    const { data: sesData, error: sesErr } = await supabase.functions.invoke("start-session", {
-      body: { device_id: deviceId },
-    });
-    if (sesErr || !sesData?.session_id) return false;
-    const sessionId: string = sesData.session_id;
-
-    const { data: { session: authSession } } = await supabase.auth.getSession();
-    const jwt = authSession?.access_token;
-    if (!jwt) return false;
-
-    return new Promise((resolve) => {
-      const ws = new WebSocket(`${RELAY_URL}/session`);
-      const newSession: ActiveSession = { ws, sessionId, deviceId, status: "connecting" };
-      sessionRef.current = newSession;
-
-      ws.onopen = () => {
-        ws.send(JSON.stringify({ type: "auth", data: { token: jwt, session_id: sessionId, device_id: deviceId } }));
-      };
-
-      ws.onmessage = (event) => {
-        try {
-          const msg = JSON.parse(event.data);
-          if (msg.type === "auth_ok") {
-            // New session: send session_start and wait for first shell prompt
-            ws.send(JSON.stringify({ type: "session_start", data: { session_id: sessionId, cols: 200, rows: 50 } }));
-
-            // Wait for first shell prompt before declaring ready
-            let promptBuffer = "";
-            const promptTimeout = setTimeout(() => {
-              // Give up waiting for prompt — declare ready anyway
-              newSession.status = "ready";
-              mirrorSessionId(deviceId, sessionId);
-              attachMainHandlers(ws, newSession, sessionId, deviceId);
-              resolve(true);
-            }, PROMPT_TIMEOUT_MS);
-
-            ws.onmessage = (ev) => {
-              try {
-                const m = JSON.parse(ev.data);
-                if (m.type === "stdout" && m.data) {
-                  let chunk = "";
-                  try { chunk = decodeURIComponent(escape(atob((m.data as {data_b64:string}).data_b64))); }
-                  catch { chunk = atob((m.data as {data_b64:string}).data_b64); }
-                  promptBuffer += chunk;
-                  const plain = promptBuffer
-                    .replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, "")
-                    .replace(/\x1b\[[\x30-\x3f]*[\x20-\x2f]*[\x40-\x7e]/g, "")
-                    .replace(/\x1b[^[\]]/g, "").replace(/\x1b/g, "");
-                  if (PROMPT_RE.test(plain)) {
-                    clearTimeout(promptTimeout);
-                    newSession.status = "ready";
-                    mirrorSessionId(deviceId, sessionId);
-                    attachMainHandlers(ws, newSession, sessionId, deviceId);
-                    resolve(true);
-                  }
-                }
-              } catch { /* ignore */ }
-            };
-
-            ws.onerror = () => { clearTimeout(promptTimeout); ws.close(); resolve(false); };
-            ws.onclose = () => { clearTimeout(promptTimeout); resolve(false); };
-          } else if (msg.type === "error") {
-            ws.close();
-            resolve(false);
-          }
-        } catch { resolve(false); }
-      };
-
-      ws.onerror = () => { ws.close(); resolve(false); };
-      setTimeout(() => {
-        if (newSession.status === "connecting") { ws.close(); resolve(false); }
-      }, 20000);
-    });
-  }, [handleStdout, finishCommand]);
-
-  const attachMainHandlers = useCallback((
-    ws: WebSocket,
-    sess: ActiveSession,
-    sessionId: string,
-    deviceId: string,
-  ) => {
-    ws.onmessage = (event) => {
-      try {
-        const msg = JSON.parse(event.data);
-        if (msg.type === "stdout" && msg.data) {
-          handleStdout((msg.data as { data_b64: string }).data_b64);
-        } else if (msg.type === "session_end") {
-          if (pendingRef.current) finishCommand(outputBufferRef.current || new Error("Session ended"));
-          sess.status = "offline";
-          sessionRef.current = null;
-        } else if (msg.type === "error") {
-          const message = (msg.data as { message?: string })?.message ?? "Relay error";
-          if (pendingRef.current) finishCommand(new Error(message));
-        }
-      } catch { /* ignore */ }
-    };
-
-    ws.onclose = () => {
-      if (sess.status !== "offline") {
-        sess.status = "offline";
-        if (pendingRef.current) finishCommand(outputBufferRef.current || new Error("WebSocket closed"));
-        sessionRef.current = null;
-      }
-    };
-  }, [handleStdout, finishCommand]);
-
-  // ── Ensure we have a live session for deviceId ──────────────────────────
-  const ensureSession = useCallback(async (deviceId: string): Promise<boolean> => {
-    const sess = sessionRef.current;
-
-    // Already connected to the right device and healthy
-    if (sess && sess.deviceId === deviceId && sess.ws.readyState === WebSocket.OPEN && sess.status !== "offline") {
-      return true;
-    }
-
-    // Try to resume from a persisted session ID
-    const key = `relay-session-${deviceId}`;
-    const persistedId = sessionStorage.getItem(key) ?? localStorage.getItem(key);
-
-    if (persistedId) {
-      // Verify it's still active in the DB
-      const { data: existing } = await supabase.from("sessions").select("id, status").eq("id", persistedId).single();
-      if (existing?.status === "active") {
-        const ok = await connectToSession(deviceId, persistedId);
-        if (ok) return true;
-      }
-    }
-
-    // Also check for any active session for this device
+    // Try any active session for this device
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
-      const { data: activeSessions } = await supabase
-        .from("sessions").select("id")
+      const { data: active } = await supabase.from("sessions").select("id")
         .eq("device_id", deviceId).eq("user_id", user.id).eq("status", "active")
         .order("started_at", { ascending: false }).limit(1);
-      if (activeSessions?.length) {
-        const ok = await connectToSession(deviceId, activeSessions[0].id);
-        if (ok) return true;
+      if (active?.length) {
+        sessionIdRef.current = active[0].id;
+        deviceIdRef.current = deviceId;
+        mirrorSessionId(deviceId, active[0].id);
+        return active[0].id;
       }
     }
 
     // Create a fresh session
-    return createAndConnect(deviceId);
-  }, [connectToSession, createAndConnect]);
+    const { data: sesData, error } = await supabase.functions.invoke("start-session", {
+      body: { device_id: deviceId },
+    });
+    if (error || !sesData?.session_id) return null;
+    sessionIdRef.current = sesData.session_id;
+    deviceIdRef.current = deviceId;
+    mirrorSessionId(deviceId, sesData.session_id);
+    return sesData.session_id;
+  }, []);
 
-  // ── Public API: send a command, get back stdout ──────────────────────────
+  // ── Run one command over a fresh WS, resuming the existing PTY ───────────
+  const runCommand = useCallback(async (
+    deviceId: string,
+    sessionId: string,
+    command: string,
+    opts: SendOptions,
+    isResume: boolean,
+  ): Promise<string> => {
+    const { data: { session: authSession } } = await supabase.auth.getSession();
+    const jwt = authSession?.access_token;
+    if (!jwt) throw new Error("No auth session");
+
+    return new Promise<string>((resolve, reject) => {
+      outputBufferRef.current = "";
+      substantiveWaitsRef.current = 0;
+      isOpenClawRef.current = !!opts.isOpenClaw;
+      onChunkRef.current = opts.onChunk ?? null;
+      statusRef.current = "busy";
+
+      let settled = false;
+      const finish = (result: string | Error) => {
+        if (settled) return;
+        settled = true;
+        finishRef.current = null;
+        if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null; }
+        if (hardTimeoutRef.current) { clearTimeout(hardTimeoutRef.current); hardTimeoutRef.current = null; }
+        // Close WS WITHOUT sending session_end so PTY stays alive in the relay
+        if (ws.readyState === WebSocket.OPEN) ws.close();
+        activeWsRef.current = null;
+        statusRef.current = "ready";
+        if (result instanceof Error) reject(result);
+        else resolve(result);
+      };
+
+      finishRef.current = finish;
+      hardTimeoutRef.current = setTimeout(() => finish(new Error("Response timed out")), RELAY_TIMEOUT_MS);
+
+      const ws = new WebSocket(`${RELAY_URL}/session`);
+      activeWsRef.current = ws;
+
+      ws.onopen = () => {
+        ws.send(JSON.stringify({ type: "auth", data: { token: jwt, session_id: sessionId, device_id: deviceId } }));
+      };
+
+      let commandSent = false;
+      let promptBuffer = "";
+
+      ws.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data);
+
+          if (msg.type === "auth_ok") {
+            if (isResume) {
+              // Resume: send resize to attach to the existing PTY
+              ws.send(JSON.stringify({ type: "resize", data: { session_id: sessionId, cols: 200, rows: 50 } }));
+            } else {
+              // New session: start the PTY
+              ws.send(JSON.stringify({ type: "session_start", data: { session_id: sessionId, cols: 200, rows: 50 } }));
+            }
+
+            // Wait for shell prompt before sending command
+            const promptDeadline = setTimeout(() => {
+              if (!commandSent) {
+                commandSent = true;
+                outputBufferRef.current = "";
+                ws.send(JSON.stringify({ type: "stdin", data: { session_id: sessionId, data_b64: btoa(command) } }));
+                resetSilence();
+              }
+            }, PROMPT_TIMEOUT_MS);
+
+            const tryPrompt = () => {
+              if (commandSent) return;
+              const plain = stripAnsi(promptBuffer);
+              if (PROMPT_RE.test(plain)) {
+                clearTimeout(promptDeadline);
+                commandSent = true;
+                outputBufferRef.current = "";
+                ws.send(JSON.stringify({ type: "stdin", data: { session_id: sessionId, data_b64: btoa(command) } }));
+                resetSilence();
+              }
+            };
+
+            // Patch onmessage to run prompt check on every stdout chunk
+            const base = ws.onmessage;
+            ws.onmessage = (ev) => {
+              base?.call(ws, ev);
+              if (!commandSent) tryPrompt();
+            };
+
+          } else if (msg.type === "stdout" && msg.data) {
+            const { data_b64 } = msg.data as { data_b64: string };
+            if (!data_b64) return;
+            let chunk = "";
+            try { chunk = decodeURIComponent(escape(atob(data_b64))); } catch { chunk = atob(data_b64); }
+
+            if (!commandSent) {
+              promptBuffer += chunk;
+            } else {
+              outputBufferRef.current += chunk;
+              onChunkRef.current?.(chunk);
+              substantiveWaitsRef.current = 0;
+              resetSilence();
+            }
+          } else if (msg.type === "scrollback") {
+            // Scrollback on resume — add to prompt buffer so prompt detection works
+            const d = (msg.data ?? {}) as { data_b64?: string; frames?: { d: string }[] };
+            if (d.data_b64) {
+              try { promptBuffer += decodeURIComponent(escape(atob(d.data_b64))); } catch { promptBuffer += atob(d.data_b64 ?? ""); }
+            }
+          } else if (msg.type === "session_end") {
+            // PTY ended — next command needs a fresh session
+            sessionIdRef.current = null;
+            finish(outputBufferRef.current || new Error("Session ended by relay"));
+          } else if (msg.type === "error") {
+            const message = (msg.data as { message?: string })?.message ?? "Relay error";
+            // If relay says session not found on resume, try fresh session next time
+            if (isResume && /not found|unknown session/i.test(message)) {
+              sessionIdRef.current = null;
+            }
+            finish(new Error(message));
+          }
+        } catch { /* ignore */ }
+      };
+
+      ws.onerror = () => {};
+      ws.onclose = (e) => {
+        if (!settled) finish(outputBufferRef.current || new Error(`WebSocket closed (code ${e.code})`));
+      };
+    });
+  }, [resetSilence]);
+
+  // ── Public: send a command ───────────────────────────────────────────────
   const sendCommand = useCallback(async (
     deviceId: string,
     command: string,
@@ -391,62 +266,38 @@ export function usePersistentRelaySession() {
   ): Promise<string> => {
     if (!deviceId) throw new Error("No device selected");
 
-    const ok = await ensureSession(deviceId);
-    if (!ok) throw new Error("Could not establish relay session");
+    const prevSessionId = sessionIdRef.current;
+    const sessionId = await ensureSessionId(deviceId);
+    if (!sessionId) throw new Error("Could not establish relay session");
 
-    const sess = sessionRef.current!;
-    if (sess.status === "busy") throw new Error("Session is already busy");
+    // isResume = we reused an existing active session (not just created one)
+    const isResume = prevSessionId === sessionId;
 
-    sess.status = "busy";
-    outputBufferRef.current = "";
-    promptSentRef.current = true; // persistent session is always at a prompt
+    return runCommand(deviceId, sessionId, command, opts, isResume);
+  }, [ensureSessionId, runCommand]);
 
-    return new Promise<string>((resolve, reject) => {
-      pendingRef.current = { command, opts, resolve, reject };
+  // ── Expose session info ──────────────────────────────────────────────────
+  const getSessionId = useCallback((): string | null => sessionIdRef.current, []);
+  const getSessionStatus = useCallback((): SessionStatus => statusRef.current, []);
 
-      // Hard timeout
-      hardTimeoutRef.current = setTimeout(() => {
-        finishCommand(new Error("Response timed out"));
-      }, RELAY_TIMEOUT_MS);
-
-      // Send immediately — the shell is already at a prompt
-      sess.ws.send(JSON.stringify({
-        type: "stdin",
-        data: { session_id: sess.sessionId, data_b64: btoa(command) },
-      }));
-
-      resetSilence(!!opts.isOpenClaw);
-    });
-  }, [ensureSession, resetSilence, finishCommand]);
-
-  // ── Expose session ID for the "Open Terminal" button ────────────────────
-  const getSessionId = useCallback((): string | null => {
-    return sessionRef.current?.sessionId ?? null;
-  }, []);
-
-  const getSessionStatus = useCallback((): Status => {
-    return sessionRef.current?.status ?? "idle";
-  }, []);
-
-  // ── Inject raw stdin (for option buttons / Stop) ─────────────────────────
+  // ── Inject raw stdin (Stop / option buttons) ─────────────────────────────
   const sendRawStdin = useCallback((sessionId: string, data_b64: string) => {
-    const sess = sessionRef.current;
-    if (!sess || sess.ws.readyState !== WebSocket.OPEN) return;
-    sess.ws.send(JSON.stringify({ type: "stdin", data: { session_id: sessionId, data_b64 } }));
+    const ws = activeWsRef.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    ws.send(JSON.stringify({ type: "stdin", data: { session_id: sessionId, data_b64 } }));
   }, []);
 
-  // ── Disconnect / cleanup ─────────────────────────────────────────────────
+  // ── Reset on device switch ───────────────────────────────────────────────
   const disconnect = useCallback(() => {
     if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
     if (hardTimeoutRef.current) clearTimeout(hardTimeoutRef.current);
-    const sess = sessionRef.current;
-    if (sess?.ws.readyState === WebSocket.OPEN) {
-      sess.ws.close();
-    }
-    sessionRef.current = null;
+    if (activeWsRef.current?.readyState === WebSocket.OPEN) activeWsRef.current.close();
+    activeWsRef.current = null;
+    sessionIdRef.current = null;
+    deviceIdRef.current = null;
+    statusRef.current = "idle";
   }, []);
 
-  // Disconnect on unmount
   useEffect(() => () => { disconnect(); }, [disconnect]);
 
   return { sendCommand, sendRawStdin, getSessionId, getSessionStatus, disconnect };
