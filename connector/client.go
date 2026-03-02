@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"sync"
 	"syscall"
@@ -524,13 +525,38 @@ func (c *RelayClient) sendHTTPError(requestID string, statusCode int, message st
 
 // ─── PTY Session Handlers ───────────────────────────────────────────
 
+func shellArgs(shellPath string) []string {
+	base := strings.ToLower(filepath.Base(shellPath))
+	// Strip version suffix (e.g. "bash-5.2" → "bash")
+	if idx := strings.Index(base, "-"); idx > 0 {
+		base = base[:idx]
+	}
+	switch base {
+	case "bash", "zsh":
+		// Login + interactive shell; exec self to replace the -c wrapper process
+		// so the user lands directly in bash/zsh, not a subshell.
+		return []string{"-lic", "exec " + shellPath}
+	case "sh", "dash", "ash", "ksh", "mksh":
+		// These support -i but not -l universally; skip the exec wrapper.
+		return []string{"-i"}
+	case "fish":
+		// fish uses --login --interactive
+		return []string{"--login", "--interactive"}
+	case "pwsh", "powershell":
+		// PowerShell on Linux/macOS
+		return []string{"-NoExit", "-Interactive"}
+	default:
+		// Safe fallback: plain interactive (avoids -l which many minimal shells reject)
+		return []string{"-i"}
+	}
+}
+
 func (c *RelayClient) startSession(data SessionStartData) {
 	log.Printf("Starting session %s (%dx%d)", data.SessionID, data.Cols, data.Rows)
 
-	// Spawn as a login interactive shell (-lic) so that /etc/profile, ~/.zprofile,
-	// ~/.bash_profile are sourced and interactive PATH (npm globals, nvm, brew, etc.)
-	// is fully loaded — matching a real terminal session.
-	cmd := exec.Command(c.shell, "-lic", "exec "+c.shell)
+	args := shellArgs(c.shell)
+	log.Printf("[session] shell=%s args=%v", c.shell, args)
+	cmd := exec.Command(c.shell, args...)
 	cmd.Env = append(os.Environ(), "TERM=xterm-256color")
 
 	// Set working directory: prefer --workdir flag, fallback to home directory
