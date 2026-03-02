@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 // Bump this whenever MAIN_GO or CLIENT_GO changes so --self-update-check can detect stale binaries.
-const SOURCE_VERSION = "2026-03-02T00:00:00Z";
+const SOURCE_VERSION = "2026-03-02T01:00:00Z";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -234,7 +234,27 @@ func installAgentDarwin(exe string) error {
 \t// Unload any previously registered instance (ignore error if not loaded).
 \trun("launchctl", "bootout", uid+"/"+label)
 \ttime.Sleep(500 * time.Millisecond) // give launchd time to process bootout
-\tif err := runMust("launchctl", "bootstrap", uid, plistPath()); err != nil { return err }
+\tif err := runMust("launchctl", "bootstrap", uid, plistPath()); err != nil {
+\t\t// Read back the plist so the user can see exactly what launchd tried to load.
+\t\tplistContents, readErr := os.ReadFile(plistPath())
+\t\tif readErr != nil {
+\t\t\tplistContents = []byte("(could not read plist: " + readErr.Error() + ")")
+\t\t}
+\t\treturn fmt.Errorf(
+\t\t\t"launchctl bootstrap failed: %w\\n\\n"+
+\t\t\t\t"── Plist contents (%s) ──\\n%s\\n\\n"+
+\t\t\t\t"── Diagnostics ──\\n"+
+\t\t\t\t"  Run the following for detailed service info:\\n"+
+\t\t\t\t"    launchctl print %s/%s\\n"+
+\t\t\t\t"  Check system logs:\\n"+
+\t\t\t\t"    log show --predicate 'subsystem == \\"com.apple.launchd\\"' --last 2m | grep privaclaw\\n"+
+\t\t\t\t"  Verify binary is not quarantined:\\n"+
+\t\t\t\t"    xattr -l %s\\n"+
+\t\t\t\t"  Re-run installer with sudo for richer errors:\\n"+
+\t\t\t\t"    sudo launchctl bootstrap %s %s",
+\t\t\terror, plistPath(), plistContents, uid, label, exe, uid, plistPath(),
+\t\t)
+\t}
 \trunMust("launchctl", "enable", uid+"/"+label)
 \trunMust("launchctl", "kickstart", "-k", uid+"/"+label)
 \tfmt.Printf("✅ Service installed (macOS LaunchAgent).\\n   Plist: %s\\n   Log:   %s\\n", plistPath(), logPath)
