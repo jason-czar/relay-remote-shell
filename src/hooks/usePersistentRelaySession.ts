@@ -13,6 +13,10 @@
 import { useRef, useCallback, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
+// Module-level dedup map: prevents concurrent ensureSessionId calls for the same
+// device from all firing start-session simultaneously (e.g. multiple components mounting).
+const inflightSessions = new Map<string, Promise<string | null>>();
+
 const RELAY_URL = import.meta.env.VITE_RELAY_URL || "wss://relay.privaclaw.com";
 const SILENCE_MS = 8000;
 const RELAY_TIMEOUT_MS = 90000;
