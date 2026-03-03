@@ -3748,13 +3748,12 @@ export default function Chat() {
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
               <AlertDialogAction onClick={() => {
-              setAgent(agentSwitchPending!);
+              const confirmedAgent = agentSwitchPending!;
+              setAgent(confirmedAgent);
               setModel("auto");
               setAgentSwitchPending(null);
               setActiveConvId(null);
-              handleNew();
-              // Pre-warm PTY for this new chat immediately
-              if (selectedDeviceId) relay.prewarmSession(selectedDeviceId, null);
+              handleNew(confirmedAgent);
             }}>
                 Start New Chat
               </AlertDialogAction>
