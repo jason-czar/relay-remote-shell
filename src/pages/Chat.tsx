@@ -3610,6 +3610,7 @@ export default function Chat() {
                     ref={drawerTerminalRef}
                     deviceId={selectedDeviceId}
                     convId={activeConvId}
+                    initialCommand={drawerInitCmd}
                     onConnectorDisconnected={() => setConnectorOffline(true)}
                     onConnectorReconnected={() => setConnectorOffline(false)} />
                   
