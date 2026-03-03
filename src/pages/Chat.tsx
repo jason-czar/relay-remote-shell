@@ -742,6 +742,7 @@ export default function Chat() {
   const [isDragOver, setIsDragOver] = useState(false);
   const [showTerminalDrawer, setShowTerminalDrawer] = useState(false);
   const [terminalDrawerHeight, setTerminalDrawerHeight] = useState(380);
+  const [drawerInitCmd, setDrawerInitCmd] = useState<string | null>(null);
   const terminalDragRef = useRef<{startY: number;startH: number;} | null>(null);
   const drawerTerminalRef = useRef<EmbeddedTerminalHandle>(null);
   const [connectorOffline, setConnectorOffline] = useState(false);
@@ -3011,6 +3012,35 @@ export default function Chat() {
                 </button>
                   }
 
+              {/* View agent tmux session button — shown when active conv has a tmux_session_name */}
+              {selectedDeviceId && (agent === "claude" || agent === "codex") && (() => {
+                const activeConv = conversations.find((c) => c.id === activeConvId);
+                const tmuxName = activeConv?.tmux_session_name;
+                if (!tmuxName) return null;
+                return (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={() => {
+                          setDrawerInitCmd(`tmux attach -t ${tmuxName}`);
+                          setShowTerminalDrawer(true);
+                          setTimeout(() => drawerTerminalRef.current?.focus(), 100);
+                          // Clear after use so re-opening the drawer doesn't re-run tmux attach
+                          setTimeout(() => setDrawerInitCmd(null), 3000);
+                        }}
+                        className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium transition-colors text-foreground/60 hover:text-foreground hover:bg-accent border border-border/40 hover:border-border/80">
+                        <Eye className="h-3 w-3 shrink-0" />
+                        <span className="font-mono">{tmuxName}</span>
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-xs">
+                      <p className="font-semibold">View agent terminal</p>
+                      <p className="text-muted-foreground font-mono mt-0.5">tmux attach -t {tmuxName}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                );
+              })()}
+
               {/* Preview button */}
               {selectedDeviceId &&
                   <Popover open={previewPopoverOpen} onOpenChange={setPreviewPopoverOpen}>
@@ -3582,6 +3612,7 @@ export default function Chat() {
                     ref={drawerTerminalRef}
                     deviceId={selectedDeviceId}
                     convId={activeConvId}
+                    initialCommand={drawerInitCmd}
                     onConnectorDisconnected={() => setConnectorOffline(true)}
                     onConnectorReconnected={() => setConnectorOffline(false)} />
                   
