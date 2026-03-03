@@ -761,6 +761,16 @@ func (c *RelayClient) handleResize(data ResizeData) {
 
 func (c *RelayClient) endSession(sessionID, reason string) {
 	log.Printf("Ending session %s: %s", sessionID, reason)
+
+	// Do NOT kill the PTY when the browser disconnects — the relay holds a grace
+	// period and the user can reconnect and resume right where they left off.
+	// Only destroy the PTY for reasons that are explicitly user-initiated or fatal.
+	switch reason {
+	case "browser_disconnected", "":
+		log.Printf("Session %s: keeping PTY alive (reason=%q)", sessionID, reason)
+		return
+	}
+
 	c.mu.Lock()
 	sess, ok := c.sessions[sessionID]
 	if ok {

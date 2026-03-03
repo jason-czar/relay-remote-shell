@@ -36,7 +36,7 @@ const wsTunnels = new Map();
 
 // session_id → setTimeout handle (grace period before ending session in DB)
 const sessionGraceTimers = new Map();
-const SESSION_GRACE_MS = 600_000; // 10 minutes to reconnect before session is ended
+const SESSION_GRACE_MS = 1_800_000; // 30 minutes to reconnect before session is ended
 
 // ─── HTTP Server ─────────────────────────────────────────────────────
 const server = createServer(async (req, res) => {
@@ -408,8 +408,8 @@ connectorWSS.on("connection", (ws) => {
         .update({ status: "offline", last_seen: new Date().toISOString() })
         .eq("id", deviceId);
 
-      // End all active sessions for this device
-      const endedAt = new Date().toISOString();
+      // Connector disconnected: notify browsers but keep sessions active in DB so
+      // they can be resumed when the connector reconnects within the grace period.
       for (const [sessionId, session] of browserSessions) {
         if (session.device_id === deviceId) {
           if (session.browsers) {
@@ -423,16 +423,12 @@ connectorWSS.on("connection", (ws) => {
             }
           }
           browserSessions.delete(sessionId);
-          await saveRecording(sessionId);
+          // Don't save recording yet — connector may reconnect and resume the session
         }
       }
-
-      // Connector disconnect means PTYs are unavailable: hard-end device sessions in DB.
-      await supabase
-        .from("sessions")
-        .update({ status: "ended", ended_at: endedAt })
-        .eq("device_id", deviceId)
-        .eq("status", "active");
+      // NOTE: We intentionally do NOT mark sessions as ended in the DB here.
+      // The PTY state on the connector is preserved; sessions stay active so the
+      // browser can seamlessly reconnect and resume when the connector comes back.
 
       // Close all WS proxy tunnels for this device
       for (const [tunnelId, tunnel] of wsTunnels) {
