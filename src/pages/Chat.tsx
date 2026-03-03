@@ -2853,13 +2853,11 @@ export default function Chat() {
                       });
                     }}
                     className={cn(
-                      "hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium transition-colors",
+                      "hidden sm:flex items-center justify-center w-8 h-8 rounded-full text-xs font-medium transition-colors",
                       showTerminalDrawer ? "bg-primary/10 text-primary" : "text-foreground/50 hover:text-foreground hover:bg-accent"
                     )}
                     title="Toggle terminal">
-                    
                   <Terminal className="h-3.5 w-3.5" />
-                  <span>Terminal</span>
                 </button>
                   }
 
@@ -2869,15 +2867,13 @@ export default function Chat() {
                   <PopoverTrigger asChild>
                     <button
                         className={cn(
-                          "hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium transition-colors",
+                          "hidden sm:flex items-center justify-center w-8 h-8 rounded-full text-xs font-medium transition-colors",
                           showPreview ? "bg-primary/10 text-primary" : "text-foreground/50 hover:text-foreground hover:bg-accent"
                         )}
-                        title="Live preview">
-                        
+                        title={showPreview ? `Live preview · :${previewInputPort}` : "Live preview"}>
                       {previewAutoDetecting ?
                         <Loader2 className="h-3.5 w-3.5 animate-spin" /> :
                         <Monitor className="h-3.5 w-3.5" />}
-                      <span>{showPreview ? `Preview · :${previewInputPort}` : "Preview"}</span>
                     </button>
                   </PopoverTrigger>
                   <PopoverContent side="bottom" align="end" className="w-64 p-3">
@@ -2924,18 +2920,13 @@ export default function Chat() {
               {/* Device pill — opens right panel */}
               <button
                     onClick={() => setDevicePanelOpen(true)}
-                    className="flex items-center gap-2 px-3.5 py-2 rounded-full text-sm font-medium transition-all duration-150 hover:bg-accent text-foreground/80 hover:text-foreground">
-                    
+                    className="flex items-center justify-center w-8 h-8 rounded-full transition-all duration-150 hover:bg-accent text-foreground/80 hover:text-foreground"
+                    title={(() => { const dev = devices.find((d) => d.id === selectedDeviceId); return dev ? dev.name : "No device"; })()}>
                 {(() => {
                       const dev = devices.find((d) => d.id === selectedDeviceId);
                       return dev ?
-                      <>
-                      <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${dev.status === "online" ? "bg-status-online animate-pulse" : "bg-muted-foreground/40"}`} />
-                      <span className="hidden sm:inline max-w-[140px] truncate">{dev.name}</span>
-                    </> :
-
-                      <span className="opacity-50 hidden sm:inline">No device</span>;
-
+                      <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${dev.status === "online" ? "bg-status-online animate-pulse" : "bg-muted-foreground/40"}`} /> :
+                      <span className="w-2.5 h-2.5 rounded-full shrink-0 bg-muted-foreground/20" />;
                     })()}
               </button>
               <button
