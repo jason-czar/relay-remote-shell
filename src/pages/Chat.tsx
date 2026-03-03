@@ -3610,9 +3610,9 @@ export default function Chat() {
               </div>
 
               {/* Split terminal body — left: main PTY, right: agent tmux */}
-              <div className="flex-1 min-h-0 flex overflow-hidden">
+              <ResizablePanelGroup direction="horizontal" className="flex-1 min-h-0">
                 {/* Left: main shell PTY */}
-                <div className="flex-1 min-w-0 flex flex-col overflow-hidden border-r border-border/30">
+                <ResizablePanel defaultSize={50} minSize={20} className="flex flex-col overflow-hidden">
                   <div className="flex items-center gap-1.5 px-3 py-1 shrink-0 border-b border-border/20 bg-background/60">
                     <Terminal className="h-3 w-3 text-muted-foreground/60" />
                     <span className="text-[10px] font-medium text-muted-foreground/60 uppercase tracking-wider">Shell</span>
@@ -3625,9 +3625,10 @@ export default function Chat() {
                         onConnectorDisconnected={() => setConnectorOffline(true)}
                         onConnectorReconnected={() => setConnectorOffline(false)} />
                   </div>
-                </div>
+                </ResizablePanel>
+                <ResizableHandle withHandle className="bg-border/30 hover:bg-primary/30 transition-colors" />
                 {/* Right: agent tmux session */}
-                <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
+                <ResizablePanel defaultSize={50} minSize={20} className="flex flex-col overflow-hidden">
                   <div className="flex items-center gap-1.5 px-3 py-1 shrink-0 border-b border-border/20 bg-background/60">
                     <Code2 className="h-3 w-3 text-muted-foreground/60" />
                     <span className="text-[10px] font-medium text-muted-foreground/60 uppercase tracking-wider">Agent</span>
@@ -3646,8 +3647,8 @@ export default function Chat() {
                       </div>
                     )}
                   </div>
-                </div>
-              </div>
+                </ResizablePanel>
+              </ResizablePanelGroup>
             </div>
             );
           })()}
