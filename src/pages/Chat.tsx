@@ -3025,6 +3025,8 @@ export default function Chat() {
                           setDrawerInitCmd(`tmux attach -t ${tmuxName}`);
                           setShowTerminalDrawer(true);
                           setTimeout(() => drawerTerminalRef.current?.focus(), 100);
+                          // Clear after use so re-opening the drawer doesn't re-run tmux attach
+                          setTimeout(() => setDrawerInitCmd(null), 3000);
                         }}
                         className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium transition-colors text-foreground/60 hover:text-foreground hover:bg-accent border border-border/40 hover:border-border/80">
                         <Eye className="h-3 w-3 shrink-0" />
