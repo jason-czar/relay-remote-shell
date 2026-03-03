@@ -3540,7 +3540,9 @@ export default function Chat() {
               } {/* end agent !== terminal */}
 
           {/* ── Bottom Terminal Drawer — in normal flow so composer stays visible ── */}
-          {showTerminalDrawer && selectedDeviceId && agent !== "terminal" &&
+          {showTerminalDrawer && selectedDeviceId && agent !== "terminal" && (() => {
+            const activeConvTmuxName = conversations.find(c => c.id === activeConvId)?.tmux_session_name ?? null;
+            return (
               <div
                 className="relative shrink-0 flex flex-col border-t border-border/40 bg-background"
                 style={{ height: terminalDrawerHeight }}>
