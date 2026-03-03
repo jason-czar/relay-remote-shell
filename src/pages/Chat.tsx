@@ -699,6 +699,26 @@ export default function Chat() {
     relay.setConvId(activeConvId);
   }, [activeConvId, relay]);
 
+  // ── Global PTY stdout listener — catches trust gates after REPL is live ──
+  // onChunkRef is null once sendCommand resolves; this fires for ALL stdout.
+  useEffect(() => {
+    relay.setGlobalChunkListener((chunk: string) => {
+      const stripped = chunk.replace(/\x1b\[[^m]*m/g, "").replace(/\x1b\][^\x07]*\x07/g, "");
+      if (!/Enter to confirm/i.test(stripped)) return;
+      const sid = relay.getSessionId();
+      if (!sid) return;
+      const autoTrusted = selectedDeviceId && localStorage.getItem(`agent-trust-${selectedDeviceId}`) === "true";
+      if (autoTrusted) {
+        console.log("[REPL] Auto-trust: sending \\r to bypass trust gate");
+        relay.sendRawStdin(sid, btoa("\r"));
+      } else {
+        console.log("[REPL] Trust gate detected via global listener — showing approval UI");
+        setAwaitingApproval({ sessionId: sid, options: [ENTER_TO_CONFIRM_SENTINEL] });
+      }
+    });
+    return () => relay.setGlobalChunkListener(null);
+  }, [relay, selectedDeviceId]);
+
   const [thinking, setThinking] = useState(false);
   const [agentSwitchPending, setAgentSwitchPending] = useState<"openclaw" | "claude" | "codex" | "terminal" | null>(null);
   const [streamingMsgIndex, setStreamingMsgIndex] = useState<number | null>(null);
@@ -960,6 +980,21 @@ export default function Chat() {
           for (const queuedText of queue) {
             relay.sendRawStdin(sessionId, btoa(queuedText + "\n"));
           }
+        }
+      }
+
+      // ── Trust gate detection in REPL mode ──────────────────────────────
+      // Claude's trust gate arrives mid-stream after REPL is already live.
+      // onAwaitingInput only fires during sendCommand; we must detect it here.
+      const strippedChunk = chunk.replace(/\x1b\[[^m]*m/g, "").replace(/\x1b\][^\x07]*\x07/g, "");
+      if (/Enter to confirm/i.test(strippedChunk)) {
+        const autoTrusted = selectedDeviceId && localStorage.getItem(`agent-trust-${selectedDeviceId}`) === "true";
+        if (autoTrusted) {
+          console.log("[REPL] Auto-trust: sending \\r to bypass trust gate");
+          relay.sendRawStdin(sessionId, btoa("\r"));
+        } else {
+          console.log("[REPL] Trust gate detected in REPL stream — showing approval UI");
+          setAwaitingApproval({ sessionId, options: [ENTER_TO_CONFIRM_SENTINEL] });
         }
       }
     }

@@ -91,6 +91,7 @@ export function usePersistentRelaySession() {
   const substantiveWaitsRef = useRef(0);
   const isOpenClawRef = useRef(false);
   const onChunkRef = useRef<((chunk: string) => void) | null>(null);
+  const onGlobalChunkRef = useRef<((chunk: string) => void) | null>(null);
   const onAwaitingInputRef = useRef<((options: string[]) => void) | null>(null);
   const onSessionResetRef = useRef<((sessionId: string) => void) | null>(null);
   const onScrollbackRef = useRef<((text: string) => void) | null>(null);
@@ -288,6 +289,7 @@ export function usePersistentRelaySession() {
             } else {
               outputBufferRef.current += chunk;
               onChunkRef.current?.(chunk);
+              onGlobalChunkRef.current?.(chunk);
               substantiveWaitsRef.current = 0;
               resetSilence();
             }
@@ -422,6 +424,7 @@ export function usePersistentRelaySession() {
           try { chunk = decodeURIComponent(escape(atob(b64))); } catch { chunk = atob(b64); }
           outputBufferRef.current += chunk;
           onChunkRef.current?.(chunk);
+          onGlobalChunkRef.current?.(chunk);
           substantiveWaitsRef.current = 0;
           resetSilence();
         } else if (msg.type === "error") {
@@ -497,5 +500,5 @@ export function usePersistentRelaySession() {
 
   useEffect(() => () => { disconnect(); }, [disconnect]);
 
-  return { sendCommand, sendRawStdin, getSessionId, getSessionStatus, disconnect, setConvId, prewarmSession };
+  return { sendCommand, sendRawStdin, getSessionId, getSessionStatus, disconnect, setConvId, prewarmSession, setGlobalChunkListener: (fn: ((chunk: string) => void) | null) => { onGlobalChunkRef.current = fn; } };
 }
