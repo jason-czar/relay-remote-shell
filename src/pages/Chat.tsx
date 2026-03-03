@@ -650,6 +650,8 @@ export default function Chat() {
   // ── Deferred first message — stored when sessionId is unknown at send time ─
   // Structured so onChunkActivity doesn't rely on potentially-stale React agent state.
   const deferredFirstMsgRef = useRef<{agent: "codex" | "claude";text: string;} | null>(null);
+  // ── tmux attach flag — true when we're attaching to a live Claude tmux session ─
+  const attachingToTmuxRef = useRef<boolean>(false);
   // ── PTY death cleanup — aligned with real terminal lifecycle ─────────────
   const handleSessionReset = useCallback((deadSessionId?: string) => {
     if (!deadSessionId) return;
