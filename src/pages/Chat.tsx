@@ -2109,9 +2109,9 @@ export default function Chat() {
             } catch {
 
 
+
               // silently keep the fallback title
             }})();}
-
         setConversations((prev) => {
           const conv = prev.find((c) => c.id === jobConvId);
           if (!conv) return prev;
@@ -2543,9 +2543,9 @@ export default function Chat() {
       }
     } catch {
 
+
       // silently ignore — preview is already open with targetPort
-    } finally {setPreviewAutoDetecting(false);
-    }
+    } finally {setPreviewAutoDetecting(false);}
   }, [previewInputPort, sendViaRelay]);
 
   // ── Key handler ───────────────────────────────────────────────────────
@@ -2938,13 +2938,13 @@ export default function Chat() {
 
                     })()}
               </button>
-              <button
-                    onClick={() => window.location.reload()}
-                    className="hidden sm:flex w-9 h-9 rounded-full items-center justify-center text-foreground/50 hover:text-foreground hover:bg-accent transition-all duration-150"
-                    title="Refresh page">
+              
 
-                <RefreshCw className="h-5 w-5" />
-              </button>
+
+
+
+
+                  
               <button
                     onClick={() => {setActiveConvId(null);handleNew();}}
                     className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-accent text-foreground transition-all duration-150"
