@@ -743,6 +743,9 @@ export default function Chat() {
   const [showTerminalDrawer, setShowTerminalDrawer] = useState(false);
   const [terminalDrawerHeight, setTerminalDrawerHeight] = useState(380);
   const [drawerInitCmd, setDrawerInitCmd] = useState<string | null>(null);
+  const [shellInitCmd, setShellInitCmd] = useState<string | null>(null);
+  // Pre-generated tmux session name for the upcoming new conversation
+  const pendingTmuxNameRef = useRef<string | null>(null);
   const terminalDragRef = useRef<{startY: number;startH: number;} | null>(null);
   const drawerTerminalRef = useRef<EmbeddedTerminalHandle>(null);
   const agentTerminalRef = useRef<EmbeddedTerminalHandle>(null);
@@ -1330,10 +1333,38 @@ export default function Chat() {
   }, []);
 
   // ── New conversation ──────────────────────────────────────────────────
+  // ── Build tmux spawn command for Shell panel ─────────────────────────────
+  const buildSpawnCmd = useCallback((agentType: "claude" | "codex", sessionName: string): string => {
+    if (agentType === "codex") {
+      return `tmux new-session -d -s ${sessionName} codex && sleep 1 && tmux send-keys -t ${sessionName} Enter ""`;
+    }
+    return `tmux new-session -d -s ${sessionName} claude && sleep 1 && tmux send-keys -t ${sessionName} Enter ""`;
+  }, []);
+
+  // ── Fire spawn command in the Shell panel ────────────────────────────────
+  const spawnAgentInShell = useCallback((agentType: "claude" | "codex") => {
+    const seed = crypto.randomUUID();
+    const prefix = agentType === "codex" ? "cx-" : "cc-";
+    const sessionName = `${prefix}${seed.replace(/-/g, "").substring(0, 8)}`;
+    pendingTmuxNameRef.current = sessionName;
+    const cmd = buildSpawnCmd(agentType, sessionName);
+    setShellInitCmd(cmd);
+    setShowTerminalDrawer(true);
+    setTimeout(() => {
+      drawerTerminalRef.current?.focus();
+      // Clear after use so re-opening drawer doesn't re-run the command
+      setTimeout(() => setShellInitCmd(null), 3000);
+    }, 150);
+  }, [buildSpawnCmd]);
+
   const createConversation = useCallback(async (firstMessage: string, agentType: "openclaw" | "claude" | "codex"): Promise<string | null> => {
     if (!user) return null;
     const title = firstMessage.slice(0, 40) + (firstMessage.length > 40 ? "…" : "");
     const openclaw_session_id = agentType === "openclaw" ? crypto.randomUUID() : null;
+    // Use the pre-generated tmux session name if available (set by spawnAgentInShell)
+    const tmux_session_name = (agentType === "claude" || agentType === "codex")
+      ? (pendingTmuxNameRef.current ?? null)
+      : null;
 
     const { data, error } = await supabase.
     from("chat_conversations").
@@ -1343,7 +1374,8 @@ export default function Chat() {
       agent: agentType,
       model,
       title,
-      openclaw_session_id
+      openclaw_session_id,
+      ...(tmux_session_name ? { tmux_session_name } : {})
     }).
     select("id, title, agent, model, created_at").
     single();
@@ -1352,6 +1384,7 @@ export default function Chat() {
       toast({ title: "Error", description: error?.message, variant: "destructive" });
       return null;
     }
+    pendingTmuxNameRef.current = null;
     setConversations((prev) => [data as import("@/contexts/ChatContext").Conversation, ...prev]);
     setActiveConvId(data.id);
     return data.id;
@@ -2562,7 +2595,7 @@ export default function Chat() {
   }, [messages, selectedDeviceId, activeConvId, agent, model, buildCommand, sendViaRelay, addJob, removeJob]);
 
 
-  const handleNew = useCallback(() => {
+  const handleNew = useCallback((overrideAgent?: "openclaw" | "claude" | "codex" | "terminal") => {
     // Reset all per-conversation UI state so the new blank conversation is clean.
     // Any running background job for the previous conversation continues unaffected —
     // it checks activeConvIdRef.current === jobConvId before touching UI state.
@@ -2582,7 +2615,12 @@ export default function Chat() {
     if (selectedDeviceId) {
       relay.prewarmSession(selectedDeviceId, null);
     }
-  }, [stopActivity, selectedDeviceId, relay]);
+    // Auto-spawn the agent tmux session in the Shell panel for Claude / Codex
+    const effectiveAgent = overrideAgent ?? agent;
+    if (selectedDeviceId && (effectiveAgent === "claude" || effectiveAgent === "codex")) {
+      spawnAgentInShell(effectiveAgent);
+    }
+  }, [stopActivity, selectedDeviceId, relay, agent, spawnAgentInShell]);
 
   // Register handleNew with context so sidebar "New" button triggers it
   useEffect(() => {
@@ -2605,6 +2643,10 @@ export default function Chat() {
       if (activeConvId) {
         supabase.from("chat_conversations").update({ agent: newAgent }).eq("id", activeConvId);
         setConversations((prev) => prev.map((c) => c.id === activeConvId ? { ...c, agent: newAgent } : c));
+      }
+      // Spawn agent in Shell panel immediately when switching to claude/codex on empty chat
+      if (!activeConvId && selectedDeviceId && (newAgent === "claude" || newAgent === "codex")) {
+        spawnAgentInShell(newAgent);
       }
     }
   };
@@ -3622,6 +3664,7 @@ export default function Chat() {
                         ref={drawerTerminalRef}
                         deviceId={selectedDeviceId}
                         convId={activeConvId}
+                        initialCommand={shellInitCmd}
                         onConnectorDisconnected={() => setConnectorOffline(true)}
                         onConnectorReconnected={() => setConnectorOffline(false)} />
                   </div>
@@ -3706,13 +3749,12 @@ export default function Chat() {
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
               <AlertDialogAction onClick={() => {
-              setAgent(agentSwitchPending!);
+              const confirmedAgent = agentSwitchPending!;
+              setAgent(confirmedAgent);
               setModel("auto");
               setAgentSwitchPending(null);
               setActiveConvId(null);
-              handleNew();
-              // Pre-warm PTY for this new chat immediately
-              if (selectedDeviceId) relay.prewarmSession(selectedDeviceId, null);
+              handleNew(confirmedAgent);
             }}>
                 Start New Chat
               </AlertDialogAction>
