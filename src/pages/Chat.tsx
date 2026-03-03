@@ -1799,9 +1799,32 @@ export default function Chat() {
 
         const { data: convData } = await supabase.
         from("chat_conversations").
-        select("agent, openclaw_session_id, claude_session_id, device_id").
+        select("agent, openclaw_session_id, claude_session_id, device_id, tmux_session_name").
         eq("id", jobConvId).
         single();
+
+        // ── tmux capture-pane response extraction (Claude + Codex) ────────────
+        // After the agent finishes (silence timer fires), run capture-pane to get
+        // clean response text instead of parsing noisy raw stdout.
+        let captureStdout = "";
+        if ((convData?.agent === "claude" || convData?.agent === "codex") && convData.tmux_session_name) {
+          const tmuxName = convData.tmux_session_name;
+          // Escape single quotes in the user message for awk -v assignment
+          const awkMsg = fullText.replace(/\\/g, "\\\\").replace(/'/g, "'\\''");
+          let captureCmd: string;
+          if (convData.agent === "codex") {
+            captureCmd = `tmux capture-pane -t ${tmuxName} -pS - | awk -v msg='${awkMsg}' '$0 ~ msg { found=1; next } found && /^> / { exit } found && !/gpt/ && !/›/ { print }'\n`;
+          } else {
+            // Claude Code
+            captureCmd = `tmux capture-pane -t ${tmuxName} -pS - | awk -v msg='${awkMsg}' 'index($0,msg){found=1;next} found && $0~/^[[:space:]]*[❯›>]/{exit} found{gsub(/\\x1B\\[[0-9;]*[JKmsu]/,"");sub(/^[[:space:]]*⏺[[:space:]]*/,"");if($0!~/^[-─—_]{5,}$/&&$0!~/\\? for shortcuts/)print}'\n`;
+          }
+          try {
+            captureStdout = await sendViaRelay(captureCmd, false);
+            console.debug("[Chat] capture-pane stdout:", captureStdout);
+          } catch (captureErr) {
+            console.warn("[Chat] capture-pane failed, falling back to raw stdout:", captureErr);
+          }
+        }
 
         let responseText = "";
         let codexThinking = "";
