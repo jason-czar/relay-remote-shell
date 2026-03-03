@@ -16,6 +16,7 @@ interface RelayMessage {
 interface Props {
   deviceId: string;
   convId?: string | null;
+  initialCommand?: string | null;
   onConnectorDisconnected?: () => void;
   onConnectorReconnected?: () => void;
 }
