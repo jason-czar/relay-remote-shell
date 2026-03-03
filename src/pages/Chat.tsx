@@ -2833,6 +2833,24 @@ export default function Chat() {
                 </Popover>
               )}
 
+              {/* Claude session resume chip */}
+              {(() => {
+                const conv = conversations.find((c) => c.id === activeConvId);
+                if (conv?.agent === "claude" && conv.claude_session_id) {
+                  const short = conv.claude_session_id.slice(0, 8);
+                  return (
+                    <span
+                      title={`Resuming Claude session ${conv.claude_session_id}`}
+                      className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border border-primary/20 bg-primary/8 text-primary/80 select-none"
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full bg-primary/60 shrink-0" />
+                      Resuming {short}…
+                    </span>
+                  );
+                }
+                return null;
+              })()}
+
               {/* Device pill — opens right panel */}
               <button
                 onClick={() => setDevicePanelOpen(true)}
