@@ -1799,9 +1799,32 @@ export default function Chat() {
 
         const { data: convData } = await supabase.
         from("chat_conversations").
-        select("agent, openclaw_session_id, claude_session_id, device_id").
+        select("agent, openclaw_session_id, claude_session_id, device_id, tmux_session_name").
         eq("id", jobConvId).
         single();
+
+        // ── tmux capture-pane response extraction (Claude + Codex) ────────────
+        // After the agent finishes (silence timer fires), run capture-pane to get
+        // clean response text instead of parsing noisy raw stdout.
+        let captureStdout = "";
+        if ((convData?.agent === "claude" || convData?.agent === "codex") && convData.tmux_session_name) {
+          const tmuxName = convData.tmux_session_name;
+          // Escape single quotes in the user message for awk -v assignment
+          const awkMsg = fullText.replace(/\\/g, "\\\\").replace(/'/g, "'\\''");
+          let captureCmd: string;
+          if (convData.agent === "codex") {
+            captureCmd = `tmux capture-pane -t ${tmuxName} -pS - | awk -v msg='${awkMsg}' '$0 ~ msg { found=1; next } found && /^> / { exit } found && !/gpt/ && !/›/ { print }'\n`;
+          } else {
+            // Claude Code
+            captureCmd = `tmux capture-pane -t ${tmuxName} -pS - | awk -v msg='${awkMsg}' 'index($0,msg){found=1;next} found && $0~/^[[:space:]]*[❯›>]/{exit} found{gsub(/\\x1B\\[[0-9;]*[JKmsu]/,"");sub(/^[[:space:]]*⏺[[:space:]]*/,"");if($0!~/^[-─—_]{5,}$/&&$0!~/\\? for shortcuts/)print}'\n`;
+          }
+          try {
+            captureStdout = await sendViaRelay(captureCmd, false);
+            console.debug("[Chat] capture-pane stdout:", captureStdout);
+          } catch (captureErr) {
+            console.warn("[Chat] capture-pane failed, falling back to raw stdout:", captureErr);
+          }
+        }
 
         let responseText = "";
         let codexThinking = "";
@@ -1871,63 +1894,67 @@ export default function Chat() {
             }
           }
         } else if (convData?.agent === "codex") {
-          // Codex CLI outputs JSONL in -q mode — each line is a JSON object.
-          // We want the text from type:"message" / role:"assistant" objects.
-          // Reasoning summaries (type:"reasoning") are extracted separately.
-          const textParts: string[] = [];
-          const reasoningParts: string[] = [];
-          for (const line of cleaned.split("\n")) {
-            const t = line.trim();
-            if (!t) continue;
-            if (t.startsWith("{")) {
-              try {
-                const obj = JSON.parse(t);
-                // type:"message" with role:"assistant"
-                if (obj.type === "message" && obj.role === "assistant" && Array.isArray(obj.content)) {
-                  for (const part of obj.content) {
-                    if (part.type === "output_text" && typeof part.text === "string") {
-                      textParts.push(part.text);
-                    }
-                  }
-                  continue;
-                }
-                // type:"reasoning" — collect summary_text items
-                if (obj.type === "reasoning" && Array.isArray(obj.summary)) {
-                  for (const s of obj.summary) {
-                    if (s.type === "summary_text" && typeof s.text === "string") {
-                      reasoningParts.push(s.text);
-                    }
-                  }
-                  if (typeof obj.duration_ms === "number") {
-                    codexThinkingDurationMs = obj.duration_ms;
-                  }
-                  continue;
-                }
-                // Also handle simple {type:"text", text:...} shapes
-                if (obj.type === "text" && typeof obj.text === "string") {
-                  textParts.push(obj.text);
-                  continue;
-                }
-                continue;
-              } catch {/* not JSON, fall through */}
-            }
-            // Plain-text lines — strip shell noise
-            if (/^[%$#>→➜❯]\s*$/.test(t)) continue;
-            if (/^[%$#>→➜❯]\s/.test(t)) continue;
-            if (/^c?codex\s+/i.test(t)) continue;
-            if (/^\[[\d;?<>!]*[a-zA-Z]/.test(t)) continue;
-            if (/^[=\-\+\*~\s]+$/.test(t)) continue;
-            textParts.push(t);
+          // ── Primary: tmux capture-pane awk output (already filtered by awk) ─
+          if (captureStdout) {
+            responseText = stripAnsi(captureStdout)
+              .split("\n")
+              .filter((line) => {
+                const t = line.trim();
+                if (!t) return false;
+                if (/^[%$#>→➜❯]\s*$/.test(t)) return false;
+                if (/^[%$#>→➜❯]\s/.test(t)) return false;
+                if (/^c?codex\s+/i.test(t)) return false;
+                if (/^\[[\d;?<>!]*[a-zA-Z]/.test(t)) return false;
+                if (/^[=\-\+\*~\s]+$/.test(t)) return false;
+                return true;
+              })
+              .join("\n")
+              .trim();
           }
-          codexThinking = reasoningParts.join("\n\n").trim();
-          responseText = textParts.join("\n").trim();
+          // ── Fallback: parse raw stdout JSONL if capture-pane empty ──────────
           if (!responseText) {
-            const errorMatch = cleaned.match(/^Error:\s*(.+)/m) ?? cleaned.match(/error:\s*(.+)/im);
-            if (errorMatch) responseText = `⚠️ Codex error: ${errorMatch[1].trim()}`;
+            const textParts: string[] = [];
+            const reasoningParts: string[] = [];
+            for (const line of cleaned.split("\n")) {
+              const t = line.trim();
+              if (!t) continue;
+              if (t.startsWith("{")) {
+                try {
+                  const obj = JSON.parse(t);
+                  if (obj.type === "message" && obj.role === "assistant" && Array.isArray(obj.content)) {
+                    for (const part of obj.content) {
+                      if (part.type === "output_text" && typeof part.text === "string") textParts.push(part.text);
+                    }
+                    continue;
+                  }
+                  if (obj.type === "reasoning" && Array.isArray(obj.summary)) {
+                    for (const s of obj.summary) {
+                      if (s.type === "summary_text" && typeof s.text === "string") reasoningParts.push(s.text);
+                    }
+                    if (typeof obj.duration_ms === "number") codexThinkingDurationMs = obj.duration_ms;
+                    continue;
+                  }
+                  if (obj.type === "text" && typeof obj.text === "string") { textParts.push(obj.text); continue; }
+                  continue;
+                } catch {/* not JSON, fall through */}
+              }
+              if (/^[%$#>→➜❯]\s*$/.test(t)) continue;
+              if (/^[%$#>→➜❯]\s/.test(t)) continue;
+              if (/^c?codex\s+/i.test(t)) continue;
+              if (/^\[[\d;?<>!]*[a-zA-Z]/.test(t)) continue;
+              if (/^[=\-\+\*~\s]+$/.test(t)) continue;
+              textParts.push(t);
+            }
+            codexThinking = reasoningParts.join("\n\n").trim();
+            responseText = textParts.join("\n").trim();
+            if (!responseText) {
+              const errorMatch = cleaned.match(/^Error:\s*(.+)/m) ?? cleaned.match(/error:\s*(.+)/im);
+              if (errorMatch) responseText = `⚠️ Codex error: ${errorMatch[1].trim()}`;
+            }
           }
         } else {
-          // Claude Code: extract <thinking>...</thinking> blocks from raw stdout
-          // These appear before ANSI stripping, so we check the raw `stdout`
+          // ── Claude Code ──────────────────────────────────────────────────────
+          // Extract <thinking> blocks from raw stdout (pre-ANSI-strip)
           {
             const thinkingTagOpen = "<thinking>";
             const thinkingTagClose = "</thinking>";
@@ -1941,91 +1968,97 @@ export default function Chat() {
               parts.push(stdout.slice(start + thinkingTagOpen.length, end).trim());
               searchFrom = end + thinkingTagClose.length;
             }
-            if (parts.length > 0) {
-              claudeThinking = parts.join("\n\n");
-            }
-          }
-          // Primary: parse --output-format stream-json JSONL lines
-          // Each line is a JSON object; we want type:"assistant" content blocks
-          // and type:"thinking" blocks for the thinking panel.
-          // Final line is type:"result" which carries session_id.
-          const claudeJsonlTextParts: string[] = [];
-          const claudeJsonlThinkingParts: string[] = [];
-          for (const line of cleaned.split("\n")) {
-            const t = line.trim();
-            if (!t.startsWith("{")) continue;
-            try {
-              const obj = JSON.parse(t) as Record<string, unknown>;
-              // Stream-json thinking block: {"type":"thinking","thinking":"..."}
-              if (obj.type === "thinking" && typeof obj.thinking === "string") {
-                claudeJsonlThinkingParts.push(obj.thinking.trim());
-                continue;
-              }
-              // Stream-json assistant message — flat array in obj.message
-              if (obj.type === "assistant" && Array.isArray(obj.message)) {
-                for (const block of obj.message as Record<string, unknown>[]) {
-                  if (block.type === "text" && typeof block.text === "string") {
-                    claudeJsonlTextParts.push(block.text);
-                  }
-                  if (block.type === "thinking" && typeof block.thinking === "string") {
-                    claudeJsonlThinkingParts.push((block.thinking as string).trim());
-                  }
-                }
-              }
-              // Some versions nest content inside obj.message.content
-              if (obj.type === "assistant") {
-                const msg = obj.message as Record<string, unknown> | undefined;
-                if (msg && Array.isArray(msg.content)) {
-                  for (const block of msg.content as Record<string, unknown>[]) {
-                    if (block.type === "text" && typeof block.text === "string") {
-                      claudeJsonlTextParts.push(block.text);
-                    }
-                    if (block.type === "thinking" && typeof block.thinking === "string") {
-                      claudeJsonlThinkingParts.push((block.thinking as string).trim());
-                    }
-                  }
-                }
-              }
-            } catch {/* not JSON */}
-          }
-          // Merge JSONL thinking with any XML <thinking> blocks (JSONL takes precedence / deduplicates)
-          if (claudeJsonlThinkingParts.length > 0) {
-            claudeThinking = claudeJsonlThinkingParts.join("\n\n");
+            if (parts.length > 0) claudeThinking = parts.join("\n\n");
           }
 
-          if (claudeJsonlTextParts.length > 0) {
-            responseText = claudeJsonlTextParts.join("").trim();
-          } else {
-            // Fallback: plain-text stripping (non-JSON output or very old claude versions)
-            responseText = cleaned.
-            split("\n").
-            filter((line) => {
+          // ── Primary: tmux capture-pane awk output ───────────────────────────
+          if (captureStdout) {
+            responseText = stripAnsi(captureStdout)
+              .split("\n")
+              .filter((line) => {
+                const t = line.trim();
+                if (!t) return false;
+                if (/^[%$#>→➜❯]\s*$/.test(t)) return false;
+                if (/^[%$#>→➜❯]\s/.test(t)) return false;
+                if (/^Restored session:/i.test(t)) return false;
+                if (/^\[[\d;?<>!]*[a-zA-Z]/.test(t)) return false;
+                if (/^[=\-\+\*~\s]+$/.test(t)) return false;
+                if (/\w+@\w+/.test(t) && /[~\/]/.test(t)) return false;
+                if (/^\]\d+;/.test(t)) return false;
+                if (/^\?2004[hl]$/.test(t)) return false;
+                if (t.startsWith("{") && t.endsWith("}")) return false;
+                if (/^[\u2580-\u259F\u2500-\u257F\s]+$/.test(t)) return false;
+                if (/^claude\s+code\b/i.test(t)) return false;
+                if (/^claude\s+code\s+v\d/i.test(t)) return false;
+                if (/\bv\d+\.\d+\.\d+\b/.test(t) && !/\w{4,}/.test(t.replace(/v\d[\d.]+/, "").trim())) return false;
+                if (/\b(sonnet|haiku|opus|claude)\b.*\bpro\b/i.test(t) && t.length < 80) return false;
+                if (/^\/(?:Users|home|root|tmp|var|opt)\//i.test(t)) return false;
+                return true;
+              })
+              .join("\n")
+              .trim();
+          }
+
+          // ── Fallback: JSONL parse from raw stdout if capture-pane empty ──────
+          if (!responseText) {
+            const claudeJsonlTextParts: string[] = [];
+            const claudeJsonlThinkingParts: string[] = [];
+            for (const line of cleaned.split("\n")) {
               const t = line.trim();
-              if (!t) return false;
-              if (/^[%$#>→➜❯]\s*$/.test(t)) return false;
-              if (/^[%$#>→➜❯]\s/.test(t)) return false;
-              if (/^Restored session:/i.test(t)) return false;
-              if (/^c?claude\s+(-p|-c|--print|--resume|--output)/i.test(t)) return false;
-              if (/^\[[\d;?<>!]*[a-zA-Z]/.test(t)) return false;
-              if (/^[=\-\+\*~\s]+$/.test(t)) return false;
-              if (/\w+@\w+/.test(t) && /[~\/]/.test(t)) return false;
-              if (/^\]\d+;/.test(t)) return false;
-              if (/^\?2004[hl]$/.test(t)) return false;
-              // Skip raw JSON lines (stream-json noise if JSONL parser above missed them)
-              if (t.startsWith("{") && t.endsWith("}")) return false;
-              // Skip lines that are purely Unicode block/box-drawing characters (Claude Code startup logo)
-              if (/^[\u2580-\u259F\u2500-\u257F\s]+$/.test(t)) return false;
-              // Skip Claude Code startup banner lines:
-              //   "Claude Code  v2.1.63", "Sonnet  4.6  ·  Claude Pro", cwd paths
-              if (/^claude\s+code\b/i.test(t)) return false;
-              if (/^claude\s+code\s+v\d/i.test(t)) return false;
-              if (/\bv\d+\.\d+\.\d+\b/.test(t) && !/\w{4,}/.test(t.replace(/v\d[\d.]+/, "").trim())) return false;
-              if (/\b(sonnet|haiku|opus|claude)\b.*\bpro\b/i.test(t) && t.length < 80) return false;
-              if (/^\/(?:Users|home|root|tmp|var|opt)\//i.test(t)) return false;
-              return true;
-            }).
-            join("\n").
-            trim();
+              if (!t.startsWith("{")) continue;
+              try {
+                const obj = JSON.parse(t) as Record<string, unknown>;
+                if (obj.type === "thinking" && typeof obj.thinking === "string") {
+                  claudeJsonlThinkingParts.push(obj.thinking.trim());
+                  continue;
+                }
+                if (obj.type === "assistant" && Array.isArray(obj.message)) {
+                  for (const block of obj.message as Record<string, unknown>[]) {
+                    if (block.type === "text" && typeof block.text === "string") claudeJsonlTextParts.push(block.text);
+                    if (block.type === "thinking" && typeof block.thinking === "string") claudeJsonlThinkingParts.push((block.thinking as string).trim());
+                  }
+                }
+                if (obj.type === "assistant") {
+                  const msg = obj.message as Record<string, unknown> | undefined;
+                  if (msg && Array.isArray(msg.content)) {
+                    for (const block of msg.content as Record<string, unknown>[]) {
+                      if (block.type === "text" && typeof block.text === "string") claudeJsonlTextParts.push(block.text);
+                      if (block.type === "thinking" && typeof block.thinking === "string") claudeJsonlThinkingParts.push((block.thinking as string).trim());
+                    }
+                  }
+                }
+              } catch {/* not JSON */}
+            }
+            if (claudeJsonlThinkingParts.length > 0) claudeThinking = claudeJsonlThinkingParts.join("\n\n");
+            if (claudeJsonlTextParts.length > 0) {
+              responseText = claudeJsonlTextParts.join("").trim();
+            } else {
+              responseText = cleaned
+                .split("\n")
+                .filter((line) => {
+                  const t = line.trim();
+                  if (!t) return false;
+                  if (/^[%$#>→➜❯]\s*$/.test(t)) return false;
+                  if (/^[%$#>→➜❯]\s/.test(t)) return false;
+                  if (/^Restored session:/i.test(t)) return false;
+                  if (/^c?claude\s+(-p|-c|--print|--resume|--output)/i.test(t)) return false;
+                  if (/^\[[\d;?<>!]*[a-zA-Z]/.test(t)) return false;
+                  if (/^[=\-\+\*~\s]+$/.test(t)) return false;
+                  if (/\w+@\w+/.test(t) && /[~\/]/.test(t)) return false;
+                  if (/^\]\d+;/.test(t)) return false;
+                  if (/^\?2004[hl]$/.test(t)) return false;
+                  if (t.startsWith("{") && t.endsWith("}")) return false;
+                  if (/^[\u2580-\u259F\u2500-\u257F\s]+$/.test(t)) return false;
+                  if (/^claude\s+code\b/i.test(t)) return false;
+                  if (/^claude\s+code\s+v\d/i.test(t)) return false;
+                  if (/\bv\d+\.\d+\.\d+\b/.test(t) && !/\w{4,}/.test(t.replace(/v\d[\d.]+/, "").trim())) return false;
+                  if (/\b(sonnet|haiku|opus|claude)\b.*\bpro\b/i.test(t) && t.length < 80) return false;
+                  if (/^\/(?:Users|home|root|tmp|var|opt)\//i.test(t)) return false;
+                  return true;
+                })
+                .join("\n")
+                .trim();
+            }
           }
         }
 
