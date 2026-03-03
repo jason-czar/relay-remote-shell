@@ -182,8 +182,8 @@ export const EmbeddedTerminal = forwardRef<EmbeddedTerminalHandle, Props>(functi
           } else if (msg.type === "session_started") {
             markPtyReady();
             // Send initial command if provided (e.g. tmux attach -t <name>)
-            if (initialCommand) {
-              ws.send(JSON.stringify({ type: "stdin", data: { session_id: sessionId, data_b64: btoa(initialCommand + "\n") } }));
+            if (initialCommandRef.current) {
+              ws.send(JSON.stringify({ type: "stdin", data: { session_id: sessionId, data_b64: btoa(initialCommandRef.current + "\n") } }));
             }
           } else if (msg.type === "pong") {
             setLatency(Date.now() - pingSentAtRef.current);
