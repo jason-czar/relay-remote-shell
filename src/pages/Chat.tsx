@@ -650,6 +650,8 @@ export default function Chat() {
   // ── Deferred first message — stored when sessionId is unknown at send time ─
   // Structured so onChunkActivity doesn't rely on potentially-stale React agent state.
   const deferredFirstMsgRef = useRef<{agent: "codex" | "claude";text: string;} | null>(null);
+  // ── tmux attach flag — true when we're attaching to a live Claude tmux session ─
+  const attachingToTmuxRef = useRef<boolean>(false);
   // ── PTY death cleanup — aligned with real terminal lifecycle ─────────────
   const handleSessionReset = useCallback((deadSessionId?: string) => {
     if (!deadSessionId) return;
@@ -952,21 +954,42 @@ export default function Chat() {
     // If buildCommand ran before the PTY existed, it stored the first message
     // in deferredFirstMsgRef. Once sessionId appears, register runtime state
     // and queue the message — then apply the same 20s boot-timeout guard.
+    // ── TMUX_NOT_FOUND sentinel ───────────────────────────────────────────
+    if (chunk.includes("TMUX_NOT_FOUND")) {
+      toast({ title: "tmux not found", description: "tmux is not installed on this device. Please install tmux to use Claude Code sessions.", variant: "destructive" });
+    }
+
+    // ── Deferred first-message migration ─────────────────────────────────
+    // If buildCommand ran before the PTY existed, it stored the first message
+    // in deferredFirstMsgRef. Once sessionId appears, register runtime state
+    // and either fast-path ready (tmux attach) or apply 20s boot-timeout guard.
     if (sessionId && deferredFirstMsgRef.current && !runtimeAgentsRef.current[sessionId]) {
       const { agent: deferredAgent, text: deferredText } = deferredFirstMsgRef.current;
       deferredFirstMsgRef.current = null;
       runtimeAgentsRef.current[sessionId] = { agent: deferredAgent, ready: false };
-      pendingQueueRef.current[sessionId] = [deferredText];
-      setTimeout(() => {
-        const s = runtimeAgentsRef.current[sessionId];
-        if (s && !s.ready) {
-          console.warn("[REPL] Deferred boot timeout — forcing ready for session", sessionId);
-          s.ready = true;
-          const queue = pendingQueueRef.current[sessionId] ?? [];
-          delete pendingQueueRef.current[sessionId];
-          for (const q of queue) relay.sendRawStdin(sessionId, btoa(q + "\n"));
-        }
-      }, 20_000);
+
+      if (attachingToTmuxRef.current) {
+        // Attaching to a live tmux session — Claude's REPL is already running.
+        // Mark ready immediately and flush the deferred message.
+        // If the tmux session was dead and the fallback spawned fresh, the flag
+        // being true is still safe: the message sits in PTY stdin buffer and is
+        // read by Claude when its REPL reaches the input prompt (PTY buffering).
+        attachingToTmuxRef.current = false;
+        runtimeAgentsRef.current[sessionId].ready = true;
+        relay.sendRawStdin(sessionId, btoa(deferredText + "\n"));
+      } else {
+        pendingQueueRef.current[sessionId] = [deferredText];
+        setTimeout(() => {
+          const s = runtimeAgentsRef.current[sessionId];
+          if (s && !s.ready) {
+            console.warn("[REPL] Deferred boot timeout — forcing ready for session", sessionId);
+            s.ready = true;
+            const queue = pendingQueueRef.current[sessionId] ?? [];
+            delete pendingQueueRef.current[sessionId];
+            for (const q of queue) relay.sendRawStdin(sessionId, btoa(q + "\n"));
+          }
+        }, 20_000);
+      }
     }
 
     if (sessionId) {
@@ -1400,11 +1423,45 @@ export default function Chat() {
     }
   }, [selectedDeviceId, relay]);
 
+  // ── Race-safe tmux session name allocator for Claude ─────────────────────
+  const ensureClaudeTmuxSession = useCallback(async (convId: string): Promise<string> => {
+    const { data: row } = await supabase
+      .from("chat_conversations")
+      .select("tmux_session_name")
+      .eq("id", convId)
+      .single();
+    if (row?.tmux_session_name) return row.tmux_session_name;
+
+    const name = `cc-${convId.replace(/-/g, "").substring(0, 8)}`;
+    const { data: updated } = await supabase
+      .from("chat_conversations")
+      .update({ tmux_session_name: name })
+      .eq("id", convId)
+      .is("tmux_session_name", null)
+      .select("tmux_session_name");
+
+    let resolved: string;
+    if (updated && updated.length > 0) {
+      resolved = updated[0].tmux_session_name!;
+    } else {
+      const { data: final } = await supabase
+        .from("chat_conversations")
+        .select("tmux_session_name")
+        .eq("id", convId)
+        .single();
+      resolved = final?.tmux_session_name ?? name;
+    }
+    setConversations(prev => prev.map(c =>
+      c.id === convId ? { ...c, tmux_session_name: resolved } : c
+    ));
+    return resolved;
+  }, []);
+
   // ── Build command string (REPL spawn model for Codex + Claude) ───────────
   const buildCommand = useCallback(async (text: string, convId: string, selectedModel: string): Promise<string> => {
     const { data: conv } = await supabase.
     from("chat_conversations").
-    select("agent, openclaw_session_id, claude_session_id").
+    select("agent, openclaw_session_id, claude_session_id, tmux_session_name").
     eq("id", convId).
     single();
     if (!conv) throw new Error("Conversation not found");
@@ -1493,20 +1550,34 @@ export default function Chat() {
     if (conv.agent === "claude") {
       const modelPart = modelFlag ? ` ${modelFlag}` : "";
       const resumeFlag = conv.claude_session_id ? ` --resume ${conv.claude_session_id}` : "";
+      const tmuxName = await ensureClaudeTmuxSession(convId);
+      const tmuxCheck = `command -v tmux >/dev/null 2>&1 || { echo 'TMUX_NOT_FOUND'; exit 1; }`;
+
       if (!sessionId) {
         // No PTY yet — defer first message (agent stored to avoid stale state race)
         deferredFirstMsgRef.current = { agent: "claude", text };
-        if (conv.claude_session_id) console.log("[REPL] Spawning Claude with --resume (deferred)", conv.claude_session_id);else
-        console.log("[REPL] Spawning Claude fresh (no session ID yet, deferred)");
-        return `claude${resumeFlag}${modelPart}\n`;
+
+        if (conv.tmux_session_name) {
+          // Resume path — probe liveness, attach if alive, spawn fresh if dead.
+          // attachingToTmuxRef enables fast-path ready in onChunkActivity on live attach.
+          // If tmux is dead and the fallback spawns fresh, the flag being true is still
+          // safe: the first message sits in PTY stdin buffer and is read when Claude's
+          // REPL reaches its input prompt.
+          attachingToTmuxRef.current = true;
+          const spawnFresh = `tmux new-session -d -s ${tmuxName} -x 220 -y 50 && tmux send-keys -t ${tmuxName} 'claude${resumeFlag}${modelPart}' Enter && tmux attach -t ${tmuxName}`;
+          console.log("[REPL] Resuming Claude tmux session:", tmuxName);
+          return `${tmuxCheck} && (tmux has-session -t ${tmuxName} 2>/dev/null && tmux send-keys -t ${tmuxName} '' Enter && tmux attach -t ${tmuxName} || (${spawnFresh}))\n`;
+        } else {
+          // First-time path — fresh spawn, no flag. Banner detection handles readiness.
+          console.log("[REPL] Spawning Claude in new tmux session:", tmuxName);
+          return `${tmuxCheck} && tmux new-session -d -s ${tmuxName} -x 220 -y 50 && tmux send-keys -t ${tmuxName} 'claude${modelPart}' Enter && tmux attach -t ${tmuxName}\n`;
+        }
       }
       const state = runtimeAgentsRef.current[sessionId];
       if (!state) {
-        // First message on this PTY — register, queue first message, and spawn
+        // PTY exists but no runtime state yet — first message on this PTY
         runtimeAgentsRef.current[sessionId] = { agent: "claude", ready: false };
         pendingQueueRef.current[sessionId] = [text];
-        if (conv.claude_session_id) console.log("[REPL] Spawning Claude with --resume", conv.claude_session_id, "pty:", sessionId);else
-        console.log("[REPL] Spawning Claude fresh (no session ID) pty:", sessionId);
         // Boot timeout parity with Codex — flush queue if banner never arrives
         setTimeout(() => {
           const s = runtimeAgentsRef.current[sessionId];

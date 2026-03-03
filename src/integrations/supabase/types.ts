@@ -24,6 +24,7 @@ export type Database = {
           model: string
           openclaw_session_id: string | null
           title: string
+          tmux_session_name: string | null
           updated_at: string
           user_id: string
         }
@@ -36,6 +37,7 @@ export type Database = {
           model?: string
           openclaw_session_id?: string | null
           title?: string
+          tmux_session_name?: string | null
           updated_at?: string
           user_id: string
         }
@@ -48,6 +50,7 @@ export type Database = {
           model?: string
           openclaw_session_id?: string | null
           title?: string
+          tmux_session_name?: string | null
           updated_at?: string
           user_id?: string
         }
