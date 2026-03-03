@@ -3583,7 +3583,33 @@ export default function Chat() {
                 </div>
                     }
 
-              <ComposerBox
+              {/* Chat / Terminal view toggle */}
+              <div className="flex items-center gap-1 mb-3">
+                <button
+                  onClick={() => setChatView("chat")}
+                  className={cn(
+                    "flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium transition-colors",
+                    chatView === "chat"
+                      ? "bg-foreground text-background"
+                      : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                  )}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                  Chat
+                </button>
+                <button
+                  onClick={() => setChatView("terminal")}
+                  className={cn(
+                    "flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium transition-colors",
+                    chatView === "terminal"
+                      ? "bg-foreground text-background"
+                      : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                  )}>
+                  <Terminal size={13} />
+                  Terminal
+                </button>
+              </div>
+
+              {chatView === "chat" && <ComposerBox
                       textareaRef={textareaRef}
                       fileInputRef={fileInputRef}
                       onPreview={() => showPreview ? (setShowPreview(false), setPreviewUrl("")) : handleOpenPreview()}
