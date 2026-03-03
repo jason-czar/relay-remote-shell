@@ -1,78 +1,58 @@
 
-## Analysis
+## Root cause analysis
 
-The architecture is already a **persistent REPL model** — Claude and Codex both spawn once per PTY and receive subsequent messages as raw stdin. The ChatGPT suggestion is largely already implemented. However there are three concrete gaps causing inconsistent conversations:
+The relay log and network requests reveal **three compounding problems** causing excessive disconnections:
 
-### Gap 1: `--resume` Not Used on Spawn (Most Critical)
+### Problem 1: Multiple duplicate `start-session` calls on page load
+The network logs show **6 simultaneous `start-session` calls** all firing within 300ms when Chat.tsx loads (at 17:15:47–48). These create 6 separate DB session rows. They then all immediately get `end-session` calls, leaving the user with no stable session to resume.
 
-When Claude spawns a new REPL (lines 1421, 1441), it always runs `claude\n` regardless of whether a `claude_session_id` is already stored on the conversation. This means:
-- After a page reload (new PTY, same conversation), Claude starts fresh with no memory
-- The trust gate re-appears every time
-- Previous context is lost
+**Cause:** `usePersistentRelaySession` is instantiated multiple times across different components that all mount at page load (Chat page renders multiple agent sub-components / panels, each calling `prewarmSession` or `ensureSessionId` independently).
 
-**Fix**: When spawning Claude and `conv.claude_session_id` exists, emit `claude --resume <id>\n` instead of `claude\n`.
+### Problem 2: Browser disconnect → grace timer → connector send of `browser_disconnected`
+When the user navigates away or the browser goes to background (iOS app-switch, tab change), the browser WS closes. The relay starts a **30-minute grace timer** — good. BUT when the grace timer fires, it sends `session_end` with `reason: "browser_disconnected"` to the connector. The Go connector currently **does NOT ignore** `browser_disconnected` — it actually ends the PTY. This means even though the relay waits 30 minutes, the connector kills the process.
 
-### Gap 2: Readiness Regex Too Narrow
+Looking at the relay log (line 45-46 of the upload): 
+```
+Ending session ...: browser_disconnected
+Ending session ...: browser_disconnected
+```
+These are arriving at the connector and terminating the PTY. This is the core persistence failure when navigating away.
 
-Current: `/Type your message|Claude Code\s+\d/i`
-
-The image the user uploaded shows the trust gate screen — `> 1. Yes, I trust this folder` — which doesn't match either pattern. If the REPL boots and shows the trust prompt before the readiness banner, the 20-second fallback fires and sends the user message into the trust gate UI rather than to Claude.
-
-Also, the `TRUST_BLOCK_RE` pattern `/Not inside a trusted directory|Working with untrusted/i` doesn't match Claude's actual text (`"Is this a project you created or one you trust?"`).
-
-**Fix**:
-- Broaden `AGENT_READY_RE.claude` to also match `> ` prompt patterns and `✓` confirmations Claude emits after trust acceptance
-- Update `TRUST_BLOCK_RE` to match Claude's actual trust-gate text: `"Is this a project you created"` and `"Quick safety check"`
-
-### Gap 3: Session ID Not Captured in REPL Mode
-
-`extractClaudeSessionId` looks for `{"type":"result","session_id":"..."}` which Claude emits in `--output-format stream-json` mode. But in interactive REPL mode (no `--print`), Claude doesn't emit this JSON. The session ID is only available from `Restored session: <id>` or similar banner text.
-
-**Fix**: Add a REPL-specific session ID extractor that reads `Restored session:` lines or the session ID from Claude's interactive startup banner.
+### Problem 3: `ensureSessionId` uses `user_id` filter but sessions table stores `user_id = null`
+The network response shows all devices have `user_id: null`. The `ensureSessionId` function queries:
+```
+.eq("user_id", user.id)
+```
+This will **never match** existing sessions (since `user_id` is null in the sessions table), so it always falls through to create a brand new session rather than reusing an existing active one.
 
 ---
 
-## Plan
+## The Fix Plan
 
-### 1. Fix `--resume` spawn in `buildCommand` (Chat.tsx ~line 1416)
+### Fix 1: Stop the duplicate `start-session` storm (frontend)
+In `usePersistentRelaySession.ts`, add a module-level in-flight deduplication map so that concurrent `ensureSessionId` calls for the same device wait for the same promise rather than all firing `start-session` simultaneously.
 
-```typescript
-if (conv.agent === "claude") {
-  const resumeFlag = conv.claude_session_id ? ` --resume ${conv.claude_session_id}` : "";
-  if (!sessionId) {
-    deferredFirstMsgRef.current = { agent: "claude", text };
-    return `claude${resumeFlag}${modelPart}\n`;
-  }
-  // ... rest unchanged, but use resumeFlag in spawn line too
-  return `claude${resumeFlag}${modelPart}\n`;
-}
+```
+const inflightSessions = new Map<string, Promise<string | null>>();
 ```
 
-### 2. Tighten readiness & trust-block patterns (~line 660)
+### Fix 2: Make `ensureSessionId` find sessions without `user_id` filter (frontend)
+Remove the `.eq("user_id", user.id)` filter from the active session lookup, OR use `.or("user_id.eq." + user.id + ",user_id.is.null")` to also match sessions that were created before `user_id` was stored.
 
-```typescript
-const AGENT_READY_RE = {
-  codex: /Approval mode:|Model:|workdir:|session id:|Session \w{4,}:|openai\/codex|codex\s+v\d/i,
-  claude: /Type your message|Claude Code\s+\d|>\s*$|✓|Restored session:/i,
-};
-const TRUST_BLOCK_RE = /Not inside a trusted directory|Working with untrusted|Is this a project you|Quick safety check/i;
+### Fix 3: Relay — don't send `browser_disconnected` to the connector on grace expiry (relay server)
+In `relay-server/src/index.js`, the grace timer callback (line 667–686) sends `session_end` with `reason: "browser_disconnected"` to the connector. This kills the PTY. Instead, **only update the DB** on grace expiry; don't tell the connector to end the PTY. The PTY will naturally expire on its own if the connector process restarts.
+
+Change the grace timer callback from:
+```js
+send(connectorWs, { type: "session_end", data: { session_id: sessionId, reason: "browser_disconnected" } });
 ```
-
-### 3. Capture session ID from REPL banner (~line 1459)
-
-Add a new branch in `extractClaudeSessionId` to parse the interactive startup banner:
-```
-Restored session: abc123-def456-...
-```
-Regex: `/Restored session:\s*([a-z0-9-]+)/i`
-
-This makes the session ID persist correctly after the first conversation turn.
+To: simply skip sending to the connector (let PTY live).
 
 ---
 
-## Files to Edit
+## Files to change
 
-- `src/pages/Chat.tsx` — three targeted edits:
-  1. `buildCommand` Claude branch: add `--resume <id>` when `conv.claude_session_id` exists
-  2. `AGENT_READY_RE` / `TRUST_BLOCK_RE`: broaden patterns
-  3. `extractClaudeSessionId`: add REPL banner regex as first check
+1. `src/hooks/usePersistentRelaySession.ts` — Fix 1 (dedup) + Fix 2 (user_id query)
+2. `relay-server/src/index.js` — Fix 3 (don't kill PTY on grace expiry)
+
+These are targeted, low-risk changes. The relay server change requires a redeploy to Fly.io (which happens automatically when the file is saved in this project).
