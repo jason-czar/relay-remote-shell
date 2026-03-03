@@ -1419,6 +1419,8 @@ export default function Chat() {
       if (!sessionId) {
         // No PTY yet — defer first message (agent stored to avoid stale state race)
         deferredFirstMsgRef.current = { agent: "claude", text };
+        if (conv.claude_session_id) console.log("[REPL] Spawning Claude with --resume (deferred)", conv.claude_session_id);
+        else console.log("[REPL] Spawning Claude fresh (no session ID yet, deferred)");
         return `claude${resumeFlag}${modelPart}\n`;
       }
       const state = runtimeAgentsRef.current[sessionId];
@@ -1426,6 +1428,8 @@ export default function Chat() {
         // First message on this PTY — register, queue first message, and spawn
         runtimeAgentsRef.current[sessionId] = { agent: "claude", ready: false };
         pendingQueueRef.current[sessionId] = [text];
+        if (conv.claude_session_id) console.log("[REPL] Spawning Claude with --resume", conv.claude_session_id, "pty:", sessionId);
+        else console.log("[REPL] Spawning Claude fresh (no session ID) pty:", sessionId);
         // Boot timeout parity with Codex — flush queue if banner never arrives
         setTimeout(() => {
           const s = runtimeAgentsRef.current[sessionId];
