@@ -30,7 +30,7 @@ const FONT_SIZES = [10, 11, 12, 13, 14, 16, 18, 20];
 const CONNECTOR_RETRY_DELAYS = [3000, 5000, 8000, 10000, 15000, 20000, 30000];
 
 export const EmbeddedTerminal = forwardRef<EmbeddedTerminalHandle, Props>(function EmbeddedTerminal(
-  { deviceId, convId, onConnectorDisconnected, onConnectorReconnected },
+  { deviceId, convId, initialCommand, onConnectorDisconnected, onConnectorReconnected },
   ref
 ) {
   const { user } = useAuth();
