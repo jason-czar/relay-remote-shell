@@ -1097,7 +1097,11 @@ export default function Chat() {
     order("created_at", { ascending: true }).
     then(({ data }) => {
       if (data) {
-        setMessages(data as Message[]);
+        setMessages(data.map((msg: any) =>
+          msg.role === "system" && msg.content?.startsWith("**Session resumed**")
+            ? { ...msg, type: "scrollback_replay" }
+            : msg
+        ) as Message[]);
         // Restore raw_stdout for the debug panel on historical messages
         rawStdoutMapRef.current.clear();
         toolCallsMapRef.current.clear();
@@ -1319,12 +1323,23 @@ export default function Chat() {
             .replace(/\x1b/g, "")
             .trim();
           if (!stripped) return;
+          const content = `**Session resumed** — output since last disconnect:\n\`\`\`\n${stripped}\n\`\`\``;
           const resumeMsg: Message = {
-            role: "assistant",
-            content: `**Session resumed** — output since last disconnect:\n\`\`\`\n${stripped}\n\`\`\``,
+            role: "system" as any,
+            content,
             type: "scrollback_replay",
           };
           setMessages((prev) => [...prev, resumeMsg]);
+          // Persist to DB so it survives page reloads
+          if (activeConvId) {
+            supabase.from("chat_messages").insert({
+              conversation_id: activeConvId,
+              role: "system",
+              content,
+            } as any).then(() => {
+              supabase.from("chat_conversations").update({ updated_at: new Date().toISOString() }).eq("id", activeConvId);
+            });
+          }
         },
       });
       setRelayStatus("idle");
