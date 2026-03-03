@@ -16,6 +16,8 @@ interface RelayMessage {
 interface Props {
   deviceId: string;
   convId?: string | null;
+  onConnectorDisconnected?: () => void;
+  onConnectorReconnected?: () => void;
 }
 
 export interface EmbeddedTerminalHandle {
@@ -23,8 +25,13 @@ export interface EmbeddedTerminalHandle {
 }
 
 const FONT_SIZES = [10, 11, 12, 13, 14, 16, 18, 20];
+// How often to probe for connector reconnect (seconds between attempts, capped)
+const CONNECTOR_RETRY_DELAYS = [3000, 5000, 8000, 10000, 15000, 20000, 30000];
 
-export const EmbeddedTerminal = forwardRef<EmbeddedTerminalHandle, Props>(function EmbeddedTerminal({ deviceId, convId }, ref) {
+export const EmbeddedTerminal = forwardRef<EmbeddedTerminalHandle, Props>(function EmbeddedTerminal(
+  { deviceId, convId, onConnectorDisconnected, onConnectorReconnected },
+  ref
+) {
   const { user } = useAuth();
   const containerRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
@@ -38,10 +45,18 @@ export const EmbeddedTerminal = forwardRef<EmbeddedTerminalHandle, Props>(functi
   const pingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pingSentAtRef = useRef<number>(0);
   const isHiddenRef = useRef(false);
+  const connectorOfflineRef = useRef(false);
+  const connectorRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const connectorRetryCountRef = useRef(0);
+  const onConnectorDisconnectedRef = useRef(onConnectorDisconnected);
+  const onConnectorReconnectedRef = useRef(onConnectorReconnected);
+  useEffect(() => { onConnectorDisconnectedRef.current = onConnectorDisconnected; }, [onConnectorDisconnected]);
+  useEffect(() => { onConnectorReconnectedRef.current = onConnectorReconnected; }, [onConnectorReconnected]);
 
   const [status, setStatus] = useState<"connecting" | "online" | "offline">("connecting");
   const [latency, setLatency] = useState<number | null>(null);
   const [bgReconnecting, setBgReconnecting] = useState(false);
+  const [connectorOffline, setConnectorOffline] = useState(false);
   const [fontSizeIdx, setFontSizeIdx] = useState(() => {
     const saved = localStorage.getItem("terminal-font-size-idx");
     return saved ? parseInt(saved, 10) : (window.innerWidth < 640 ? 2 : 4);
@@ -52,7 +67,6 @@ export const EmbeddedTerminal = forwardRef<EmbeddedTerminalHandle, Props>(functi
   const persistSessionId = useCallback((id: string) => {
     sessionStorage.setItem(sessionStorageKey, id);
     localStorage.setItem(sessionStorageKey, id);
-    // Also mirror to the device-level key so standalone terminal page can resume it
     const deviceKey = `relay-session-${deviceId}`;
     sessionStorage.setItem(deviceKey, id);
     localStorage.setItem(deviceKey, id);
@@ -64,6 +78,49 @@ export const EmbeddedTerminal = forwardRef<EmbeddedTerminalHandle, Props>(functi
     sessionStorage.removeItem(sessionStorageKey);
     localStorage.removeItem(sessionStorageKey);
   }, [sessionStorageKey]);
+
+  // Forward-declare connectWebSocket so startConnectorRetry can reference it
+  const connectWebSocketRef = useRef<(term: Terminal, dev: Tables<"devices"> | null, sessionId: string, isResume: boolean) => void>(() => {});
+
+  // ── Connector retry loop ──────────────────────────────────────────────
+  // Polls for a new session every CONNECTOR_RETRY_DELAYS[n] ms until the
+  // device connector comes back online, then resumes the terminal.
+  const startConnectorRetry = useCallback(() => {
+    if (connectorRetryTimerRef.current) clearTimeout(connectorRetryTimerRef.current);
+    connectorRetryCountRef.current = 0;
+
+    const attempt = async () => {
+      if (intentionalCloseRef.current) return;
+      if (!termRef.current) return;
+
+      // Try to start a fresh session — will fail with 404/error if connector is still offline
+      const { data: sesData, error: sesErr } = await supabase.functions.invoke("start-session", {
+        body: { device_id: deviceId },
+      });
+
+      if (!sesErr && sesData?.session_id) {
+        // Connector came back — resume
+        const newSessionId = sesData.session_id;
+        sessionIdRef.current = newSessionId;
+        persistSessionId(newSessionId);
+        connectorOfflineRef.current = false;
+        connectorRetryCountRef.current = 0;
+        setConnectorOffline(false);
+        setBgReconnecting(false);
+        onConnectorReconnectedRef.current?.();
+        connectWebSocketRef.current(termRef.current, devRef.current, newSessionId, false);
+        return;
+      }
+
+      // Still offline — schedule next attempt with capped backoff
+      const idx = Math.min(connectorRetryCountRef.current, CONNECTOR_RETRY_DELAYS.length - 1);
+      const delay = CONNECTOR_RETRY_DELAYS[idx];
+      connectorRetryCountRef.current++;
+      connectorRetryTimerRef.current = setTimeout(attempt, delay);
+    };
+
+    connectorRetryTimerRef.current = setTimeout(attempt, CONNECTOR_RETRY_DELAYS[0]);
+  }, [deviceId, persistSessionId]);
 
   const connectWebSocket = useCallback((term: Terminal, dev: Tables<"devices"> | null, sessionId: string, isResume: boolean) => {
     const relayUrl = import.meta.env.VITE_RELAY_URL || "wss://relay.privaclaw.com";
@@ -88,8 +145,9 @@ export const EmbeddedTerminal = forwardRef<EmbeddedTerminalHandle, Props>(functi
         ptyReady = true;
         setStatus("online");
         setBgReconnecting(false);
+        setConnectorOffline(false);
+        connectorOfflineRef.current = false;
         reconnectDelayRef.current = 1000;
-        // Start ping once the PTY is confirmed alive.
         if (pingTimerRef.current) clearInterval(pingTimerRef.current);
         pingTimerRef.current = setInterval(() => {
           if (ws.readyState === WebSocket.OPEN) {
@@ -107,10 +165,8 @@ export const EmbeddedTerminal = forwardRef<EmbeddedTerminalHandle, Props>(functi
         try {
           const msg: RelayMessage = JSON.parse(event.data);
           if (msg.type === "auth_ok") {
-          if (isResume) {
-              // Probe whether the previous PTY is still alive.
+            if (isResume) {
               ws.send(JSON.stringify({ type: "resize", data: { session_id: sessionId, cols: term.cols, rows: term.rows, probe: true } }));
-              // Relay may silently ignore the probe if the session is gone — fall through after 3 s.
               probeTimeoutId = setTimeout(() => {
                 if (!ptyReady && !resumeFallbackTried) {
                   resumeFallbackTried = true;
@@ -156,6 +212,18 @@ export const EmbeddedTerminal = forwardRef<EmbeddedTerminalHandle, Props>(functi
               ws.send(JSON.stringify({ type: "session_start", data: { session_id: sessionId, cols: term.cols, rows: term.rows } }));
               return;
             }
+            // Connector went offline — start polling retry loop
+            if (reason === "connector_disconnected") {
+              clearProbeTimeout();
+              if (pingTimerRef.current) { clearInterval(pingTimerRef.current); pingTimerRef.current = null; }
+              connectorOfflineRef.current = true;
+              setConnectorOffline(true);
+              setStatus("offline");
+              setBgReconnecting(true);
+              onConnectorDisconnectedRef.current?.();
+              startConnectorRetry();
+              return;
+            }
             setStatus("offline");
           } else if (msg.type === "error") {
             const { message } = (msg.data ?? {}) as { message?: string };
@@ -174,6 +242,8 @@ export const EmbeddedTerminal = forwardRef<EmbeddedTerminalHandle, Props>(functi
       ws.onclose = () => {
         clearProbeTimeout();
         if (pingTimerRef.current) { clearInterval(pingTimerRef.current); pingTimerRef.current = null; }
+        // If we're in connector-retry mode, don't try the normal WS backoff
+        if (connectorOfflineRef.current) return;
         if (!intentionalCloseRef.current && !isHiddenRef.current) {
           setStatus("offline");
           const delay = reconnectDelayRef.current;
@@ -189,7 +259,10 @@ export const EmbeddedTerminal = forwardRef<EmbeddedTerminalHandle, Props>(functi
     };
 
     connect();
-  }, [deviceId]);
+  }, [deviceId, startConnectorRetry]);
+
+  // Keep the ref in sync so startConnectorRetry can call it
+  useEffect(() => { connectWebSocketRef.current = connectWebSocket; }, [connectWebSocket]);
 
   useEffect(() => {
     if (!deviceId || !user || !containerRef.current) return;
@@ -262,17 +335,9 @@ export const EmbeddedTerminal = forwardRef<EmbeddedTerminalHandle, Props>(functi
       const { data: dev } = await supabase.from("devices").select("*").eq("id", deviceId).single();
       devRef.current = dev;
 
-      // Always attempt to resume a persisted session — the relay probe (+ 3 s fallback)
-      // is the sole authority on whether the PTY is still alive.  The relay marks sessions
-      // "ended" in the DB as soon as the browser WS closes (even during a reload), so
-      // checking DB status here would always create a brand-new session on every reload.
       let sessionId = getPersistedSessionId();
       let isResume = false;
-
-      if (sessionId) {
-        isResume = true;
-      }
-
+      if (sessionId) isResume = true;
 
       if (!sessionId) {
         const { data: sesData, error: sesErr } = await supabase.functions.invoke("start-session", { body: { device_id: deviceId } });
@@ -315,8 +380,8 @@ export const EmbeddedTerminal = forwardRef<EmbeddedTerminalHandle, Props>(functi
       intentionalCloseRef.current = true;
       if (pingTimerRef.current) clearInterval(pingTimerRef.current);
       if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
+      if (connectorRetryTimerRef.current) clearTimeout(connectorRetryTimerRef.current);
       if (wsRef.current) { wsRef.current.close(); wsRef.current = null; }
-      // Dispose terminal on conv switch so the new one gets a fresh canvas
       if (termRef.current) { termRef.current.dispose(); termRef.current = null; }
       fitRef.current = null;
     };
@@ -330,13 +395,14 @@ export const EmbeddedTerminal = forwardRef<EmbeddedTerminalHandle, Props>(functi
 
   return (
     <div className="flex flex-col h-full w-full bg-background">
-      {/* Slim status + controls bar — matches chat header aesthetic */}
+      {/* Slim status + controls bar */}
       <div className="shrink-0 flex items-center gap-2 px-4 py-1.5 border-b border-border/20 text-xs">
         <div className="flex items-center gap-1.5">
           {status === "connecting" && <><Loader2 className="h-3 w-3 animate-spin text-muted-foreground/50" /><span className="text-muted-foreground/50">Connecting…</span></>}
           {status === "online" && !bgReconnecting && <><Wifi className="h-3 w-3 text-green-500/70" /><span className="text-muted-foreground/60">Connected</span></>}
-          {status === "offline" && <><WifiOff className="h-3 w-3 text-red-400/80" /><span className="text-muted-foreground/60">Disconnected</span></>}
-          {bgReconnecting && <><Loader2 className="h-3 w-3 animate-spin text-yellow-400/80" /><span className="text-muted-foreground/60">Reconnecting…</span></>}
+          {status === "offline" && !bgReconnecting && <><WifiOff className="h-3 w-3 text-red-400/80" /><span className="text-muted-foreground/60">Disconnected</span></>}
+          {bgReconnecting && !connectorOffline && <><Loader2 className="h-3 w-3 animate-spin text-yellow-400/80" /><span className="text-muted-foreground/60">Reconnecting…</span></>}
+          {connectorOffline && <><Loader2 className="h-3 w-3 animate-spin text-orange-400/80" /><span className="text-orange-400/80">Device offline — reconnecting…</span></>}
           {latency !== null && !bgReconnecting && (
             <span className={`ml-2 font-mono text-[11px] ${latencyColor}`}>{latency}ms</span>
           )}
@@ -352,9 +418,17 @@ export const EmbeddedTerminal = forwardRef<EmbeddedTerminalHandle, Props>(functi
           >A+</button>
         </div>
       </div>
+
+      {/* Connector offline banner — shown inside terminal area */}
+      {connectorOffline && (
+        <div className="shrink-0 flex items-center gap-2 px-4 py-2 bg-orange-500/10 border-b border-orange-500/20 text-xs text-orange-400/90">
+          <Loader2 className="h-3 w-3 animate-spin shrink-0" />
+          <span>Device connector is offline. Retrying automatically — your session will resume when it reconnects.</span>
+        </div>
+      )}
+
       {/* Terminal canvas */}
       <div ref={containerRef} className="flex-1 min-h-0 px-2 pt-2" />
     </div>
   );
 });
-

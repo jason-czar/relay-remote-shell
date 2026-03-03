@@ -717,6 +717,7 @@ export default function Chat() {
   const [terminalDrawerHeight, setTerminalDrawerHeight] = useState(380);
   const terminalDragRef = useRef<{ startY: number; startH: number } | null>(null);
   const drawerTerminalRef = useRef<EmbeddedTerminalHandle>(null);
+  const [connectorOffline, setConnectorOffline] = useState(false);
   const [showWizard, setShowWizard] = useState(false);
   const [projectId, setProjectId] = useState<string>("");
   const [relayStatus, setRelayStatus] = useState<"idle" | "connecting" | "retrying" | "failed">("idle");
@@ -1024,6 +1025,7 @@ export default function Chat() {
   const setSelectedDeviceId = useCallback((id: string) => {
     setSelectedDeviceIdState(id);
     localStorage.setItem("chat-device-id", id);
+    setConnectorOffline(false);
     // Disconnect the persistent relay so the next command creates a fresh session
     // for the new device instead of reusing the old one.
     relay.disconnect();
@@ -3036,6 +3038,15 @@ export default function Chat() {
           {/* Floating composer — hidden in terminal mode */}
           {agent !== "terminal" && (
           <div className="sticky bottom-0 z-20 shrink-0 pt-2 backdrop-blur-md bg-background/80 border-t border-border/10" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 1rem)' }}>
+            {/* ── Connector offline reconnecting banner ── */}
+            {connectorOffline && selectedDeviceId && (
+              <div className="max-w-[900px] mx-auto px-3 sm:px-8 mb-2">
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-orange-500/10 border border-orange-500/20 text-xs text-orange-400/90">
+                  <Loader2 className="h-3 w-3 animate-spin shrink-0" />
+                  <span>Device connector is offline. Reconnecting automatically — your session will resume when it comes back online.</span>
+                </div>
+              </div>
+            )}
             <div className="max-w-[900px] mx-auto px-3 sm:px-8">
             <div className="max-w-[900px] mx-auto">
               {/* Git status bar */}
@@ -3229,7 +3240,13 @@ export default function Chat() {
 
               {/* Terminal itself */}
               <div className="flex-1 min-h-0 overflow-hidden">
-                <EmbeddedTerminal ref={drawerTerminalRef} deviceId={selectedDeviceId} convId={activeConvId} />
+                <EmbeddedTerminal
+                  ref={drawerTerminalRef}
+                  deviceId={selectedDeviceId}
+                  convId={activeConvId}
+                  onConnectorDisconnected={() => setConnectorOffline(true)}
+                  onConnectorReconnected={() => setConnectorOffline(false)}
+                />
               </div>
             </div>
           )}
