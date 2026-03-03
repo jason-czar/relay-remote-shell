@@ -225,7 +225,7 @@ export function usePersistentRelaySession() {
       }
     })();
 
-    inflightSessions.set(deviceId, promise);
+    inflightSessions.set(inflightKey, promise);
     return promise;
   }, []);
 
