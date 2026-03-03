@@ -14,6 +14,7 @@ export interface Conversation {
   device_status?: "online" | "offline" | null;
   claude_session_id?: string | null;
   openclaw_session_id?: string | null;
+  tmux_session_name?: string | null;
 }
 
 
