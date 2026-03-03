@@ -1912,15 +1912,18 @@ export default function Chat() {
         }
 
         // ── Session ID capture (all agents) ─────────────────────────────────
-        if (!convData?.claude_session_id && (convData?.agent === "claude" || convData?.agent === "codex")) {
-          const sessionId = convData.agent === "codex"
+        // Always attempt extraction so that a failed --resume (old session expired,
+        // Claude starts fresh) or a first-message extraction failure gets corrected
+        // on the very next spawn that produces a banner.
+        if (convData?.agent === "claude" || convData?.agent === "codex") {
+          const extractedId = convData.agent === "codex"
             ? extractCodexSessionId(stdout)
             : extractClaudeSessionId(stdout);
-          if (sessionId) {
-            console.log(`[REPL] ${convData.agent} session ID stored → --resume ready:`, sessionId);
-            await supabase.from("chat_conversations").update({ claude_session_id: sessionId }).eq("id", jobConvId);
-            setConversations(prev => prev.map(c => c.id === jobConvId ? { ...c, claude_session_id: sessionId } : c));
-          } else {
+          if (extractedId && extractedId !== convData?.claude_session_id) {
+            console.log(`[REPL] ${convData.agent} session ID updated → --resume ready:`, extractedId);
+            await supabase.from("chat_conversations").update({ claude_session_id: extractedId }).eq("id", jobConvId);
+            setConversations(prev => prev.map(c => c.id === jobConvId ? { ...c, claude_session_id: extractedId } : c));
+          } else if (!extractedId && !convData?.claude_session_id) {
             console.warn(`[REPL] No session ID found in ${convData.agent} stdout (length: ${stdout.length}) — next spawn will not use --resume`);
           }
         }
@@ -2371,14 +2374,14 @@ export default function Chat() {
             }
           }
           // ── Session ID capture for regenerate path (all agents) ────────────
-          if (!convData?.claude_session_id && (convData?.agent === "claude" || convData?.agent === "codex")) {
-            const sessionId = convData.agent === "codex"
+          if (convData?.agent === "claude" || convData?.agent === "codex") {
+            const extractedId = convData.agent === "codex"
               ? extractCodexSessionId(stdout)
               : extractClaudeSessionId(stdout);
-            if (sessionId) {
-              console.log(`[REPL] ${convData.agent} session ID stored (regen) → --resume ready:`, sessionId);
-              await supabase.from("chat_conversations").update({ claude_session_id: sessionId }).eq("id", jobConvId);
-              setConversations(prev => prev.map(c => c.id === jobConvId ? { ...c, claude_session_id: sessionId } : c));
+            if (extractedId && extractedId !== convData?.claude_session_id) {
+              console.log(`[REPL] ${convData.agent} session ID updated (regen) → --resume ready:`, extractedId);
+              await supabase.from("chat_conversations").update({ claude_session_id: extractedId }).eq("id", jobConvId);
+              setConversations(prev => prev.map(c => c.id === jobConvId ? { ...c, claude_session_id: extractedId } : c));
             }
           }
           responseText = responseText.trim() || EMPTY_RESPONSE_TEXT;
