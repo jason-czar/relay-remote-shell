@@ -1363,6 +1363,8 @@ export default function Chat() {
         },
         onSessionReset: handleSessionReset,
         onScrollback: (scrollbackText: string) => {
+          // Relay can emit scrollback on normal re-attach; only surface it after a failure/reconnect state.
+          if (relayStatus !== "retrying" && relayStatus !== "failed") return;
           // Strip ANSI and inject a system message showing what happened during the disconnect
           const stripped = scrollbackText
             .replace(/\x1b\[\d*[JKH]/g, "")
@@ -1398,7 +1400,7 @@ export default function Chat() {
       setRelayStatus("failed");
       throw err;
     }
-  }, [selectedDeviceId, relay]);
+  }, [selectedDeviceId, relay, relayStatus]);
 
   // ── Build command string (REPL spawn model for Codex + Claude) ───────────
   const buildCommand = useCallback(async (text: string, convId: string, selectedModel: string): Promise<string> => {
@@ -1426,40 +1428,20 @@ export default function Chat() {
     const sessionId = relay.getSessionId();
 
     if (conv.agent === "codex") {
+      // Use codex exec per-message for reliability, while preserving conversation memory
+      // via --resume with the last captured Codex session id.
       const modelPart = modelFlag ? ` --model ${selectedModel}` : "";
-      if (!sessionId) {
-        // No PTY yet — store the first message so onChunkActivity can queue it
-        // once the sessionId is established (structured ref avoids stale state).
-        deferredFirstMsgRef.current = { agent: "codex", text };
-        return `codex${modelPart}\n`;
+      const resumeFlag = conv.claude_session_id ? ` --resume ${conv.claude_session_id}` : "";
+      const quoted = `'${text.replace(/'/g, `'"'"'`)}'`;
+
+      // If we have stale runtime state from older REPL behavior, clear it.
+      if (sessionId) {
+        delete runtimeAgentsRef.current[sessionId];
+        delete pendingQueueRef.current[sessionId];
       }
-      const state = runtimeAgentsRef.current[sessionId];
-      if (!state) {
-        // First message on this PTY — register, queue first message, and spawn
-        runtimeAgentsRef.current[sessionId] = { agent: "codex", ready: false };
-        pendingQueueRef.current[sessionId] = [text];
-        // Fallback: if readiness banner never arrives within 20s, force-flush pending queue
-        setTimeout(() => {
-          const s = runtimeAgentsRef.current[sessionId];
-          if (s && !s.ready) {
-            console.warn("[REPL] Boot timeout — forcing ready for session", sessionId);
-            s.ready = true;
-            const queue = pendingQueueRef.current[sessionId] ?? [];
-            delete pendingQueueRef.current[sessionId];
-            for (const queuedText of queue) {
-              relay.sendRawStdin(sessionId, btoa(queuedText + "\n"));
-            }
-          }
-        }, 20_000);
-        return `codex${modelPart}\n`;
-      }
-      if (!state.ready) {
-        // REPL booting — queue for flush on readiness
-        pendingQueueRef.current[sessionId] = [...(pendingQueueRef.current[sessionId] ?? []), text];
-        return "";
-      }
-      // REPL ready — send as stdin
-      return text + "\n";
+      deferredFirstMsgRef.current = null;
+
+      return `codex exec --skip-git-repo-check${modelPart}${resumeFlag} ${quoted}\n`;
     }
 
     if (conv.agent === "claude") {
