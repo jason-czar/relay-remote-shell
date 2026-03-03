@@ -741,6 +741,8 @@ export default function Chat() {
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
   const [showTerminalDrawer, setShowTerminalDrawer] = useState(true);
+  const [chatView, setChatView] = useState<"chat" | "terminal">("chat");
+  const chatTerminalRef = useRef<EmbeddedTerminalHandle>(null);
   const [terminalDrawerHeight, setTerminalDrawerHeight] = useState(380);
   const [drawerInitCmd, setDrawerInitCmd] = useState<string | null>(null);
   const [shellInitCmd, setShellInitCmd] = useState<string | null>(null);
