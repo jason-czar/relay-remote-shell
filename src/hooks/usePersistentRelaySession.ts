@@ -50,8 +50,15 @@ function mirrorSessionId(deviceId: string, sessionId: string, convId: string | n
   localStorage.setItem(deviceKey, sessionId);
 }
 
+/** Sentinel option value used when Claude requires a bare Enter keypress to confirm */
+export const ENTER_TO_CONFIRM_SENTINEL = "__enter_to_confirm__";
+
 /** Extract numbered / keyword choices from terminal prompt text */
 export function extractOptions(text: string): string[] {
+  // Claude's trust gate: "Enter to confirm · Esc to cancel" — needs bare \r, no numbered choice
+  if (/Enter to confirm/i.test(text)) {
+    return [ENTER_TO_CONFIRM_SENTINEL];
+  }
   return text.split("\n").map((l) => l.trim())
     .filter((l) => /^\d+\./.test(l) || /(yes|no|continue|quit|trust|exit|proceed|allow|deny)/i.test(l))
     .map((l) => l.replace(/^\d+\.\s*/, ""));

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { classifyReplStartupError, formatReplError } from "@/lib/replClassifier";
-import { usePersistentRelaySession } from "@/hooks/usePersistentRelaySession";
+import { usePersistentRelaySession, ENTER_TO_CONFIRM_SENTINEL } from "@/hooks/usePersistentRelaySession";
 import openclawImg from "@/assets/openclaw.png";
 import claudecodeImg from "@/assets/claudecode.png";
 import codexImg from "@/assets/codex.png";
@@ -1303,7 +1303,9 @@ export default function Chat() {
           const promptText = options.join(" ");
           const isTrustPrompt = TRUST_PROMPT_RE.test(promptText) || options.some(o => TRUST_PROMPT_RE.test(o));
           if (isTrustPrompt && selectedDeviceId && localStorage.getItem(`agent-trust-${selectedDeviceId}`) === "true") {
-            relay.sendRawStdin(sid, btoa("1\n"));
+            // "Enter to confirm" style needs bare \r; numbered-choice style needs "1\n"
+            const isEnterStyle = options.includes(ENTER_TO_CONFIRM_SENTINEL);
+            relay.sendRawStdin(sid, btoa(isEnterStyle ? "\r" : "1\n"));
             return;
           }
           // Only show approval UI for suggest/auto-edit modes (or unknown/boot phase)
@@ -2174,6 +2176,7 @@ export default function Chat() {
 
     // Normalize choice to single char the CLI expects
     const normalized = (() => {
+      if (choice === ENTER_TO_CONFIRM_SENTINEL) return "\r"; // bare Enter for Claude's trust gate
       const lower = choice.toLowerCase().trim();
       if (lower === "yes" || lower === "approve" || lower === "allow" || lower === "confirm" || lower === "proceed" || lower === "trust") return "1";
       if (lower === "no" || lower === "deny" || lower === "reject" || lower === "decline" || lower === "abort" || lower === "quit") return "2";
@@ -3218,7 +3221,23 @@ export default function Chat() {
                     Agent is waiting for your input
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    {awaitingApproval.options.length > 0 ? (
+                    {awaitingApproval.options.includes(ENTER_TO_CONFIRM_SENTINEL) ? (
+                      // Claude trust gate: "Enter to confirm · Esc to cancel"
+                      <>
+                        <button
+                          onClick={() => handleApprovalChoice(ENTER_TO_CONFIRM_SENTINEL)}
+                          className="flex items-center gap-1.5 px-3 py-1 text-xs rounded-md border border-primary/40 bg-primary/10 text-primary hover:bg-primary/20 font-medium transition-colors"
+                        >
+                          <span>↵</span> Confirm (Enter)
+                        </button>
+                        <button
+                          onClick={() => { relay.sendRawStdin(awaitingApproval.sessionId, btoa("\x1b")); setAwaitingApproval(null); }}
+                          className="px-3 py-1 text-xs rounded-md border border-destructive/40 bg-destructive/10 text-destructive hover:bg-destructive/20 font-medium transition-colors"
+                        >
+                          Esc — Cancel
+                        </button>
+                      </>
+                    ) : awaitingApproval.options.length > 0 ? (
                       awaitingApproval.options.map((opt) => (
                         <button
                           key={opt}
