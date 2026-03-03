@@ -1423,8 +1423,8 @@ export default function Chat() {
     }
   }, [selectedDeviceId, relay]);
 
-  // ── Race-safe tmux session name allocator for Claude ─────────────────────
-  const ensureClaudeTmuxSession = useCallback(async (convId: string): Promise<string> => {
+  // ── Race-safe tmux session name allocator (Claude: cc-, Codex: cx-) ────────
+  const ensureTmuxSession = useCallback(async (convId: string, prefix: string): Promise<string> => {
     const { data: row } = await supabase
       .from("chat_conversations")
       .select("tmux_session_name")
@@ -1432,7 +1432,7 @@ export default function Chat() {
       .single();
     if (row?.tmux_session_name) return row.tmux_session_name;
 
-    const name = `cc-${convId.replace(/-/g, "").substring(0, 8)}`;
+    const name = `${prefix}${convId.replace(/-/g, "").substring(0, 8)}`;
     const { data: updated } = await supabase
       .from("chat_conversations")
       .update({ tmux_session_name: name })
