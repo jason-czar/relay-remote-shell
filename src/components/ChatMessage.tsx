@@ -812,7 +812,7 @@ export function ChatMessage({ role, content, thinking, streaming, activityStatus
         {/* Text content bubble */}
         {textContent && (
           <div
-            className="max-w-[88%] sm:max-w-[72%] rounded-[22px] px-4 py-2 text-[18px] leading-[1.35] break-words bg-[hsl(0,0%,14%)] text-foreground"
+            className="max-w-[88%] sm:max-w-[72%] rounded-[22px] px-4 py-2 text-[15px] leading-[1.4] break-words bg-[hsl(0,0%,14%)] text-foreground"
           >
             {textContent}
           </div>
