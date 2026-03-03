@@ -740,7 +740,7 @@ export default function Chat() {
   const trustGateHandledRef = useRef<string | null>(null); // stores sessionId when handled
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
-  const [showTerminalDrawer, setShowTerminalDrawer] = useState(false);
+  const [showTerminalDrawer, setShowTerminalDrawer] = useState(true);
   const [terminalDrawerHeight, setTerminalDrawerHeight] = useState(380);
   const [drawerInitCmd, setDrawerInitCmd] = useState<string | null>(null);
   const [shellInitCmd, setShellInitCmd] = useState<string | null>(null);
