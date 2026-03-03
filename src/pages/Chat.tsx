@@ -661,9 +661,9 @@ export default function Chat() {
   const AGENT_READY_RE = {
     // Broader pattern to catch various Codex startup banner formats
     codex: /Approval mode:|Model:|workdir:|session id:|Session \w{4,}:|openai\/codex|codex\s+v\d/i,
-    claude: /Type your message|Claude Code\s+\d/i,
+    claude: /Type your message|Claude Code\s+\d|>\s*$|✓|Restored session:/i,
   };
-  const TRUST_BLOCK_RE = /Not inside a trusted directory|Working with untrusted/i;
+  const TRUST_BLOCK_RE = /Not inside a trusted directory|Working with untrusted|Is this a project you|Quick safety check/i;
   // Store tool call log entries (tool_use/tool_result cards) per message
   const toolCallEntriesMapRef = useRef<Map<number, LiveLogEntry[]>>(new Map());
   // Store codex reasoning summaries keyed by message array index
@@ -1415,10 +1415,11 @@ export default function Chat() {
 
     if (conv.agent === "claude") {
       const modelPart = modelFlag ? ` ${modelFlag}` : "";
+      const resumeFlag = conv.claude_session_id ? ` --resume ${conv.claude_session_id}` : "";
       if (!sessionId) {
         // No PTY yet — defer first message (agent stored to avoid stale state race)
         deferredFirstMsgRef.current = { agent: "claude", text };
-        return `claude${modelPart}\n`;
+        return `claude${resumeFlag}${modelPart}\n`;
       }
       const state = runtimeAgentsRef.current[sessionId];
       if (!state) {
@@ -1438,7 +1439,7 @@ export default function Chat() {
             }
           }
         }, 20_000);
-        return `claude${modelPart}\n`;
+        return `claude${resumeFlag}${modelPart}\n`;
       }
       if (!state.ready) {
         pendingQueueRef.current[sessionId] = [...(pendingQueueRef.current[sessionId] ?? []), text];
@@ -1457,6 +1458,10 @@ export default function Chat() {
   //   {"type":"result","session_id":"<id>",...}
   // Also handle legacy "Session ID: <id>" text format as fallback.
   const extractClaudeSessionId = (stdout: string): string | null => {
+    // 0. REPL interactive banner: "Restored session: abc123-def456-..."
+    const replBanner = stdout.match(/Restored session:\s*([a-z0-9-]+)/i);
+    if (replBanner) return replBanner[1];
+
     // 1. JSONL result line (stream-json mode) — most reliable
     for (const line of stdout.split("\n")) {
       const t = line.trim();
