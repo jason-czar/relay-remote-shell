@@ -105,7 +105,9 @@ export function usePersistentRelaySession() {
     // Detect if the agent is waiting for user input (Approve/Deny style prompts).
     // If so, hold the WS open much longer so the user has time to click a button.
     const stripped = stripAnsi(buf);
-    const isAwaitingInput = AWAITING_INPUT_RE.test(stripped);
+    // A blocking prompt (trust gate, password, y/n) always implies awaiting input,
+    // even if it doesn't end with the usual [?:] suffix (e.g. "Enter to confirm · Esc to cancel")
+    const isAwaitingInput = AWAITING_INPUT_RE.test(stripped) || BLOCKING_PROMPT_RE.test(stripped);
     // Only fire onAwaitingInput for blocking prompts (not informational suggestions)
     if (isAwaitingInput && BLOCKING_PROMPT_RE.test(stripped)) {
       onAwaitingInputRef.current?.(extractOptions(stripped));
