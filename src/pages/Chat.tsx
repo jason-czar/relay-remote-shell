@@ -186,9 +186,9 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
   // Base (static) models per agent — fallback when dynamic fetch unavailable
   const staticModels = agent === "openclaw" ? OPENCLAW_MODELS : agent === "claude" ? CLAUDE_MODELS : CODEX_MODELS;
   // Merge: prepend Auto, then dynamic models; fall back to static if no device or fetch failed
-  const displayModels: AgentModel[] = deviceModels && deviceModels.length > 0
-    ? [{ id: "auto", label: "Auto", description: `Use ${agent === "openclaw" ? "OpenClaw" : agent === "codex" ? "Codex" : "Claude Code"}'s default model` }, ...deviceModels]
-    : staticModels;
+  const displayModels: AgentModel[] = deviceModels && deviceModels.length > 0 ?
+  [{ id: "auto", label: "Auto", description: `Use ${agent === "openclaw" ? "OpenClaw" : agent === "codex" ? "Codex" : "Claude Code"}'s default model` }, ...deviceModels] :
+  staticModels;
 
   // Auto-fetch models when a device is selected and agent changes
   useEffect(() => {
@@ -367,25 +367,25 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
                 {/* Header with refresh */}
                 <div className="flex items-center justify-between px-2 py-1.5 border-b border-border/30 mb-1">
                   <span className="text-[11px] font-medium text-muted-foreground/60 uppercase tracking-wider">Model</span>
-                  {deviceId && agent !== "terminal" && (
-                    <button
-                      onClick={() => { if (deviceId) { invalidateDeviceModelCache(deviceId, agent); fetchModels(deviceId, agent); } }}
-                      disabled={modelsLoading}
-                      className="flex items-center gap-1 text-[10px] text-muted-foreground/50 hover:text-foreground transition-colors disabled:opacity-40"
-                      title="Refresh model list from device"
-                    >
+                  {deviceId && agent !== "terminal" &&
+                  <button
+                    onClick={() => {if (deviceId) {invalidateDeviceModelCache(deviceId, agent);fetchModels(deviceId, agent);}}}
+                    disabled={modelsLoading}
+                    className="flex items-center gap-1 text-[10px] text-muted-foreground/50 hover:text-foreground transition-colors disabled:opacity-40"
+                    title="Refresh model list from device">
+                    
                       <RefreshCw className={cn("h-3 w-3", modelsLoading && "animate-spin")} />
                       {modelsLoading ? "Loading…" : "Refresh"}
                     </button>
-                  )}
+                  }
                 </div>
-                {modelsError && (
-                  <div className="px-2 py-1.5 mb-1">
+                {modelsError &&
+                <div className="px-2 py-1.5 mb-1">
                     <p className="text-[10px] text-muted-foreground/50 italic">Could not fetch models — showing defaults</p>
                   </div>
-                )}
+                }
                 {displayModels.map((m) =>
-                  <DropdownMenuItem key={m.id} onSelect={() => onModelChange(m.id)} className={cn(model === m.id && "bg-accent")}>
+                <DropdownMenuItem key={m.id} onSelect={() => onModelChange(m.id)} className={cn(model === m.id && "bg-accent")}>
                     <span className="font-medium">{m.label}</span>
                     {m.description && <span className="ml-auto text-xs text-muted-foreground">{m.description}</span>}
                   </DropdownMenuItem>
@@ -411,55 +411,55 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
 
           {/* Right: preview + send */}
           <div className="flex items-center gap-2">
-          {onPreview && deviceId && (
+          {onPreview && deviceId &&
             <button
               type="button"
               onClick={onPreview}
               title="Open live preview"
               className={cn(
                 "flex items-center gap-1.5 h-10 px-4 rounded-full transition-colors text-[15px] font-medium",
-                previewActive
-                  ? "bg-foreground text-background hover:opacity-80"
-                  : "bg-foreground text-background hover:opacity-80"
-              )}
-            >
+                previewActive ?
+                "bg-foreground text-background hover:opacity-80" :
+                "bg-foreground text-background hover:opacity-80"
+              )}>
+              
               <Monitor size={16} />
               <span>Preview</span>
             </button>
-          )}
+            }
           <div className="relative flex items-center justify-center">
             {/* Pulse ring while streaming */}
             {isStreaming &&
-            <span className="absolute inset-0 rounded-full animate-ping bg-foreground/20 pointer-events-none" />
-            }
+              <span className="absolute inset-0 rounded-full animate-ping bg-foreground/20 pointer-events-none" />
+              }
           <button
-              type="button"
-              onClick={isStreaming ? onAbort : onSend}
-              disabled={!isStreaming && (sendDisabled || disabled)}
-              title={isStreaming ? "Stop generating" : "Send"}
-              className={cn(
-                "relative flex items-center justify-center h-11 w-11 rounded-full",
-                "transition-all duration-300 ease-in-out overflow-hidden",
-                isStreaming ?
-                "bg-foreground text-background hover:opacity-80 shadow-md scale-100" :
-                sendDisabled || disabled ?
-                "bg-muted/30 text-muted-foreground/30 cursor-not-allowed scale-95" :
-                "bg-foreground text-background hover:opacity-80 shadow-md scale-100"
-              )}>
+                type="button"
+                onClick={isStreaming ? onAbort : onSend}
+                disabled={!isStreaming && (sendDisabled || disabled)}
+                title={isStreaming ? "Stop generating" : "Send"}
+                className={cn(
+                  "relative flex items-center justify-center h-11 w-11 rounded-full",
+                  "transition-all duration-300 ease-in-out overflow-hidden",
+                  isStreaming ?
+                  "bg-foreground text-background hover:opacity-80 shadow-md scale-100" :
+                  sendDisabled || disabled ?
+                  "bg-muted/30 text-muted-foreground/30 cursor-not-allowed scale-95" :
+                  "bg-foreground text-background hover:opacity-80 shadow-md scale-100"
+                )}>
 
             <span
-                className={cn(
-                  "absolute inset-0 flex items-center justify-center transition-all duration-200",
-                  isStreaming ? "opacity-100 scale-100 rotate-0" : "opacity-0 scale-50 rotate-90"
-                )}>
+                  className={cn(
+                    "absolute inset-0 flex items-center justify-center transition-all duration-200",
+                    isStreaming ? "opacity-100 scale-100 rotate-0" : "opacity-0 scale-50 rotate-90"
+                  )}>
 
               <Square size={15} className="fill-current" />
             </span>
             <span
-                className={cn(
-                  "absolute inset-0 flex items-center justify-center transition-all duration-200",
-                  isStreaming ? "opacity-0 scale-50 -rotate-90" : "opacity-100 scale-100 rotate-0"
-                )}>
+                  className={cn(
+                    "absolute inset-0 flex items-center justify-center transition-all duration-200",
+                    isStreaming ? "opacity-0 scale-50 -rotate-90" : "opacity-100 scale-100 rotate-0"
+                  )}>
 
               <ArrowUp size={19} />
             </span>
@@ -469,8 +469,8 @@ function ComposerBox({ textareaRef, fileInputRef, input, setInput, onKeyDown, on
       </div>
 
       {dictateError &&
-      <p className="text-xs text-destructive mt-1 pl-3">{dictateError}</p>
-      }
+        <p className="text-xs text-destructive mt-1 pl-3">{dictateError}</p>
+        }
     </div>
     </div>);
 
@@ -485,7 +485,7 @@ const TOOL_LABELS: Record<string, string> = {
   search: "Search", grep: "Search", ripgrep: "Search", web_search: "Web search",
   find: "Find", ls: "List files", list_directory: "List files",
   mkdir: "Make dir", computer: "Computer", browser: "Browser",
-  todo_write: "Todo", notebook_edit: "Edit notebook",
+  todo_write: "Todo", notebook_edit: "Edit notebook"
 };
 
 function friendlyToolName(raw: string): string {
@@ -494,7 +494,7 @@ function friendlyToolName(raw: string): string {
 }
 
 // ── Chunk → activity status + tool name parser ────────────────────────────────
-function parseChunkActivity(chunk: string): { status: "thinking" | "writing" | "running" | null; toolName: string | null } {
+function parseChunkActivity(chunk: string): {status: "thinking" | "writing" | "running" | null;toolName: string | null;} {
   // Tool-call signals — try to extract the tool name from JSON
   if (/\"type\"\s*:\s*\"tool_use\"/.test(chunk)) {
     const nameMatch = chunk.match(/"name"\s*:\s*"([^"]+)"/);
@@ -532,8 +532,8 @@ function parseChunkForLog(chunk: string, acc: string): LiveLogEntry | null {
             id: typeof obj.id === "string" ? obj.id : undefined,
             name: friendlyToolName(name),
             input: rawInput && Object.keys(rawInput).length > 0 ? rawInput : undefined,
-            startedAt: Date.now(),
-          },
+            startedAt: Date.now()
+          }
         };
       }
       // tool_result: we handle this via the _tool_result_ sentinel (see onChunkActivity)
@@ -543,10 +543,10 @@ function parseChunkForLog(chunk: string, acc: string): LiveLogEntry | null {
         if (typeof content === "string") {
           resultText = content;
         } else if (Array.isArray(content)) {
-          resultText = content
-            .map((b: Record<string, unknown>) => (b.type === "text" ? b.text : ""))
-            .join("")
-            .trim();
+          resultText = content.
+          map((b: Record<string, unknown>) => b.type === "text" ? b.text : "").
+          join("").
+          trim();
         }
         const isError = obj.is_error === true;
         return {
@@ -556,11 +556,11 @@ function parseChunkForLog(chunk: string, acc: string): LiveLogEntry | null {
             id: typeof obj.tool_use_id === "string" ? obj.tool_use_id : undefined,
             name: "__result__",
             result: resultText || (isError ? "Error" : "Done"),
-            isError,
-          },
+            isError
+          }
         };
       }
-    } catch { /* not complete JSON */ }
+    } catch {/* not complete JSON */}
   }
 
   // ── Claude Code / OpenClaw: JSON tool_use events ──────────────────────────
@@ -600,7 +600,7 @@ function parseChunkForLog(chunk: string, acc: string): LiveLogEntry | null {
     try {
       const obj = JSON.parse(t);
       // function_call / tool_call
-      if (obj.type === "function_calls" || (obj.type === "tool_call")) {
+      if (obj.type === "function_calls" || obj.type === "tool_call") {
         const name = obj.name ?? obj.function?.name ?? "Tool";
         const args = obj.arguments ?? obj.function?.arguments ?? obj.input ?? {};
         if (/bash|shell|exec|run/i.test(name)) {
@@ -617,7 +617,7 @@ function parseChunkForLog(chunk: string, acc: string): LiveLogEntry | null {
       if (obj.type === "shell" && obj.command) {
         return { type: "bash", label: "Bash", detail: String(obj.command).slice(0, 200) };
       }
-    } catch { /* not JSON */ }
+    } catch {/* not JSON */}
   }
 
   // ── Plain text patterns ───────────────────────────────────────────────────
@@ -649,7 +649,7 @@ export default function Chat() {
   const pendingQueueRef = useRef<Record<string, string[]>>({});
   // ── Deferred first message — stored when sessionId is unknown at send time ─
   // Structured so onChunkActivity doesn't rely on potentially-stale React agent state.
-  const deferredFirstMsgRef = useRef<{ agent: "codex" | "claude"; text: string } | null>(null);
+  const deferredFirstMsgRef = useRef<{agent: "codex" | "claude";text: string;} | null>(null);
   // ── PTY death cleanup — aligned with real terminal lifecycle ─────────────
   const handleSessionReset = useCallback((deadSessionId?: string) => {
     if (!deadSessionId) return;
@@ -661,7 +661,7 @@ export default function Chat() {
   const AGENT_READY_RE = {
     // Broader pattern to catch various Codex startup banner formats
     codex: /Approval mode:|Model:|workdir:|session id:|Session \w{4,}:|openai\/codex|codex\s+v\d/i,
-    claude: /Type your message|Claude Code\s+\d|>\s*$|✓|Restored session:/i,
+    claude: /Type your message|Claude Code\s+\d|>\s*$|✓|Restored session:/i
   };
   const TRUST_BLOCK_RE = /Not inside a trusted directory|Working with untrusted|Is this a project you|Quick safety check/i;
   // Store tool call log entries (tool_use/tool_result cards) per message
@@ -689,7 +689,7 @@ export default function Chat() {
   useEffect(() => {
     const id = setInterval(() => {
       const sid = relay.getSessionId();
-      setPtySessionId(prev => prev !== sid ? sid : prev);
+      setPtySessionId((prev) => prev !== sid ? sid : prev);
     }, 1000);
     return () => clearInterval(id);
   }, [relay]);
@@ -733,14 +733,14 @@ export default function Chat() {
   const [answeredMsgIndices, setAnsweredMsgIndices] = useState<Set<number>>(new Set());
   const liveLogAccRef = useRef<string>("");
   // Blocking PTY prompt awaiting user choice (trust gate, [Y/n], etc.)
-  const [awaitingApproval, setAwaitingApproval] = useState<{ sessionId: string; options: string[] } | null>(null);
+  const [awaitingApproval, setAwaitingApproval] = useState<{sessionId: string;options: string[];} | null>(null);
   // Ref to guard against duplicate trust-gate triggers within same session
   const trustGateHandledRef = useRef<string | null>(null); // stores sessionId when handled
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
   const [showTerminalDrawer, setShowTerminalDrawer] = useState(false);
   const [terminalDrawerHeight, setTerminalDrawerHeight] = useState(380);
-  const terminalDragRef = useRef<{ startY: number; startH: number } | null>(null);
+  const terminalDragRef = useRef<{startY: number;startH: number;} | null>(null);
   const drawerTerminalRef = useRef<EmbeddedTerminalHandle>(null);
   const [connectorOffline, setConnectorOffline] = useState(false);
   const [expandedScrollback, setExpandedScrollback] = useState<Set<number>>(new Set());
@@ -750,7 +750,7 @@ export default function Chat() {
   const relayRetryCountRef = useRef(0);
   // REPL debug overlay — live snapshot of runtimeAgentsRef
   const [showReplDebug, setShowReplDebug] = useState(false);
-  const [replDebugSnapshot, setReplDebugSnapshot] = useState<Record<string, { agent: string; ready: boolean; approvalMode?: string }>>({});
+  const [replDebugSnapshot, setReplDebugSnapshot] = useState<Record<string, {agent: string;ready: boolean;approvalMode?: string;}>>({});
   // Poll runtimeAgentsRef into state when debug overlay is open
   useEffect(() => {
     if (!showReplDebug) return;
@@ -770,7 +770,7 @@ export default function Chat() {
   // ── Open Project dialog ───────────────────────────────────────────────
   const [openProjectOpen, setOpenProjectOpen] = useState(false);
   const [folderPath, setFolderPath] = useState<string>("");
-  const [folderItems, setFolderItems] = useState<{ name: string; isDir: boolean }[]>([]);
+  const [folderItems, setFolderItems] = useState<{name: string;isDir: boolean;}[]>([]);
   const [folderLoading, setFolderLoading] = useState(false);
 
   // ── Clone Repo dialog ────────────────────────────────────────────────
@@ -778,7 +778,7 @@ export default function Chat() {
   const [cloneUrl, setCloneUrl] = useState("");
   const [cloneDir, setCloneDir] = useState("");
   const [cloneToken, setCloneToken] = useState(() => {
-    try { return localStorage.getItem("gh-clone-token") ?? ""; } catch { return ""; }
+    try {return localStorage.getItem("gh-clone-token") ?? "";} catch {return "";}
   });
   const [showCloneToken, setShowCloneToken] = useState(false);
   const [cloning, setCloning] = useState(false);
@@ -790,7 +790,7 @@ export default function Chat() {
   const streamIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const abortStreamRef = useRef(false);
   const pendingAutoSendRef = useRef<string | null>(null);
-  const pendingCloneInfoRef = useRef<{ url: string; dest: string } | null>(null);
+  const pendingCloneInfoRef = useRef<{url: string;dest: string;} | null>(null);
   const [isScrolledUp, setIsScrolledUp] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
 
@@ -798,8 +798,8 @@ export default function Chat() {
   const getRecentProjects = useCallback((deviceId: string): string[] => {
     try {
       const raw = localStorage.getItem(`recent-projects-${deviceId}`);
-      return raw ? (JSON.parse(raw) as string[]) : [];
-    } catch { return []; }
+      return raw ? JSON.parse(raw) as string[] : [];
+    } catch {return [];}
   }, []);
 
   const addRecentProject = useCallback((deviceId: string, path: string) => {
@@ -824,7 +824,7 @@ export default function Chat() {
       if (!jwt) return;
       await new Promise<void>((resolve) => {
         const ws = new WebSocket(`${relayUrl}/session`);
-        let buf = ""; let done = false; let cmdSent = false;
+        let buf = "";let done = false;let cmdSent = false;
         let silTimer: ReturnType<typeof setTimeout> | null = null;
         const PROMPT_RE = /[$%#>]\s*$/m;
 
@@ -844,7 +844,7 @@ export default function Chat() {
         const resetSilence = () => {
           if (silTimer) clearTimeout(silTimer);
           // Once the command has been sent, finish 1.5s after last stdout chunk
-          if (cmdSent) silTimer = setTimeout(() => { clearTimeout(hardDeadline); finish(); }, 1500);
+          if (cmdSent) silTimer = setTimeout(() => {clearTimeout(hardDeadline);finish();}, 1500);
         };
 
         ws.onopen = () => ws.send(JSON.stringify({ type: "auth", data: { token: jwt, session_id: sesData.session_id, device_id: selectedDeviceId } }));
@@ -854,8 +854,8 @@ export default function Chat() {
             if (msg.type === "auth_ok") {
               ws.send(JSON.stringify({ type: "session_start", data: { session_id: sesData.session_id, cols: 220, rows: 50 } }));
             } else if (msg.type === "stdout") {
-              const d = (msg.data as { data_b64?: string })?.data_b64;
-              if (d) { try { buf += decodeURIComponent(escape(atob(d))); } catch { buf += atob(d); } }
+              const d = (msg.data as {data_b64?: string;})?.data_b64;
+              if (d) {try {buf += decodeURIComponent(escape(atob(d)));} catch {buf += atob(d);}}
 
               // Wait for shell prompt before sending command (handles slow -lic startup)
               if (!cmdSent && PROMPT_RE.test(buf)) {
@@ -868,10 +868,10 @@ export default function Chat() {
         };
         ws.onclose = () => {
           const clean = buf.replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, "").replace(/\x1b\[[\x30-\x3f]*[\x20-\x2f]*[\x40-\x7e]/g, "").replace(/\x1b[^[\]]/g, "");
-          const s = clean.indexOf("{"); const end = clean.lastIndexOf("}");
+          const s = clean.indexOf("{");const end = clean.lastIndexOf("}");
           if (s !== -1 && end !== -1) {
             try {
-              const parsed = JSON.parse(clean.slice(s, end + 1)) as { path: string; entries: { name: string; isDir: boolean }[] };
+              const parsed = JSON.parse(clean.slice(s, end + 1)) as {path: string;entries: {name: string;isDir: boolean;}[];};
               setFolderPath(parsed.path);
               setFolderItems(parsed.entries);
             } catch {/* */}
@@ -879,7 +879,7 @@ export default function Chat() {
           finish();
         };
       });
-    } catch {/* */} finally { setFolderLoading(false); }
+    } catch {/* */} finally {setFolderLoading(false);}
   }, [selectedDeviceId]);
 
   const handleOpenProject = useCallback(async (chosenPath: string) => {
@@ -904,14 +904,14 @@ export default function Chat() {
       } catch {/* use original url */}
     }
     // Persist token for next time (stored only locally)
-    try { localStorage.setItem("gh-clone-token", cloneToken); } catch {/* */}
+    try {localStorage.setItem("gh-clone-token", cloneToken);} catch {/* */}
     const cloneCmd = `git clone ${effectiveUrl}${cloneDir.trim() ? ` ${cloneDir.trim()}` : ""}`;
     // Derive the repo folder name for later workdir update
     const urlPart = cloneUrl.trim().replace(/\.git$/, "").replace(/\/$/, "");
     const repoName = urlPart.split("/").pop() || "";
     pendingCloneInfoRef.current = { url: cloneUrl.trim(), dest: cloneDir.trim() || repoName };
     setCloneRepoOpen(false);
-    setCloneUrl(""); setCloneDir("");
+    setCloneUrl("");setCloneDir("");
     setInput(cloneCmd);
     pendingAutoSendRef.current = cloneCmd;
     setTimeout(() => textareaRef.current?.focus(), 100);
@@ -927,7 +927,7 @@ export default function Chat() {
 
   // Called for each live stdout chunk — promotes status based on content
   const stopActivity = useCallback(() => {
-    if (activityTimerRef.current) { clearInterval(activityTimerRef.current); activityTimerRef.current = null; }
+    if (activityTimerRef.current) {clearInterval(activityTimerRef.current);activityTimerRef.current = null;}
     setActivityStatus(null);
     setToolCalls([]);
   }, []);
@@ -938,7 +938,7 @@ export default function Chat() {
   const onChunkActivity = useCallback((chunk: string) => {
     const { status, toolName } = parseChunkActivity(chunk);
     if (status) setActivityStatus(status);
-    if (toolName) setToolCalls(prev => [...prev, toolName]);
+    if (toolName) setToolCalls((prev) => [...prev, toolName]);
     // Parse for structured live log entry
     liveLogAccRef.current += chunk;
     const entry = parseChunkForLog(chunk, liveLogAccRef.current);
@@ -993,9 +993,9 @@ export default function Chat() {
       // the text may be fragmented across chunks. Test the accumulated buffer
       // after stripping ALL ANSI escape sequences (SGR, OSC, CSI positioning).
       const stripAllAnsi = (s: string) =>
-        s.replace(/\x1b\[[^a-zA-Z]*[a-zA-Z]/g, "")  // CSI sequences (colors, cursor, erase)
-         .replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, "")  // OSC sequences
-         .replace(/\x1b[^[\]]/g, "");  // other 2-char escapes
+      s.replace(/\x1b\[[^a-zA-Z]*[a-zA-Z]/g, "") // CSI sequences (colors, cursor, erase)
+      .replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, "") // OSC sequences
+      .replace(/\x1b[^[\]]/g, ""); // other 2-char escapes
       const accStripped = stripAllAnsi(liveLogAccRef.current);
       console.debug("[REPL][TrustGate] sessionId:", sessionId, "accLen:", liveLogAccRef.current.length, "hasEnterToConfirm:", /Enter to confirm/i.test(accStripped), "handled:", trustGateHandledRef.current);
       if (/Enter to confirm/i.test(accStripped) && trustGateHandledRef.current !== sessionId) {
@@ -1014,11 +1014,11 @@ export default function Chat() {
       // tool_result: patch the matching tool_call entry rather than appending
       if (entry.type === "tool_call" && entry.toolCallData?.name === "__result__") {
         const resultId = entry.toolCallData.id;
-        setLiveLog(prev => {
+        setLiveLog((prev) => {
           // Find last tool_call entry with matching id (or last tool_call if no id)
-          const idx = resultId
-            ? [...prev].reverse().findIndex(e => e.type === "tool_call" && e.toolCallData?.id === resultId)
-            : [...prev].reverse().findIndex(e => e.type === "tool_call" && !e.toolCallData?.result);
+          const idx = resultId ?
+          [...prev].reverse().findIndex((e) => e.type === "tool_call" && e.toolCallData?.id === resultId) :
+          [...prev].reverse().findIndex((e) => e.type === "tool_call" && !e.toolCallData?.result);
           if (idx === -1) return prev;
           const realIdx = prev.length - 1 - idx;
           const updated = [...prev];
@@ -1028,16 +1028,16 @@ export default function Chat() {
               ...updated[realIdx].toolCallData!,
               result: entry.toolCallData!.result,
               isError: entry.toolCallData!.isError,
-              durationMs: updated[realIdx].toolCallData?.startedAt
-                ? Date.now() - updated[realIdx].toolCallData!.startedAt!
-                : undefined,
-            },
+              durationMs: updated[realIdx].toolCallData?.startedAt ?
+              Date.now() - updated[realIdx].toolCallData!.startedAt! :
+              undefined
+            }
           };
           return updated;
         });
       } else {
         // Deduplicate: don't add same label+detail twice in a row
-        setLiveLog(prev => {
+        setLiveLog((prev) => {
           const last = prev[prev.length - 1];
           if (last?.label === entry.label && last?.detail === entry.detail) return prev;
           return [...prev, entry];
@@ -1114,11 +1114,11 @@ export default function Chat() {
       const data = devRes.data;
       if (data) {
         setDevices(data as Tables<"devices">[]);
-          if (!devicesLoaded) {
-            setDevicesLoaded(true);
-            if (data.length === 0) setDevicePanelOpen(true);
-          }
-          if (data.length > 0) {
+        if (!devicesLoaded) {
+          setDevicesLoaded(true);
+          if (data.length === 0) setDevicePanelOpen(true);
+        }
+        if (data.length > 0) {
           // Use persisted device if still valid, else pick online/first
           const persisted = localStorage.getItem("chat-device-id");
           const found = persisted ? data.find((d) => d.id === persisted) : null;
@@ -1137,7 +1137,7 @@ export default function Chat() {
 
   // ── Load messages on conversation select ──────────────────────────────
   useEffect(() => {
-    if (!activeConvId) {setMessages([]);setAnsweredMsgIndices(new Set());setDetectedPreviewPort(null);detectedPortRef.current=null;return;}
+    if (!activeConvId) {setMessages([]);setAnsweredMsgIndices(new Set());setDetectedPreviewPort(null);detectedPortRef.current = null;return;}
     supabase.
     from("chat_messages").
     select("id, role, content, created_at, raw_stdout").
@@ -1146,9 +1146,9 @@ export default function Chat() {
     then(({ data }) => {
       if (data) {
         setMessages(data.map((msg: any) =>
-          msg.role === "system" && msg.content?.startsWith("**Session resumed**")
-            ? { ...msg, type: "scrollback_replay" }
-            : msg
+        msg.role === "system" && msg.content?.startsWith("**Session resumed**") ?
+        { ...msg, type: "scrollback_replay" } :
+        msg
         ) as Message[]);
         // Restore raw_stdout for the debug panel on historical messages
         rawStdoutMapRef.current.clear();
@@ -1165,7 +1165,7 @@ export default function Chat() {
 
   // ── Auto-fetch git status when conversation is opened ─────────────────
   useEffect(() => {
-    if (!activeConvId || !selectedDeviceId) { setGitStatus(null); return; }
+    if (!activeConvId || !selectedDeviceId) {setGitStatus(null);return;}
     if (gitFetchedForRef.current === activeConvId) return;
     gitFetchedForRef.current = activeConvId;
     setGitStatus("loading");
@@ -1173,17 +1173,17 @@ export default function Chat() {
       try {
         const cmd = `git branch --show-current 2>/dev/null && git diff --stat HEAD 2>/dev/null | tail -1`;
         const { data: sesData } = await supabase.functions.invoke("start-session", { body: { device_id: selectedDeviceId } });
-        if (!sesData?.session_id) { setGitStatus(null); return; }
+        if (!sesData?.session_id) {setGitStatus(null);return;}
         const sessionId: string = sesData.session_id;
         const relayUrl = import.meta.env.VITE_RELAY_URL || "wss://relay.privaclaw.com";
         const { data: { session: authSession } } = await supabase.auth.getSession();
         const jwt = authSession?.access_token;
-        if (!jwt) { setGitStatus(null); return; }
+        if (!jwt) {setGitStatus(null);return;}
         const raw = await new Promise<string>((resolve) => {
           const ws = new WebSocket(`${relayUrl}/session`);
-          let buf = ""; let done = false; let silTimer: ReturnType<typeof setTimeout> | null = null;
-          const finish = (v: string) => { if (done) return; done = true; if (silTimer) clearTimeout(silTimer); if (ws.readyState === WebSocket.OPEN) { ws.send(JSON.stringify({ type: "session_end", data: { session_id: sessionId, reason: "done" } })); ws.close(); } supabase.functions.invoke("end-session", { body: { session_id: sessionId } }).catch(() => {}); resolve(v); };
-          const resetSil = () => { if (silTimer) clearTimeout(silTimer); silTimer = setTimeout(() => finish(buf), 2500); };
+          let buf = "";let done = false;let silTimer: ReturnType<typeof setTimeout> | null = null;
+          const finish = (v: string) => {if (done) return;done = true;if (silTimer) clearTimeout(silTimer);if (ws.readyState === WebSocket.OPEN) {ws.send(JSON.stringify({ type: "session_end", data: { session_id: sessionId, reason: "done" } }));ws.close();}supabase.functions.invoke("end-session", { body: { session_id: sessionId } }).catch(() => {});resolve(v);};
+          const resetSil = () => {if (silTimer) clearTimeout(silTimer);silTimer = setTimeout(() => finish(buf), 2500);};
           setTimeout(() => finish(buf), 12000);
           let promptSent = false;
           ws.onopen = () => ws.send(JSON.stringify({ type: "auth", data: { token: jwt, session_id: sessionId, device_id: selectedDeviceId } }));
@@ -1193,27 +1193,27 @@ export default function Chat() {
               if (msg.type === "auth_ok") {
                 ws.send(JSON.stringify({ type: "session_start", data: { session_id: sessionId, cols: 200, rows: 10 } }));
                 const PROMPT_RE = /(?:[%$#➜❯>]\s*$)/m;
-                const trySend = () => { if (promptSent) return; const plain = buf.replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, "").replace(/\x1b\[[\x30-\x3f]*[\x20-\x2f]*[\x40-\x7e]/g, "").replace(/\x1b[^[\]]/g, ""); if (PROMPT_RE.test(plain)) { promptSent = true; buf = ""; ws.send(JSON.stringify({ type: "stdin", data: { session_id: sessionId, data_b64: btoa(cmd + "\n") } })); resetSil(); } };
-                setTimeout(() => { if (!promptSent) { promptSent = true; buf = ""; ws.send(JSON.stringify({ type: "stdin", data: { session_id: sessionId, data_b64: btoa(cmd + "\n") } })); resetSil(); } }, 4000);
-                const origH = ws.onmessage; ws.onmessage = (ev) => { origH?.call(ws, ev); trySend(); };
-              } else if (msg.type === "stdout") { const { data_b64 } = (msg.data ?? {}) as { data_b64: string }; if (data_b64) { try { buf += decodeURIComponent(escape(atob(data_b64))); } catch { buf += atob(data_b64); } resetSil(); }
-              } else if (msg.type === "session_end") { finish(buf); }
+                const trySend = () => {if (promptSent) return;const plain = buf.replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, "").replace(/\x1b\[[\x30-\x3f]*[\x20-\x2f]*[\x40-\x7e]/g, "").replace(/\x1b[^[\]]/g, "");if (PROMPT_RE.test(plain)) {promptSent = true;buf = "";ws.send(JSON.stringify({ type: "stdin", data: { session_id: sessionId, data_b64: btoa(cmd + "\n") } }));resetSil();}};
+                setTimeout(() => {if (!promptSent) {promptSent = true;buf = "";ws.send(JSON.stringify({ type: "stdin", data: { session_id: sessionId, data_b64: btoa(cmd + "\n") } }));resetSil();}}, 4000);
+                const origH = ws.onmessage;ws.onmessage = (ev) => {origH?.call(ws, ev);trySend();};
+              } else if (msg.type === "stdout") {const { data_b64 } = (msg.data ?? {}) as {data_b64: string;};if (data_b64) {try {buf += decodeURIComponent(escape(atob(data_b64)));} catch {buf += atob(data_b64);}resetSil();}
+              } else if (msg.type === "session_end") {finish(buf);}
             } catch {/* ignore */}
           };
           ws.onerror = () => finish(buf);
         });
         const clean = raw.replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, "").replace(/\x1b\[[\x30-\x3f]*[\x20-\x2f]*[\x40-\x7e]/g, "").replace(/\x1b[^[\]]/g, "").replace(/\r/g, "");
-        const lines = clean.split("\n").map(l => l.trim()).filter(Boolean);
+        const lines = clean.split("\n").map((l) => l.trim()).filter(Boolean);
         const branch = lines[0] ?? "";
-        const statLine = lines.find(l => l.includes("changed")) ?? "";
+        const statLine = lines.find((l) => l.includes("changed")) ?? "";
         const filesMatch = statLine.match(/(\d+)\s+files? changed/);
         const insMatch = statLine.match(/(\d+)\s+insertions?\(\+\)/);
         const delMatch = statLine.match(/(\d+)\s+deletions?\(-\)/);
-        if (!branch || branch.includes(" ") || branch.length > 100) { setGitStatus(null); return; }
+        if (!branch || branch.includes(" ") || branch.length > 100) {setGitStatus(null);return;}
         setGitStatus({ branch, files: filesMatch ? parseInt(filesMatch[1]) : 0, insertions: insMatch ? parseInt(insMatch[1]) : 0, deletions: delMatch ? parseInt(delMatch[1]) : 0 });
-      } catch { setGitStatus(null); }
+      } catch {setGitStatus(null);}
     })();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeConvId, selectedDeviceId, gitRefreshTick]);
 
   // Restore agent + model when switching to a conversation so the header dropdown always matches
@@ -1348,7 +1348,7 @@ export default function Chat() {
           // Auto-trust: if the user previously trusted this device and it's a
           // trust-type prompt, silently send "1\n" without showing UI
           const promptText = options.join(" ");
-          const isTrustPrompt = TRUST_PROMPT_RE.test(promptText) || options.some(o => TRUST_PROMPT_RE.test(o));
+          const isTrustPrompt = TRUST_PROMPT_RE.test(promptText) || options.some((o) => TRUST_PROMPT_RE.test(o));
           if (isTrustPrompt && selectedDeviceId && localStorage.getItem(`agent-trust-${selectedDeviceId}`) === "true") {
             // "Enter to confirm" style needs bare \r; numbered-choice style needs "1\n"
             const isEnterStyle = options.includes(ENTER_TO_CONFIRM_SENTINEL);
@@ -1364,20 +1364,20 @@ export default function Chat() {
         onSessionReset: handleSessionReset,
         onScrollback: (scrollbackText: string) => {
           // Strip ANSI and inject a system message showing what happened during the disconnect
-          const stripped = scrollbackText
-            .replace(/\x1b\[\d*[JKH]/g, "")
-            .replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, "")
-            .replace(/\x1b\[(\d+)C/g, (_, n) => " ".repeat(Math.min(Number(n), 4)))
-            .replace(/\x1b\[[\x30-\x3f]*[\x20-\x2f]*[\x40-\x7e]/g, "")
-            .replace(/\x1b[^[\]]/g, "")
-            .replace(/\x1b/g, "")
-            .trim();
+          const stripped = scrollbackText.
+          replace(/\x1b\[\d*[JKH]/g, "").
+          replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, "").
+          replace(/\x1b\[(\d+)C/g, (_, n) => " ".repeat(Math.min(Number(n), 4))).
+          replace(/\x1b\[[\x30-\x3f]*[\x20-\x2f]*[\x40-\x7e]/g, "").
+          replace(/\x1b[^[\]]/g, "").
+          replace(/\x1b/g, "").
+          trim();
           if (!stripped) return;
           const content = `**Session resumed** — output since last disconnect:\n\`\`\`\n${stripped}\n\`\`\``;
           const resumeMsg: Message = {
             role: "system" as any,
             content,
-            type: "scrollback_replay",
+            type: "scrollback_replay"
           };
           setMessages((prev) => [...prev, resumeMsg]);
           // Persist to DB so it survives page reloads
@@ -1385,12 +1385,12 @@ export default function Chat() {
             supabase.from("chat_messages").insert({
               conversation_id: activeConvId,
               role: "system",
-              content,
+              content
             } as any).then(() => {
               supabase.from("chat_conversations").update({ updated_at: new Date().toISOString() }).eq("id", activeConvId);
             });
           }
-        },
+        }
       });
       setRelayStatus("idle");
       return result;
@@ -1469,8 +1469,8 @@ export default function Chat() {
       if (!sessionId) {
         // No PTY yet — defer first message (agent stored to avoid stale state race)
         deferredFirstMsgRef.current = { agent: "claude", text };
-        if (conv.claude_session_id) console.log("[REPL] Spawning Claude with --resume (deferred)", conv.claude_session_id);
-        else console.log("[REPL] Spawning Claude fresh (no session ID yet, deferred)");
+        if (conv.claude_session_id) console.log("[REPL] Spawning Claude with --resume (deferred)", conv.claude_session_id);else
+        console.log("[REPL] Spawning Claude fresh (no session ID yet, deferred)");
         return `claude${resumeFlag}${modelPart}\n`;
       }
       const state = runtimeAgentsRef.current[sessionId];
@@ -1478,8 +1478,8 @@ export default function Chat() {
         // First message on this PTY — register, queue first message, and spawn
         runtimeAgentsRef.current[sessionId] = { agent: "claude", ready: false };
         pendingQueueRef.current[sessionId] = [text];
-        if (conv.claude_session_id) console.log("[REPL] Spawning Claude with --resume", conv.claude_session_id, "pty:", sessionId);
-        else console.log("[REPL] Spawning Claude fresh (no session ID) pty:", sessionId);
+        if (conv.claude_session_id) console.log("[REPL] Spawning Claude with --resume", conv.claude_session_id, "pty:", sessionId);else
+        console.log("[REPL] Spawning Claude fresh (no session ID) pty:", sessionId);
         // Boot timeout parity with Codex — flush queue if banner never arrives
         setTimeout(() => {
           const s = runtimeAgentsRef.current[sessionId];
@@ -1517,12 +1517,12 @@ export default function Chat() {
   const extractClaudeSessionId = (stdout: string): string | null => {
     // 0a. REPL resume banner: "Restored session: <uuid-or-id>"
     const restored = stdout.match(/Restored session:\s*([a-z0-9-]+)/i);
-    if (restored) { console.log("[REPL] Claude session ID captured (resume banner):", restored[1]); return restored[1]; }
+    if (restored) {console.log("[REPL] Claude session ID captured (resume banner):", restored[1]);return restored[1];}
 
     // 0b. First-launch banner variants:
     //   "Session ID: <uuid>"  /  "session: <uuid>"  /  "New session: <uuid>"
     const sessionLabel = stdout.match(/(?:New session|Session(?:\s+ID)?)\s*:\s*([a-z0-9-]+)/i);
-    if (sessionLabel) { console.log("[REPL] Claude session ID captured (session label):", sessionLabel[1]); return sessionLabel[1]; }
+    if (sessionLabel) {console.log("[REPL] Claude session ID captured (session label):", sessionLabel[1]);return sessionLabel[1];}
 
     // 0c. Bare UUID on its own line (Claude sometimes prints just the UUID)
     for (const line of stdout.split("\n")) {
@@ -1542,7 +1542,7 @@ export default function Chat() {
         if (obj.type === "result" && typeof obj.session_id === "string" && obj.session_id) {
           return obj.session_id;
         }
-      } catch { /* skip */ }
+      } catch {/* skip */}
     }
     // 2. Any session_id field in JSON
     const match = stdout.match(/"session_id"\s*:\s*"([^"]+)"/);
@@ -1573,7 +1573,7 @@ export default function Chat() {
         if (typeof obj.id === "string" && (obj.type === "reasoning" || obj.type === "message")) {
           return obj.id as string;
         }
-      } catch { /* not valid JSON, skip */ }
+      } catch {/* not valid JSON, skip */}
     }
     return null;
   };
@@ -1698,16 +1698,16 @@ export default function Chat() {
             const results: string[] = [];
             let i = s.indexOf("{");
             while (i >= 0 && i < s.length) {
-              let depth = 0; let inStr = false; let esc = false;
+              let depth = 0;let inStr = false;let esc = false;
               let j = i;
               for (; j < s.length; j++) {
                 const c = s[j];
-                if (esc) { esc = false; continue; }
-                if (c === "\\" && inStr) { esc = true; continue; }
-                if (c === '"') { inStr = !inStr; continue; }
+                if (esc) {esc = false;continue;}
+                if (c === "\\" && inStr) {esc = true;continue;}
+                if (c === '"') {inStr = !inStr;continue;}
                 if (inStr) continue;
-                if (c === "{") depth++;
-                else if (c === "}") { depth--; if (depth === 0) { results.push(s.slice(i, j + 1)); break; } }
+                if (c === "{") depth++;else
+                if (c === "}") {depth--;if (depth === 0) {results.push(s.slice(i, j + 1));break;}}
               }
               i = s.indexOf("{", j + 1);
             }
@@ -1869,7 +1869,7 @@ export default function Chat() {
                   }
                 }
               }
-            } catch { /* not JSON */ }
+            } catch {/* not JSON */}
           }
           // Merge JSONL thinking with any XML <thinking> blocks (JSONL takes precedence / deduplicates)
           if (claudeJsonlThinkingParts.length > 0) {
@@ -1917,13 +1917,13 @@ export default function Chat() {
         // Claude starts fresh) or a first-message extraction failure gets corrected
         // on the very next spawn that produces a banner.
         if (convData?.agent === "claude" || convData?.agent === "codex") {
-          const extractedId = convData.agent === "codex"
-            ? extractCodexSessionId(stdout)
-            : extractClaudeSessionId(stdout);
+          const extractedId = convData.agent === "codex" ?
+          extractCodexSessionId(stdout) :
+          extractClaudeSessionId(stdout);
           if (extractedId && extractedId !== convData?.claude_session_id) {
             console.log(`[REPL] ${convData.agent} session ID updated → --resume ready:`, extractedId);
             await supabase.from("chat_conversations").update({ claude_session_id: extractedId }).eq("id", jobConvId);
-            setConversations(prev => prev.map(c => c.id === jobConvId ? { ...c, claude_session_id: extractedId } : c));
+            setConversations((prev) => prev.map((c) => c.id === jobConvId ? { ...c, claude_session_id: extractedId } : c));
           } else if (!extractedId && !convData?.claude_session_id) {
             console.warn(`[REPL] No session ID found in ${convData.agent} stdout (length: ${stdout.length}) — next spawn will not use --resume`);
           }
@@ -1953,46 +1953,46 @@ export default function Chat() {
             const retryStdout = await sendViaRelay(command, convData?.agent === "openclaw", onChunkActivity);
             const retryCleaned = stripAnsi(retryStdout);
 
-        if (convData?.agent === "openclaw") {
-            // Re-use proper object extractor for retry
-            const extractObjs = (s: string): string[] => {
-              const res: string[] = []; let i = s.indexOf("{");
-              while (i >= 0) { let d = 0; let inStr = false; let esc = false; let j = i;
-                for (; j < s.length; j++) { const c = s[j]; if (esc) { esc=false; continue; } if (c==="\\"&&inStr) { esc=true; continue; } if (c==='"') { inStr=!inStr; continue; } if (inStr) continue; if (c==="{") d++; else if (c==="}") { d--; if (d===0) { res.push(s.slice(i,j+1)); break; } } } i = s.indexOf("{", j+1); }
-              return res;
-            };
-            for (const candidate of extractObjs(retryCleaned).reverse()) {
-              try {
-                const parsed = JSON.parse(candidate);
-                if (Array.isArray(parsed?.payloads)) {
-                  const textPayload = parsed.payloads.find((p: { type: string; text?: string }) => p.type === "text" && p.text);
-                  if (textPayload?.text) { responseText = String(textPayload.text); break; }
-                }
-                const payloadText = parsed?.payloads?.[0]?.text;
-                if (payloadText) { responseText = String(payloadText); break; }
-                const fallback = parsed.content ?? parsed.message ?? parsed.response ?? parsed.text ?? parsed.result;
-                if (fallback && typeof fallback === "string") { responseText = fallback; break; }
-              } catch {/* try next */}
-            }
-          } else if (convData?.agent === "codex") {
-            // Use proper JSONL parser (same as primary path)
-            const retryTextParts: string[] = [];
-            for (const line of retryCleaned.split("\n")) {
-              const t = line.trim();
-              if (!t || !t.startsWith("{")) continue;
-              try {
-                const obj = JSON.parse(t);
-                if (obj.type === "message" && obj.role === "assistant" && Array.isArray(obj.content)) {
-                  for (const part of obj.content) {
-                    if (part.type === "output_text" && typeof part.text === "string") retryTextParts.push(part.text);
+            if (convData?.agent === "openclaw") {
+              // Re-use proper object extractor for retry
+              const extractObjs = (s: string): string[] => {
+                const res: string[] = [];let i = s.indexOf("{");
+                while (i >= 0) {let d = 0;let inStr = false;let esc = false;let j = i;
+                  for (; j < s.length; j++) {const c = s[j];if (esc) {esc = false;continue;}if (c === "\\" && inStr) {esc = true;continue;}if (c === '"') {inStr = !inStr;continue;}if (inStr) continue;if (c === "{") d++;else if (c === "}") {d--;if (d === 0) {res.push(s.slice(i, j + 1));break;}}}i = s.indexOf("{", j + 1);}
+                return res;
+              };
+              for (const candidate of extractObjs(retryCleaned).reverse()) {
+                try {
+                  const parsed = JSON.parse(candidate);
+                  if (Array.isArray(parsed?.payloads)) {
+                    const textPayload = parsed.payloads.find((p: {type: string;text?: string;}) => p.type === "text" && p.text);
+                    if (textPayload?.text) {responseText = String(textPayload.text);break;}
                   }
-                } else if (obj.type === "text" && typeof obj.text === "string") {
-                  retryTextParts.push(obj.text);
-                }
-              } catch {/* skip */}
-            }
-            responseText = retryTextParts.join("\n").trim();
-          } else {
+                  const payloadText = parsed?.payloads?.[0]?.text;
+                  if (payloadText) {responseText = String(payloadText);break;}
+                  const fallback = parsed.content ?? parsed.message ?? parsed.response ?? parsed.text ?? parsed.result;
+                  if (fallback && typeof fallback === "string") {responseText = fallback;break;}
+                } catch {/* try next */}
+              }
+            } else if (convData?.agent === "codex") {
+              // Use proper JSONL parser (same as primary path)
+              const retryTextParts: string[] = [];
+              for (const line of retryCleaned.split("\n")) {
+                const t = line.trim();
+                if (!t || !t.startsWith("{")) continue;
+                try {
+                  const obj = JSON.parse(t);
+                  if (obj.type === "message" && obj.role === "assistant" && Array.isArray(obj.content)) {
+                    for (const part of obj.content) {
+                      if (part.type === "output_text" && typeof part.text === "string") retryTextParts.push(part.text);
+                    }
+                  } else if (obj.type === "text" && typeof obj.text === "string") {
+                    retryTextParts.push(obj.text);
+                  }
+                } catch {/* skip */}
+              }
+              responseText = retryTextParts.join("\n").trim();
+            } else {
               responseText = retryCleaned.split("\n").filter((line) => {
                 const t = line.trim();
                 if (!t) return false;
@@ -2027,7 +2027,7 @@ export default function Chat() {
             // Snapshot tool calls for this message
             toolCallsMapRef.current.set(revealedIdx, [...toolCalls]);
             // Snapshot structured tool call log entries (cards)
-            const toolCallEntries = liveLog.filter(e => e.type === "tool_call");
+            const toolCallEntries = liveLog.filter((e) => e.type === "tool_call");
             if (toolCallEntries.length > 0) {
               toolCallEntriesMapRef.current.set(revealedIdx, toolCallEntries);
             }
@@ -2050,7 +2050,7 @@ export default function Chat() {
           });
           setThinking(false);
           setStreamingMsgIndex(revealedIdx!);
-          stopActivity(); setActivityStatus("writing");
+          stopActivity();setActivityStatus("writing");
 
           await new Promise<void>((resolveStream) => {
             let tokenIdx = 0;
@@ -2108,9 +2108,9 @@ export default function Chat() {
               }
             } catch {
 
+
               // silently keep the fallback title
-            }})();
-        }
+            }})();}
 
         setConversations((prev) => {
           const conv = prev.find((c) => c.id === jobConvId);
@@ -2193,7 +2193,7 @@ export default function Chat() {
   // The agent is literally waiting for keyboard input on the PTY — we send it as stdin.
   const handleOptionSelect = useCallback((opt: string, msgIndex: number) => {
     // Mark this message as answered so its option buttons disappear
-    setAnsweredMsgIndices(prev => new Set([...prev, msgIndex]));
+    setAnsweredMsgIndices((prev) => new Set([...prev, msgIndex]));
     const sessionId = relay.getSessionId();
     // Send even if status is "ready" — sendRawStdin now opens a fallback WS if needed
     if (sessionId) {
@@ -2208,7 +2208,7 @@ export default function Chat() {
       const payload = normalized + "\n";
       relay.sendRawStdin(sessionId, btoa(payload));
       // Show the selected option as a user message for visual context
-      setMessages(prev => [...prev, { role: "user", content: opt }]);
+      setMessages((prev) => [...prev, { role: "user", content: opt }]);
       // Re-enter thinking state so the live activity feed shows agent is processing
       setThinking(true);
       startActivity();
@@ -2244,7 +2244,7 @@ export default function Chat() {
       localStorage.setItem(`agent-trust-${selectedDeviceId}`, "true");
     }
 
-    setMessages(prev => [...prev, { role: "user", content: choice }]);
+    setMessages((prev) => [...prev, { role: "user", content: choice }]);
     setAwaitingApproval(null);
     setThinking(true);
     startActivity();
@@ -2301,9 +2301,9 @@ export default function Chat() {
           let responseText = "";
           // Shared JSON object extractor (same as primary send path)
           const extractObjs = (s: string): string[] => {
-            const res: string[] = []; let idx = s.indexOf("{");
-            while (idx >= 0) { let d = 0; let inStr = false; let esc = false; let j = idx;
-              for (; j < s.length; j++) { const c = s[j]; if (esc) { esc=false; continue; } if (c==="\\"&&inStr) { esc=true; continue; } if (c==='"') { inStr=!inStr; continue; } if (inStr) continue; if (c==="{") d++; else if (c==="}") { d--; if (d===0) { res.push(s.slice(idx,j+1)); break; } } } idx = s.indexOf("{", j+1); }
+            const res: string[] = [];let idx = s.indexOf("{");
+            while (idx >= 0) {let d = 0;let inStr = false;let esc = false;let j = idx;
+              for (; j < s.length; j++) {const c = s[j];if (esc) {esc = false;continue;}if (c === "\\" && inStr) {esc = true;continue;}if (c === '"') {inStr = !inStr;continue;}if (inStr) continue;if (c === "{") d++;else if (c === "}") {d--;if (d === 0) {res.push(s.slice(idx, j + 1));break;}}}idx = s.indexOf("{", j + 1);}
             return res;
           };
           if (convData?.agent === "openclaw") {
@@ -2311,8 +2311,8 @@ export default function Chat() {
               try {
                 const parsed = JSON.parse(candidate);
                 if (Array.isArray(parsed?.payloads)) {
-                  const tp = parsed.payloads.find((p: { type: string; text?: string }) => p.type === "text" && p.text);
-                  if (tp?.text) { responseText = String(tp.text); break; }
+                  const tp = parsed.payloads.find((p: {type: string;text?: string;}) => p.type === "text" && p.text);
+                  if (tp?.text) {responseText = String(tp.text);break;}
                 }
                 const payloadText = parsed?.payloads?.[0]?.text;
                 if (payloadText) {responseText = String(payloadText);break;}
@@ -2376,13 +2376,13 @@ export default function Chat() {
           }
           // ── Session ID capture for regenerate path (all agents) ────────────
           if (convData?.agent === "claude" || convData?.agent === "codex") {
-            const extractedId = convData.agent === "codex"
-              ? extractCodexSessionId(stdout)
-              : extractClaudeSessionId(stdout);
+            const extractedId = convData.agent === "codex" ?
+            extractCodexSessionId(stdout) :
+            extractClaudeSessionId(stdout);
             if (extractedId && extractedId !== convData?.claude_session_id) {
               console.log(`[REPL] ${convData.agent} session ID updated (regen) → --resume ready:`, extractedId);
               await supabase.from("chat_conversations").update({ claude_session_id: extractedId }).eq("id", jobConvId);
-              setConversations(prev => prev.map(c => c.id === jobConvId ? { ...c, claude_session_id: extractedId } : c));
+              setConversations((prev) => prev.map((c) => c.id === jobConvId ? { ...c, claude_session_id: extractedId } : c));
             }
           }
           responseText = responseText.trim() || EMPTY_RESPONSE_TEXT;
@@ -2488,7 +2488,7 @@ export default function Chat() {
     }
     if (cmd.clientAction === "help") {
       const available = SLASH_COMMANDS.filter(
-        (c) => c.agents.includes("both") || (agent !== "terminal" && c.agents.includes(agent))
+        (c) => c.agents.includes("both") || agent !== "terminal" && c.agents.includes(agent)
       );
       const helpText = `**Available slash commands**\n\n${available.
       map((c) => `\`/${c.name}\` — ${c.description}`).
@@ -2542,9 +2542,9 @@ export default function Chat() {
         setPreviewInputPort(detected);
       }
     } catch {
+
       // silently ignore — preview is already open with targetPort
-    } finally {
-      setPreviewAutoDetecting(false);
+    } finally {setPreviewAutoDetecting(false);
     }
   }, [previewInputPort, sendViaRelay]);
 
@@ -2568,24 +2568,24 @@ export default function Chat() {
           <ResizablePanel defaultSize={showPreview ? 50 : 100} minSize={30}>
         {/* Main chat area — sidebar is now in AppSidebar */}
         <div
-          className={`flex flex-col h-full relative transition-all duration-150 ${isDragOver ? "ring-2 ring-primary/40 ring-inset" : ""}`}
-          onDragOver={(e) => {e.preventDefault();setIsDragOver(true);}}
-          onDragLeave={(e) => {if (!e.currentTarget.contains(e.relatedTarget as Node)) setIsDragOver(false);}}
-          onDrop={(e) => {e.preventDefault();setIsDragOver(false);if (e.dataTransfer.files.length) processFiles(e.dataTransfer.files);}}>
+              className={`flex flex-col h-full relative transition-all duration-150 ${isDragOver ? "ring-2 ring-primary/40 ring-inset" : ""}`}
+              onDragOver={(e) => {e.preventDefault();setIsDragOver(true);}}
+              onDragLeave={(e) => {if (!e.currentTarget.contains(e.relatedTarget as Node)) setIsDragOver(false);}}
+              onDrop={(e) => {e.preventDefault();setIsDragOver(false);if (e.dataTransfer.files.length) processFiles(e.dataTransfer.files);}}>
 
           {isDragOver &&
-          <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
+              <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
               <div className="rounded-2xl border-2 border-dashed border-primary/50 bg-primary/5 px-10 py-8 text-center backdrop-blur-sm">
                 <p className="text-sm font-medium text-primary">Drop files to attach</p>
                 <p className="text-xs text-muted-foreground mt-1">Text files will be sent as context</p>
               </div>
             </div>
-          }
+              }
 
           {/* Top header bar */}
           <div
-            className="sticky top-0 z-20 shrink-0 border-b border-border/10 flex items-center px-5 relative backdrop-blur-md bg-background/80"
-            style={{ paddingTop: 'env(safe-area-inset-top, 0px)', minHeight: 'calc(env(safe-area-inset-top, 0px) + 64px)' }}>
+                className="sticky top-0 z-20 shrink-0 border-b border-border/10 flex items-center px-5 relative backdrop-blur-md bg-background/80"
+                style={{ paddingTop: 'env(safe-area-inset-top, 0px)', minHeight: 'calc(env(safe-area-inset-top, 0px) + 64px)' }}>
 
             {/* Left — sidebar trigger */}
             <SidebarTrigger className="scale-125" />
@@ -2601,92 +2601,92 @@ export default function Chat() {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="center" className="w-56">
                   {(["openclaw", "claude", "codex", "terminal"] as const).map((a) =>
-                  <DropdownMenuItem key={a} onClick={() => handleAgentChange(a)} className="flex items-center gap-3 cursor-pointer py-2.5 text-base">
+                      <DropdownMenuItem key={a} onClick={() => handleAgentChange(a)} className="flex items-center gap-3 cursor-pointer py-2.5 text-base">
                       <img src={a === "openclaw" ? openclawImg : a === "codex" ? codexImg : a === "terminal" ? terminalIconImg : claudecodeImg} alt={a} className="w-6 h-6 rounded-sm object-cover" />
                       <span>{a === "openclaw" ? "OpenClaw" : a === "codex" ? "Codex" : a === "terminal" ? "Terminal" : "Claude Code"}</span>
                       {agent === a && <span className="ml-auto w-2 h-2 rounded-full bg-foreground/60" />}
                     </DropdownMenuItem>
-                  )}
+                      )}
                 </DropdownMenuContent>
               </DropdownMenu>
               {(() => {
-                const activeConv = conversations.find((c) => c.id === activeConvId);
-                const cwd = activeConv?.workdir;
-                if (!cwd) return null;
-                const shortCwd = cwd.replace(/^\/Users\/[^/]+/, "~").replace(/^\/home\/[^/]+/, "~");
-                return (
-                  <span className="flex items-center gap-1 text-[10px] text-muted-foreground/40 max-w-[260px] truncate -mt-1 pb-1">
-                    <span className="truncate">{shortCwd}</span>
-                  </span>
-                );
-              })()}
+                    const activeConv = conversations.find((c) => c.id === activeConvId);
+                    const cwd = activeConv?.workdir;
+                    if (!cwd) return null;
+                    const shortCwd = cwd.replace(/^\/Users\/[^/]+/, "~").replace(/^\/home\/[^/]+/, "~");
+                    return (
+                      <span className="flex items-center gap-1 text-[10px] text-muted-foreground/40 max-w-[260px] truncate -mt-1 pb-1">
+                    
+                  </span>);
+
+                  })()}
             </div>
             {/* Right — device pill + refresh + new chat */}
             <div className="ml-auto flex items-center gap-3">
 
               {/* Session resume badge — shown when conversation has a stored session ID */}
               {(() => {
-                const activeConv = conversations.find(c => c.id === activeConvId);
-                const sessionId = agent === "openclaw"
-                  ? activeConv?.openclaw_session_id ?? null
-                  : activeConv?.claude_session_id ?? null;
-                if (!sessionId || agent === "terminal") return null;
-                const short = sessionId.slice(0, 8);
-                const agentLabel = agent === "openclaw" ? "OpenClaw" : agent === "codex" ? "Codex" : "Claude";
-                // Session age from conversation's last update time
-                const sessionAge = (() => {
-                  const ts = activeConv?.updated_at;
-                  if (!ts) return null;
-                  const diff = (Date.now() - new Date(ts).getTime()) / 1000;
-                  if (diff < 60) return "just now";
-                  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-                  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-                  return `${Math.floor(diff / 86400)}d ago`;
-                })();
-                const isStale = (() => {
-                  const ts = activeConv?.updated_at;
-                  if (!ts) return false;
-                  return (Date.now() - new Date(ts).getTime()) > 6 * 3600 * 1000; // >6h
-                })();
-                const handleClearSession = async () => {
-                  if (!activeConvId) return;
-                  const field = agent === "openclaw" ? "openclaw_session_id" : "claude_session_id";
-                  await supabase.from("chat_conversations").update({ [field]: null }).eq("id", activeConvId);
-                  setConversations(prev => prev.map(c =>
-                    c.id === activeConvId
-                      ? { ...c, claude_session_id: agent !== "openclaw" ? null : c.claude_session_id, openclaw_session_id: agent === "openclaw" ? null : c.openclaw_session_id }
-                      : c
-                  ));
-                };
-                return (
-                  <Tooltip>
+                    const activeConv = conversations.find((c) => c.id === activeConvId);
+                    const sessionId = agent === "openclaw" ?
+                    activeConv?.openclaw_session_id ?? null :
+                    activeConv?.claude_session_id ?? null;
+                    if (!sessionId || agent === "terminal") return null;
+                    const short = sessionId.slice(0, 8);
+                    const agentLabel = agent === "openclaw" ? "OpenClaw" : agent === "codex" ? "Codex" : "Claude";
+                    // Session age from conversation's last update time
+                    const sessionAge = (() => {
+                      const ts = activeConv?.updated_at;
+                      if (!ts) return null;
+                      const diff = (Date.now() - new Date(ts).getTime()) / 1000;
+                      if (diff < 60) return "just now";
+                      if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+                      if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+                      return `${Math.floor(diff / 86400)}d ago`;
+                    })();
+                    const isStale = (() => {
+                      const ts = activeConv?.updated_at;
+                      if (!ts) return false;
+                      return Date.now() - new Date(ts).getTime() > 6 * 3600 * 1000; // >6h
+                    })();
+                    const handleClearSession = async () => {
+                      if (!activeConvId) return;
+                      const field = agent === "openclaw" ? "openclaw_session_id" : "claude_session_id";
+                      await supabase.from("chat_conversations").update({ [field]: null }).eq("id", activeConvId);
+                      setConversations((prev) => prev.map((c) =>
+                      c.id === activeConvId ?
+                      { ...c, claude_session_id: agent !== "openclaw" ? null : c.claude_session_id, openclaw_session_id: agent === "openclaw" ? null : c.openclaw_session_id } :
+                      c
+                      ));
+                    };
+                    return (
+                      <Tooltip>
                     <TooltipTrigger asChild>
                       <div className="hidden sm:flex items-center gap-0 rounded-full text-xs font-medium text-primary/70 bg-primary/8 border border-primary/15 overflow-hidden">
                         {/* Session info side */}
                         <div className="flex items-center gap-1.5 px-2.5 py-1.5 select-none cursor-default">
                           <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" className="shrink-0 opacity-70">
-                            <path d="M1.5 1.5A.5.5 0 0 1 2 1h12a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.128.334L10 8.692V13.5a.5.5 0 0 1-.342.474l-3 1A.5.5 0 0 1 6 14.5V8.692L1.628 3.834A.5.5 0 0 1 1.5 3.5z"/>
+                            <path d="M1.5 1.5A.5.5 0 0 1 2 1h12a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.128.334L10 8.692V13.5a.5.5 0 0 1-.342.474l-3 1A.5.5 0 0 1 6 14.5V8.692L1.628 3.834A.5.5 0 0 1 1.5 3.5z" />
                           </svg>
                           <div className="flex flex-col leading-none gap-[2px]">
                             <span>Resuming · <span className="font-mono opacity-80">{short}…</span></span>
-                            {sessionAge && (
-                              <span className={cn(
-                                "text-[9px] font-mono",
-                                isStale ? "text-[hsl(38_90%_58%)]" : "opacity-45"
-                              )}>
+                            {sessionAge &&
+                                <span className={cn(
+                                  "text-[9px] font-mono",
+                                  isStale ? "text-[hsl(38_90%_58%)]" : "opacity-45"
+                                )}>
                                 {isStale ? "⚠ " : ""}{sessionAge}
                               </span>
-                            )}
+                                }
                           </div>
                         </div>
                         {/* Divider */}
                         <div className="w-px h-4 bg-primary/20 self-center" />
                         {/* Clear button */}
                         <button
-                          onClick={handleClearSession}
-                          title={`Clear ${agentLabel} session — next message starts fresh`}
-                          className="flex items-center justify-center px-2 py-1.5 text-primary/50 hover:text-destructive hover:bg-destructive/10 transition-colors duration-150"
-                        >
+                              onClick={handleClearSession}
+                              title={`Clear ${agentLabel} session — next message starts fresh`}
+                              className="flex items-center justify-center px-2 py-1.5 text-primary/50 hover:text-destructive hover:bg-destructive/10 transition-colors duration-150">
+                              
                           <X className="h-3 w-3" />
                         </button>
                       </div>
@@ -2695,71 +2695,71 @@ export default function Chat() {
                       <span className="font-mono">{agentLabel} session: {sessionId}</span>
                       <span className="block text-muted-foreground mt-0.5">Click × to start a fresh session</span>
                     </TooltipContent>
-                  </Tooltip>
-                );
-              })()}
+                  </Tooltip>);
+
+                  })()}
 
               {/* Relay health pill */}
               {(() => {
-                const s = relayHealth.status;
-                const dotColor =
-                  s === "healthy" ? "bg-green-500" :
-                  s === "degraded" ? "bg-yellow-500" :
-                  s === "unreachable" ? "bg-destructive" :
-                  "bg-muted-foreground/40";
-                const label =
-                  s === "checking" ? "Checking relay…" :
-                  s === "healthy" ? `Relay · ${relayHealth.connectors} connector${relayHealth.connectors !== 1 ? "s" : ""}` :
-                  s === "degraded" ? "Relay · no connectors" :
-                  "Relay unreachable";
-                const tooltip =
-                  s === "healthy"
-                    ? `${relayHealth.connectors} connector(s) · ${relayHealth.sessions} session(s)${relayHealth.uptime ? ` · up ${Math.floor(relayHealth.uptime / 60)}m` : ""}`
-                    : s === "unreachable"
-                    ? (relayHealth.error ?? "Cannot reach relay server")
-                    : label;
-                return (
-                  <Tooltip>
+                    const s = relayHealth.status;
+                    const dotColor =
+                    s === "healthy" ? "bg-green-500" :
+                    s === "degraded" ? "bg-yellow-500" :
+                    s === "unreachable" ? "bg-destructive" :
+                    "bg-muted-foreground/40";
+                    const label =
+                    s === "checking" ? "Checking relay…" :
+                    s === "healthy" ? `Relay · ${relayHealth.connectors} connector${relayHealth.connectors !== 1 ? "s" : ""}` :
+                    s === "degraded" ? "Relay · no connectors" :
+                    "Relay unreachable";
+                    const tooltip =
+                    s === "healthy" ?
+                    `${relayHealth.connectors} connector(s) · ${relayHealth.sessions} session(s)${relayHealth.uptime ? ` · up ${Math.floor(relayHealth.uptime / 60)}m` : ""}` :
+                    s === "unreachable" ?
+                    relayHealth.error ?? "Cannot reach relay server" :
+                    label;
+                    return (
+                      <Tooltip>
                     <TooltipTrigger asChild>
                       <button
-                        onClick={refreshRelayHealth}
-                        className={cn(
-                          "hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium transition-colors",
-                          s === "healthy" ? "text-foreground/70 hover:bg-accent" :
-                          s === "checking" ? "text-muted-foreground" :
-                          "text-destructive/80 hover:bg-destructive/10"
-                        )}
-                      >
-                        {s === "checking"
-                          ? <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
-                          : <span className={cn("w-2 h-2 rounded-full shrink-0", dotColor, s === "healthy" && "animate-pulse")} />
-                        }
+                            onClick={refreshRelayHealth}
+                            className={cn(
+                              "hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium transition-colors",
+                              s === "healthy" ? "text-foreground/70 hover:bg-accent" :
+                              s === "checking" ? "text-muted-foreground" :
+                              "text-destructive/80 hover:bg-destructive/10"
+                            )}>
+                            
+                        {s === "checking" ?
+                            <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" /> :
+                            <span className={cn("w-2 h-2 rounded-full shrink-0", dotColor, s === "healthy" && "animate-pulse")} />
+                            }
                         <span className="hidden sm:inline">{label}</span>
                       </button>
                     </TooltipTrigger>
                     <TooltipContent side="bottom" className="text-xs">{tooltip}</TooltipContent>
-                  </Tooltip>
-                );
-              })()}
+                  </Tooltip>);
+
+                  })()}
 
               {/* PTY session pill — shared terminal session indicator */}
-              {ptySessionId && selectedDeviceId && (
-                <Tooltip>
+              {ptySessionId && selectedDeviceId &&
+                  <Tooltip>
                   <TooltipTrigger asChild>
                      <button
-                      onClick={() => {
-                        setShowTerminalDrawer(v => {
-                          if (!v) setTimeout(() => drawerTerminalRef.current?.focus(), 100);
-                          return !v;
-                        });
-                      }}
-                      className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium text-[hsl(var(--status-online)/0.8)] bg-[hsl(var(--status-online)/0.08)] border border-[hsl(var(--status-online)/0.18)] hover:bg-[hsl(var(--status-online)/0.15)] hover:border-[hsl(var(--status-online)/0.3)] transition-colors cursor-pointer select-none">
+                        onClick={() => {
+                          setShowTerminalDrawer((v) => {
+                            if (!v) setTimeout(() => drawerTerminalRef.current?.focus(), 100);
+                            return !v;
+                          });
+                        }}
+                        className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium text-[hsl(var(--status-online)/0.8)] bg-[hsl(var(--status-online)/0.08)] border border-[hsl(var(--status-online)/0.18)] hover:bg-[hsl(var(--status-online)/0.15)] hover:border-[hsl(var(--status-online)/0.3)] transition-colors cursor-pointer select-none">
                       <Terminal className="h-3 w-3 shrink-0" />
                       <span className="font-mono">{ptySessionId.slice(0, 8)}…</span>
                       <span className={cn(
-                        "w-1.5 h-1.5 rounded-full shrink-0 bg-[hsl(var(--status-online))]",
-                        thinking ? "animate-pulse" : "opacity-50"
-                      )} />
+                          "w-1.5 h-1.5 rounded-full shrink-0 bg-[hsl(var(--status-online))]",
+                          thinking ? "animate-pulse" : "opacity-50"
+                        )} />
                     </button>
                   </TooltipTrigger>
                   <TooltipContent side="bottom" className="text-xs max-w-xs">
@@ -2768,20 +2768,20 @@ export default function Chat() {
                     <p className="text-muted-foreground mt-1">Chat &amp; terminal share this PTY — shell state persists between messages.</p>
                   </TooltipContent>
                  </Tooltip>
-              )}
+                  }
 
               {/* REPL debug overlay button */}
               <Popover open={showReplDebug} onOpenChange={setShowReplDebug}>
                 <PopoverTrigger asChild>
                   <button
-                    className={cn(
-                      "hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium transition-colors",
-                      showReplDebug
-                        ? "bg-primary/10 text-primary border border-primary/20"
-                        : "text-foreground/40 hover:text-foreground hover:bg-accent"
-                    )}
-                    title="REPL agent runtime state"
-                  >
+                        className={cn(
+                          "hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium transition-colors",
+                          showReplDebug ?
+                          "bg-primary/10 text-primary border border-primary/20" :
+                          "text-foreground/40 hover:text-foreground hover:bg-accent"
+                        )}
+                        title="REPL agent runtime state">
+                        
                     <Code2 className="h-3.5 w-3.5" />
                   </button>
                 </PopoverTrigger>
@@ -2790,22 +2790,22 @@ export default function Chat() {
                     <span className="font-sans font-semibold text-foreground text-[11px] tracking-wide uppercase">REPL Runtime State</span>
                     <span className="text-muted-foreground text-[10px]">polling 500ms</span>
                   </div>
-                  {Object.keys(replDebugSnapshot).length === 0 ? (
-                    <div className="px-3 py-4 text-center text-muted-foreground text-[11px] font-sans">
+                  {Object.keys(replDebugSnapshot).length === 0 ?
+                      <div className="px-3 py-4 text-center text-muted-foreground text-[11px] font-sans">
                       <p className="mb-1">No active REPL agents</p>
                       <p className="text-muted-foreground/60">Send a Codex or Claude message to spawn a REPL session</p>
-                    </div>
-                  ) : (
-                    <div className="divide-y divide-border">
-                      {Object.entries(replDebugSnapshot).map(([sid, state]) => (
+                    </div> :
+
+                      <div className="divide-y divide-border">
+                      {Object.entries(replDebugSnapshot).map(([sid, state]) =>
                         <div key={sid} className="px-3 py-2.5 space-y-1.5">
                           <div className="flex items-center justify-between gap-2">
                             <span className="text-muted-foreground truncate text-[10px]" title={sid}>{sid.slice(0, 8)}…{sid.slice(-4)}</span>
                             <span className={cn(
                               "shrink-0 px-1.5 py-0.5 rounded text-[10px] font-medium",
-                              state.ready
-                                ? "bg-[hsl(142_76%_36%/0.15)] text-[hsl(142_76%_45%)]"
-                                : "bg-[hsl(38_90%_50%/0.12)] text-[hsl(38_90%_58%)]"
+                              state.ready ?
+                              "bg-[hsl(142_76%_36%/0.15)] text-[hsl(142_76%_45%)]" :
+                              "bg-[hsl(38_90%_50%/0.12)] text-[hsl(38_90%_58%)]"
                             )}>
                               {state.ready ? "● READY" : "○ BOOTING"}
                             </span>
@@ -2815,28 +2815,28 @@ export default function Chat() {
                               <span className="text-muted-foreground">agent </span>
                               <span className="text-foreground">{state.agent}</span>
                             </span>
-                            {state.approvalMode && (
-                              <span>
+                            {state.approvalMode &&
+                            <span>
                                 <span className="text-muted-foreground">mode </span>
                                 <span className={cn(
-                                  state.approvalMode === "never" || state.approvalMode === "full-auto" ? "text-muted-foreground" : "text-primary"
-                                )}>{state.approvalMode}</span>
+                                state.approvalMode === "never" || state.approvalMode === "full-auto" ? "text-muted-foreground" : "text-primary"
+                              )}>{state.approvalMode}</span>
                               </span>
-                            )}
+                            }
                           </div>
-                          {sid === ptySessionId && (
-                            <div className="text-[10px] text-primary/60">← active PTY</div>
-                          )}
+                          {sid === ptySessionId &&
+                          <div className="text-[10px] text-primary/60">← active PTY</div>
+                          }
                         </div>
-                      ))}
+                        )}
                     </div>
-                  )}
+                      }
                   <div className="px-3 py-2 border-t bg-muted/20 flex items-center justify-between gap-2">
-                    <span className="font-sans text-[10px] text-muted-foreground">PTY: <span className="font-mono">{ptySessionId ? `${ptySessionId.slice(0,8)}…` : "none"}</span></span>
+                    <span className="font-sans text-[10px] text-muted-foreground">PTY: <span className="font-mono">{ptySessionId ? `${ptySessionId.slice(0, 8)}…` : "none"}</span></span>
                     <button
-                      onClick={() => { Object.keys(runtimeAgentsRef.current).forEach(k => delete runtimeAgentsRef.current[k]); setReplDebugSnapshot({}); }}
-                      className="font-sans text-[10px] text-destructive/70 hover:text-destructive transition-colors"
-                    >
+                          onClick={() => {Object.keys(runtimeAgentsRef.current).forEach((k) => delete runtimeAgentsRef.current[k]);setReplDebugSnapshot({});}}
+                          className="font-sans text-[10px] text-destructive/70 hover:text-destructive transition-colors">
+                          
                       Clear state
                     </button>
                   </div>
@@ -2844,39 +2844,39 @@ export default function Chat() {
               </Popover>
 
               {/* Terminal drawer toggle */}
-              {selectedDeviceId && agent !== "terminal" && (
-                <button
-                  onClick={() => {
-                    setShowTerminalDrawer(v => {
-                      if (!v) setTimeout(() => drawerTerminalRef.current?.focus(), 100);
-                      return !v;
-                    });
-                  }}
-                  className={cn(
-                    "hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium transition-colors",
-                    showTerminalDrawer ? "bg-primary/10 text-primary" : "text-foreground/50 hover:text-foreground hover:bg-accent"
-                  )}
-                  title="Toggle terminal"
-                >
+              {selectedDeviceId && agent !== "terminal" &&
+                  <button
+                    onClick={() => {
+                      setShowTerminalDrawer((v) => {
+                        if (!v) setTimeout(() => drawerTerminalRef.current?.focus(), 100);
+                        return !v;
+                      });
+                    }}
+                    className={cn(
+                      "hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium transition-colors",
+                      showTerminalDrawer ? "bg-primary/10 text-primary" : "text-foreground/50 hover:text-foreground hover:bg-accent"
+                    )}
+                    title="Toggle terminal">
+                    
                   <Terminal className="h-3.5 w-3.5" />
                   <span>Terminal</span>
                 </button>
-              )}
+                  }
 
               {/* Preview button */}
-              {selectedDeviceId && (
-                <Popover open={previewPopoverOpen} onOpenChange={setPreviewPopoverOpen}>
+              {selectedDeviceId &&
+                  <Popover open={previewPopoverOpen} onOpenChange={setPreviewPopoverOpen}>
                   <PopoverTrigger asChild>
                     <button
-                      className={cn(
-                        "hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium transition-colors",
-                        showPreview ? "bg-primary/10 text-primary" : "text-foreground/50 hover:text-foreground hover:bg-accent"
-                      )}
-                      title="Live preview"
-                    >
-                      {previewAutoDetecting
-                        ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        : <Monitor className="h-3.5 w-3.5" />}
+                        className={cn(
+                          "hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium transition-colors",
+                          showPreview ? "bg-primary/10 text-primary" : "text-foreground/50 hover:text-foreground hover:bg-accent"
+                        )}
+                        title="Live preview">
+                        
+                      {previewAutoDetecting ?
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" /> :
+                        <Monitor className="h-3.5 w-3.5" />}
                       <span>{showPreview ? `Preview · :${previewInputPort}` : "Preview"}</span>
                     </button>
                   </PopoverTrigger>
@@ -2884,71 +2884,71 @@ export default function Chat() {
                     <p className="text-xs font-medium mb-2">Open live preview</p>
                     <div className="flex gap-2 mb-2">
                       <Input
-                        className="h-8 text-sm"
-                        placeholder="Port (e.g. 3000)"
-                        value={previewInputPort}
-                        onChange={e => setPreviewInputPort(e.target.value.replace(/\D/g, ""))}
-                        onKeyDown={e => e.key === "Enter" && handleOpenPreview()}
-                      />
+                          className="h-8 text-sm"
+                          placeholder="Port (e.g. 3000)"
+                          value={previewInputPort}
+                          onChange={(e) => setPreviewInputPort(e.target.value.replace(/\D/g, ""))}
+                          onKeyDown={(e) => e.key === "Enter" && handleOpenPreview()} />
+                        
                       <Button size="sm" className="h-8 shrink-0" onClick={() => handleOpenPreview()}>Open</Button>
                     </div>
                     <div className="flex flex-wrap gap-1">
-                      {["3000","5173","8080","4200","8000"].map(p => (
+                      {["3000", "5173", "8080", "4200", "8000"].map((p) =>
                         <button key={p} onClick={() => handleOpenPreview(p)}
-                          className="text-xs px-2 py-0.5 rounded-full border hover:bg-accent transition-colors">:{p}</button>
-                      ))}
+                        className="text-xs px-2 py-0.5 rounded-full border hover:bg-accent transition-colors">:{p}</button>
+                        )}
                     </div>
                     <p className="text-[10px] text-muted-foreground mt-2">Auto-detects running dev server on your device.</p>
                   </PopoverContent>
                 </Popover>
-              )}
+                  }
 
               {/* Claude session resume chip */}
               {(() => {
-                const conv = conversations.find((c) => c.id === activeConvId);
-                if (conv?.agent === "claude" && conv.claude_session_id) {
-                  const short = conv.claude_session_id.slice(0, 8);
-                  return (
-                    <span
-                      title={`Resuming Claude session ${conv.claude_session_id}`}
-                      className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border border-primary/20 bg-primary/8 text-primary/80 select-none"
-                    >
+                    const conv = conversations.find((c) => c.id === activeConvId);
+                    if (conv?.agent === "claude" && conv.claude_session_id) {
+                      const short = conv.claude_session_id.slice(0, 8);
+                      return (
+                        <span
+                          title={`Resuming Claude session ${conv.claude_session_id}`}
+                          className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border border-primary/20 bg-primary/8 text-primary/80 select-none">
+                          
                       <span className="w-1.5 h-1.5 rounded-full bg-primary/60 shrink-0" />
                       Resuming {short}…
-                    </span>
-                  );
-                }
-                return null;
-              })()}
+                    </span>);
+
+                    }
+                    return null;
+                  })()}
 
               {/* Device pill — opens right panel */}
               <button
-                onClick={() => setDevicePanelOpen(true)}
-                className="flex items-center gap-2 px-3.5 py-2 rounded-full text-sm font-medium transition-all duration-150 hover:bg-accent text-foreground/80 hover:text-foreground"
-              >
+                    onClick={() => setDevicePanelOpen(true)}
+                    className="flex items-center gap-2 px-3.5 py-2 rounded-full text-sm font-medium transition-all duration-150 hover:bg-accent text-foreground/80 hover:text-foreground">
+                    
                 {(() => {
-                  const dev = devices.find((d) => d.id === selectedDeviceId);
-                  return dev ? (
-                    <>
+                      const dev = devices.find((d) => d.id === selectedDeviceId);
+                      return dev ?
+                      <>
                       <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${dev.status === "online" ? "bg-status-online animate-pulse" : "bg-muted-foreground/40"}`} />
                       <span className="hidden sm:inline max-w-[140px] truncate">{dev.name}</span>
-                    </>
-                  ) : (
-                    <span className="opacity-50 hidden sm:inline">No device</span>
-                  );
-                })()}
+                    </> :
+
+                      <span className="opacity-50 hidden sm:inline">No device</span>;
+
+                    })()}
               </button>
               <button
-                onClick={() => window.location.reload()}
-                className="hidden sm:flex w-9 h-9 rounded-full items-center justify-center text-foreground/50 hover:text-foreground hover:bg-accent transition-all duration-150"
-                title="Refresh page">
+                    onClick={() => window.location.reload()}
+                    className="hidden sm:flex w-9 h-9 rounded-full items-center justify-center text-foreground/50 hover:text-foreground hover:bg-accent transition-all duration-150"
+                    title="Refresh page">
 
                 <RefreshCw className="h-5 w-5" />
               </button>
               <button
-                onClick={() => { setActiveConvId(null); handleNew(); }}
-                className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-accent text-foreground transition-all duration-150"
-                title="New conversation">
+                    onClick={() => {setActiveConvId(null);handleNew();}}
+                    className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-accent text-foreground transition-all duration-150"
+                    title="New conversation">
 
                 <SquarePen className="h-5 w-5" />
               </button>
@@ -2957,22 +2957,22 @@ export default function Chat() {
 
           {/* Relay reconnection banner */}
           {(relayStatus === "retrying" || relayStatus === "failed") &&
-          <div
-            className="shrink-0 flex items-center justify-center gap-2 py-1.5 px-4 text-xs font-medium transition-all duration-300"
-            style={{
-              background: relayStatus === "failed" ?
-              "hsl(var(--destructive) / 0.12)" :
-              "hsl(var(--primary) / 0.10)",
-              borderBottom: relayStatus === "failed" ?
-              "1px solid hsl(var(--destructive) / 0.25)" :
-              "1px solid hsl(var(--primary) / 0.18)",
-              color: relayStatus === "failed" ?
-              "hsl(var(--destructive))" :
-              "hsl(var(--primary))"
-            }}>
+              <div
+                className="shrink-0 flex items-center justify-center gap-2 py-1.5 px-4 text-xs font-medium transition-all duration-300"
+                style={{
+                  background: relayStatus === "failed" ?
+                  "hsl(var(--destructive) / 0.12)" :
+                  "hsl(var(--primary) / 0.10)",
+                  borderBottom: relayStatus === "failed" ?
+                  "1px solid hsl(var(--destructive) / 0.25)" :
+                  "1px solid hsl(var(--primary) / 0.18)",
+                  color: relayStatus === "failed" ?
+                  "hsl(var(--destructive))" :
+                  "hsl(var(--primary))"
+                }}>
 
               {relayStatus === "retrying" ?
-            <>
+                <>
                   <Loader2 className="h-3 w-3 animate-spin shrink-0" />
                   <span>
                     Relay disconnected — reconnecting
@@ -2981,74 +2981,74 @@ export default function Chat() {
                   </span>
                 </> :
 
-            <>
+                <>
                   <WifiOff className="h-3 w-3 shrink-0" />
                   <span>Could not reach relay — check your connection</span>
                 </>
-            }
+                }
             </div>
-          }
+              }
 
           {/* Messages / Terminal area */}
-          {agent === "terminal" ? (
-            <div className="flex-1 min-h-0 overflow-hidden">
-              {selectedDeviceId ? (
-                <EmbeddedTerminal deviceId={selectedDeviceId} convId={activeConvId} />
-              ) : (
+          {agent === "terminal" ?
+              <div className="flex-1 min-h-0 overflow-hidden">
+              {selectedDeviceId ?
+                <EmbeddedTerminal deviceId={selectedDeviceId} convId={activeConvId} /> :
+
                 <div className="flex items-center justify-center h-full text-muted-foreground/50 text-sm">
                   Select a device to open a terminal
                 </div>
-              )}
-            </div>
-          ) : (
-          <>
+                }
+            </div> :
+
+              <>
           {/* Dev server detected banner */}
-          {detectedPreviewPort && !showPreview && (
-            <div className="animate-fade-in flex items-center gap-2 px-4 py-2 mx-4 mt-3 rounded-lg border border-primary/30 bg-primary/5 text-sm">
+          {detectedPreviewPort && !showPreview &&
+                <div className="animate-fade-in flex items-center gap-2 px-4 py-2 mx-4 mt-3 rounded-lg border border-primary/30 bg-primary/5 text-sm">
               <Monitor className="h-3.5 w-3.5 text-primary shrink-0" />
               <span className="flex-1 text-muted-foreground">Dev server detected on <span className="font-medium text-foreground">:{detectedPreviewPort}</span></span>
               <Button
-                size="sm"
-                variant="default"
-                className="h-6 px-2.5 text-xs"
-                onClick={() => {
-                  setPreviewUrl(`http://127.0.0.1:${detectedPreviewPort}`);
-                  setPreviewInputPort(detectedPreviewPort);
-                  setShowPreview(true);
-                }}
-              >
+                    size="sm"
+                    variant="default"
+                    className="h-6 px-2.5 text-xs"
+                    onClick={() => {
+                      setPreviewUrl(`http://127.0.0.1:${detectedPreviewPort}`);
+                      setPreviewInputPort(detectedPreviewPort);
+                      setShowPreview(true);
+                    }}>
+                    
                 Open Preview
               </Button>
               <button
-                onClick={() => { setDetectedPreviewPort(null); detectedPortRef.current = null; }}
-                className="text-muted-foreground hover:text-foreground transition-colors"
-                aria-label="Dismiss"
-              >
+                    onClick={() => {setDetectedPreviewPort(null);detectedPortRef.current = null;}}
+                    className="text-muted-foreground hover:text-foreground transition-colors"
+                    aria-label="Dismiss">
+                    
                 <X className="h-3.5 w-3.5" />
               </button>
             </div>
-          )}
+                }
           <div ref={scrollRef} onScroll={handleScroll} className={`flex-1 overflow-y-auto ${messages.length === 0 && !thinking ? "flex items-center justify-center" : "py-8 sm:py-10"}`}>
             <div key={activeConvId ?? "new"} className="max-w-[900px] mx-auto px-4 sm:px-8 animate-fade-in">
               {messages.length === 0 && !thinking &&
-              <div className="flex flex-col items-center justify-center min-h-[70vh] sm:min-h-[80vh] text-center">
+                    <div className="flex flex-col items-center justify-center min-h-[70vh] sm:min-h-[80vh] text-center">
 
                   {/* ── No device paired: inline quick-start ─────────────── */}
                   {devices.length === 0 ?
-                <div className="flex flex-col items-center gap-6 w-full max-w-xl px-2">
+                      <div className="flex flex-col items-center gap-6 w-full max-w-xl px-2">
                       <QuickStart
-                    userId={user?.id ?? ""}
-                    projectId={projectId || undefined}
-                    onDeviceOnline={(dev) => {
-                      setDevices((prev) => [...prev, dev]);
-                      setSelectedDeviceId(dev.id);
-                    }} />
+                          userId={user?.id ?? ""}
+                          projectId={projectId || undefined}
+                          onDeviceOnline={(dev) => {
+                            setDevices((prev) => [...prev, dev]);
+                            setSelectedDeviceId(dev.id);
+                          }} />
 
                     </div> : (
 
 
-                /* ── Has device, no messages: normal empty state ────── */
-                <>
+                      /* ── Has device, no messages: normal empty state ────── */
+                      <>
                       <div className="relative mb-6 animate-fade-in" style={{ animationDelay: "0ms", animationFillMode: "both" }}>
                         <div className="absolute inset-0 rounded-3xl blur-xl scale-110 bg-foreground/10" />
                         <div className="relative w-24 h-24 rounded-3xl flex items-center justify-center bg-muted/40 border border-border/40 shadow-sm outline outline-1 outline-border/30">
@@ -3060,304 +3060,304 @@ export default function Chat() {
                       </h3>
                       <p className="body-base text-muted-foreground max-w-sm mb-8 animate-fade-in" style={{ animationDelay: "220ms", animationFillMode: "both" }}>
                         {agent === "openclaw" ?
-                    "Ask your local OpenClaw agent anything. Commands run on your selected device." :
-                    agent === "codex" ?
-                    "Send prompts directly to OpenAI Codex CLI running on your device." :
-                    "Send prompts directly to Claude Code running on your device."}
+                          "Ask your local OpenClaw agent anything. Commands run on your selected device." :
+                          agent === "codex" ?
+                          "Send prompts directly to OpenAI Codex CLI running on your device." :
+                          "Send prompts directly to Claude Code running on your device."}
                       </p>
 
                       {/* Open Project + Clone Repo actions — claude, codex & openclaw */}
-                      {(agent === "claude" || agent === "codex" || agent === "openclaw") && selectedDeviceId && (
+                      {(agent === "claude" || agent === "codex" || agent === "openclaw") && selectedDeviceId &&
                         <div className="flex gap-3 mb-6 animate-fade-in" style={{ animationDelay: "280ms", animationFillMode: "both" }}>
                           <button
                             onClick={() => {
-                              setFolderPath(""); setFolderItems([]); setOpenProjectOpen(true); browseFolderViaRelay("~");
+                              setFolderPath("");setFolderItems([]);setOpenProjectOpen(true);browseFolderViaRelay("~");
                               // seed current workdir into recents
                               const dev = devices.find((d) => d.id === selectedDeviceId);
                               if (dev?.workdir && selectedDeviceId) addRecentProject(selectedDeviceId, dev.workdir);
                             }}
-                            className="flex items-center gap-2.5 px-5 py-3 rounded-xl border-2 border-border/40 bg-card hover:border-foreground/25 hover:bg-accent/40 transition-all duration-150 text-sm font-medium text-foreground/80 hover:text-foreground"
-                          >
+                            className="flex items-center gap-2.5 px-5 py-3 rounded-xl border-2 border-border/40 bg-card hover:border-foreground/25 hover:bg-accent/40 transition-all duration-150 text-sm font-medium text-foreground/80 hover:text-foreground">
+                            
                             <FolderOpen size={16} className="text-primary/70" />
                             Open project
                           </button>
                           <button
-                            onClick={() => { setCloneUrl(""); setCloneDir(""); setCloneRepoOpen(true); }}
-                            className="flex items-center gap-2.5 px-5 py-3 rounded-xl border-2 border-border/40 bg-card hover:border-foreground/25 hover:bg-accent/40 transition-all duration-150 text-sm font-medium text-foreground/80 hover:text-foreground"
-                          >
+                            onClick={() => {setCloneUrl("");setCloneDir("");setCloneRepoOpen(true);}}
+                            className="flex items-center gap-2.5 px-5 py-3 rounded-xl border-2 border-border/40 bg-card hover:border-foreground/25 hover:bg-accent/40 transition-all duration-150 text-sm font-medium text-foreground/80 hover:text-foreground">
+                            
                             <GitFork size={16} className="text-primary/70" />
                             Clone repo
                           </button>
                         </div>
-                      )}
+                        }
 
                       {/* Starter prompt cards */}
                       <div className="grid grid-cols-2 gap-2.5 w-full max-w-lg mx-auto animate-fade-in" style={{ animationDelay: "340ms", animationFillMode: "both" }}>
                         {(agent === "openclaw" ? [
-                    { icon: "📂", title: "List files", prompt: "List all files in the current directory" },
-                    { icon: "🔍", title: "Search code", prompt: "Search for TODO comments in the codebase" },
-                    { icon: "💻", title: "System info", prompt: "Show system info: OS, CPU, memory usage" },
-                    { icon: "🌿", title: "Git status", prompt: "Show the current git status and recent commits" }] :
-                    agent === "codex" ? [
-                    { icon: "🐛", title: "Fix a bug", prompt: "Find and fix the bug in my code" },
-                    { icon: "✍️", title: "Write tests", prompt: "Write unit tests for the current file" },
-                    { icon: "♻️", title: "Refactor", prompt: "Refactor this code to be cleaner and more readable" },
-                    { icon: "📖", title: "Explain code", prompt: "Explain what this code does step by step" }] :
-                    [
-                    { icon: "🐛", title: "Debug code", prompt: "Help me debug an issue in my code" },
-                    { icon: "✍️", title: "Write tests", prompt: "Write unit tests for the current file" },
-                    { icon: "♻️", title: "Refactor", prompt: "Refactor this code to be cleaner and more readable" },
-                    { icon: "📖", title: "Explain code", prompt: "Explain what this code does" }]).
-                    map(({ icon, title, prompt }, i) =>
-                    <button
-                      key={title}
-                      onClick={() => setInput(prompt)}
-                      disabled={!selectedDeviceId}
-                      className="animate-fade-in group flex flex-col gap-1.5 px-4 py-3.5 rounded-xl border-2 border-border/40 bg-card hover:border-foreground/20 hover:bg-card transition-all duration-150 text-left disabled:opacity-40 disabled:cursor-not-allowed"
-                      style={{ animationDelay: `${420 + i * 80}ms`, animationFillMode: "both" }}>
+                          { icon: "📂", title: "List files", prompt: "List all files in the current directory" },
+                          { icon: "🔍", title: "Search code", prompt: "Search for TODO comments in the codebase" },
+                          { icon: "💻", title: "System info", prompt: "Show system info: OS, CPU, memory usage" },
+                          { icon: "🌿", title: "Git status", prompt: "Show the current git status and recent commits" }] :
+                          agent === "codex" ? [
+                          { icon: "🐛", title: "Fix a bug", prompt: "Find and fix the bug in my code" },
+                          { icon: "✍️", title: "Write tests", prompt: "Write unit tests for the current file" },
+                          { icon: "♻️", title: "Refactor", prompt: "Refactor this code to be cleaner and more readable" },
+                          { icon: "📖", title: "Explain code", prompt: "Explain what this code does step by step" }] :
+                          [
+                          { icon: "🐛", title: "Debug code", prompt: "Help me debug an issue in my code" },
+                          { icon: "✍️", title: "Write tests", prompt: "Write unit tests for the current file" },
+                          { icon: "♻️", title: "Refactor", prompt: "Refactor this code to be cleaner and more readable" },
+                          { icon: "📖", title: "Explain code", prompt: "Explain what this code does" }]).
+                          map(({ icon, title, prompt }, i) =>
+                          <button
+                            key={title}
+                            onClick={() => setInput(prompt)}
+                            disabled={!selectedDeviceId}
+                            className="animate-fade-in group flex flex-col gap-1.5 px-4 py-3.5 rounded-xl border-2 border-border/40 bg-card hover:border-foreground/20 hover:bg-card transition-all duration-150 text-left disabled:opacity-40 disabled:cursor-not-allowed"
+                            style={{ animationDelay: `${420 + i * 80}ms`, animationFillMode: "both" }}>
 
                             <span className="text-sm font-semibold text-foreground leading-tight">{icon} {title}</span>
                             <span className="text-xs text-muted-foreground/70 leading-snug line-clamp-2">{prompt}</span>
                           </button>
-                    )}
+                          )}
                       </div>
                     </>)
-                }
+                      }
                 </div>
-              }
+                    }
               <div className="space-y-1">
                 {messages.map((msg, i) =>
-                <div key={msg.id ?? i} className="animate-fade-in">
+                      <div key={msg.id ?? i} className="animate-fade-in">
                     {msg.type === "scrollback_replay" ? (() => {
-                      const rawText = msg.content.replace(/^\*\*Session resumed\*\*.*?```\n?/s, "").replace(/\n?```$/, "");
-                      const allLines = rawText.split("\n");
-                      const PREVIEW_LINES = 50;
-                      const isExpanded = expandedScrollback.has(i);
-                      const visibleLines = isExpanded ? allLines : allLines.slice(-PREVIEW_LINES);
-                      const truncated = !isExpanded && allLines.length > PREVIEW_LINES;
-                      return (
-                        <div className="max-w-[900px] mx-auto px-3 sm:px-6 py-2">
+                          const rawText = msg.content.replace(/^\*\*Session resumed\*\*.*?```\n?/s, "").replace(/\n?```$/, "");
+                          const allLines = rawText.split("\n");
+                          const PREVIEW_LINES = 50;
+                          const isExpanded = expandedScrollback.has(i);
+                          const visibleLines = isExpanded ? allLines : allLines.slice(-PREVIEW_LINES);
+                          const truncated = !isExpanded && allLines.length > PREVIEW_LINES;
+                          return (
+                            <div className="max-w-[900px] mx-auto px-3 sm:px-6 py-2">
                           <div className="rounded-lg border border-border/30 bg-muted/30 px-4 py-3 text-xs">
                             <div className="flex items-center gap-2 mb-2 text-muted-foreground/70 font-medium">
                               <RefreshCw className="h-3 w-3" />
                               <span>Session resumed — output since last disconnect:</span>
-                              {truncated && (
-                                <span className="ml-auto text-muted-foreground/50 text-[10px]">{allLines.length - PREVIEW_LINES} lines hidden</span>
-                              )}
+                              {truncated &&
+                                  <span className="ml-auto text-muted-foreground/50 text-[10px]">{allLines.length - PREVIEW_LINES} lines hidden</span>
+                                  }
                             </div>
                             <pre className="whitespace-pre-wrap font-mono text-[11px] text-muted-foreground/60 max-h-[300px] overflow-y-auto">{visibleLines.join("\n")}</pre>
-                            {truncated && (
-                              <button
-                                onClick={() => setExpandedScrollback(prev => new Set([...prev, i]))}
-                                className="mt-2 flex items-center gap-1 text-[10px] text-muted-foreground/60 hover:text-foreground transition-colors"
-                              >
+                            {truncated &&
+                                <button
+                                  onClick={() => setExpandedScrollback((prev) => new Set([...prev, i]))}
+                                  className="mt-2 flex items-center gap-1 text-[10px] text-muted-foreground/60 hover:text-foreground transition-colors">
+                                  
                                 <ChevronDown className="h-3 w-3" />
                                 Show full output ({allLines.length} lines)
                               </button>
-                            )}
-                            {isExpanded && allLines.length > PREVIEW_LINES && (
-                              <button
-                                onClick={() => setExpandedScrollback(prev => { const n = new Set(prev); n.delete(i); return n; })}
-                                className="mt-2 flex items-center gap-1 text-[10px] text-muted-foreground/60 hover:text-foreground transition-colors"
-                              >
+                                }
+                            {isExpanded && allLines.length > PREVIEW_LINES &&
+                                <button
+                                  onClick={() => setExpandedScrollback((prev) => {const n = new Set(prev);n.delete(i);return n;})}
+                                  className="mt-2 flex items-center gap-1 text-[10px] text-muted-foreground/60 hover:text-foreground transition-colors">
+                                  
                                 <ChevronUp className="h-3 w-3" />
                                 Show less
                               </button>
-                            )}
+                                }
                           </div>
-                        </div>
-                      );
-                    })() : (
-                    <ChatMessage
-                    role={msg.role}
-                    content={msg.content}
-                    streaming={streamingMsgIndex === i}
-                    activityStatus={streamingMsgIndex === i ? activityStatus : undefined}
-                    toolCalls={streamingMsgIndex === i ? toolCalls : (msg.role === "assistant" ? toolCallsMapRef.current.get(i) : undefined)}
-                    liveLog={streamingMsgIndex === i ? liveLog : undefined}
-                    completedToolCalls={streamingMsgIndex !== i && msg.role === "assistant" ? toolCallEntriesMapRef.current.get(i) : undefined}
-                    rawStdout={msg.role === "assistant" ? rawStdoutMapRef.current.get(i) : undefined}
-                    thinkingContent={msg.role === "assistant" ? thinkingMapRef.current.get(i) : undefined}
-                    thinkingDurationMs={msg.role === "assistant" ? thinkingDurationMapRef.current.get(i) : undefined}
-                    createdAt={msg.created_at}
-                    agent={(agent as string) === "terminal" ? "openclaw" : agent as "openclaw" | "claude" | "codex"}
-                     onRegenerate={
-                    msg.role === "assistant" &&
-                    !thinking &&
-                    streamingMsgIndex === null &&
-                    (i === messages.length - 1 || msg.content === EMPTY_RESPONSE_TEXT) ?
-                    handleRegenerate :
-                    undefined
-                    }
-                    onOptionSelect={msg.role === "assistant" && !answeredMsgIndices.has(i) ? (opt) => handleOptionSelect(opt, i) : undefined}
-                    />
-                    )}
+                        </div>);
+
+                        })() :
+                        <ChatMessage
+                          role={msg.role}
+                          content={msg.content}
+                          streaming={streamingMsgIndex === i}
+                          activityStatus={streamingMsgIndex === i ? activityStatus : undefined}
+                          toolCalls={streamingMsgIndex === i ? toolCalls : msg.role === "assistant" ? toolCallsMapRef.current.get(i) : undefined}
+                          liveLog={streamingMsgIndex === i ? liveLog : undefined}
+                          completedToolCalls={streamingMsgIndex !== i && msg.role === "assistant" ? toolCallEntriesMapRef.current.get(i) : undefined}
+                          rawStdout={msg.role === "assistant" ? rawStdoutMapRef.current.get(i) : undefined}
+                          thinkingContent={msg.role === "assistant" ? thinkingMapRef.current.get(i) : undefined}
+                          thinkingDurationMs={msg.role === "assistant" ? thinkingDurationMapRef.current.get(i) : undefined}
+                          createdAt={msg.created_at}
+                          agent={agent as string === "terminal" ? "openclaw" : agent as "openclaw" | "claude" | "codex"}
+                          onRegenerate={
+                          msg.role === "assistant" &&
+                          !thinking &&
+                          streamingMsgIndex === null && (
+                          i === messages.length - 1 || msg.content === EMPTY_RESPONSE_TEXT) ?
+                          handleRegenerate :
+                          undefined
+                          }
+                          onOptionSelect={msg.role === "assistant" && !answeredMsgIndices.has(i) ? (opt) => handleOptionSelect(opt, i) : undefined} />
+
+                        }
                   </div>
-                )}
+                      )}
                 {thinking &&
-                <div className="animate-fade-in">
-                    <ChatMessage role="assistant" content="" thinking activityStatus={activityStatus} toolCalls={toolCalls} liveLog={liveLog} agent={(agent as string) === "terminal" ? "openclaw" : agent as "openclaw" | "claude" | "codex"} />
+                      <div className="animate-fade-in">
+                    <ChatMessage role="assistant" content="" thinking activityStatus={activityStatus} toolCalls={toolCalls} liveLog={liveLog} agent={agent as string === "terminal" ? "openclaw" : agent as "openclaw" | "claude" | "codex"} />
                   </div>
-                }
+                      }
               </div>
             </div>
           </div>
-          </>)} {/* end terminal/chat conditional */}
+          </>} {/* end terminal/chat conditional */}
 
           {/* Jump-to-bottom FAB */}
           {isScrolledUp &&
-          <div className="shrink-0 flex justify-end pr-4 py-1">
+              <div className="shrink-0 flex justify-end pr-4 py-1">
               <button
-              onClick={scrollToBottom}
-              className="flex items-center justify-center w-8 h-8 rounded-full bg-background/80 backdrop-blur-md border border-border/60 text-muted-foreground hover:text-foreground shadow-md transition-colors duration-150">
+                  onClick={scrollToBottom}
+                  className="flex items-center justify-center w-8 h-8 rounded-full bg-background/80 backdrop-blur-md border border-border/60 text-muted-foreground hover:text-foreground shadow-md transition-colors duration-150">
 
                 <ChevronDown className="h-4 w-4" />
               </button>
             </div>
-          }
+              }
 
           {/* Floating composer — hidden in terminal mode */}
-          {agent !== "terminal" && (
-          <div className="sticky bottom-0 z-20 shrink-0 pt-2 backdrop-blur-md bg-background/80 border-t border-border/10" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 1rem)' }}>
+          {agent !== "terminal" &&
+              <div className="sticky bottom-0 z-20 shrink-0 pt-2 backdrop-blur-md bg-background/80 border-t border-border/10" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 1rem)' }}>
             {/* ── Connector offline reconnecting banner ── */}
-            {connectorOffline && selectedDeviceId && (
-              <div className="max-w-[900px] mx-auto px-3 sm:px-8 mb-2">
+            {connectorOffline && selectedDeviceId &&
+                <div className="max-w-[900px] mx-auto px-3 sm:px-8 mb-2">
                 <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-orange-500/10 border border-orange-500/20 text-xs text-orange-400/90">
                   <Loader2 className="h-3 w-3 animate-spin shrink-0" />
                   <span>Device connector is offline. Reconnecting automatically — your session will resume when it comes back online.</span>
                 </div>
               </div>
-            )}
+                }
             <div className="max-w-[900px] mx-auto px-3 sm:px-8">
             <div className="max-w-[900px] mx-auto">
               {/* Git status bar */}
-              {gitStatus && gitStatus !== "loading" && gitStatus.branch && (
-                <div className="flex items-center gap-2 px-1 pb-1.5 text-[11px] text-muted-foreground/50 select-none flex-wrap">
+              {gitStatus && gitStatus !== "loading" && gitStatus.branch &&
+                    <div className="flex items-center gap-2 px-1 pb-1.5 text-[11px] text-muted-foreground/50 select-none flex-wrap">
                   {/* Branch */}
                   <span className="flex items-center gap-1">
-                    <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor" className="opacity-60 shrink-0"><path d="M11.75 2.5a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0zm.75 2.453a2.25 2.25 0 1 1 0-4.906A2.25 2.25 0 0 1 12.5 4.953V5.5a2.25 2.25 0 0 1-2.25 2.25H5.75A.75.75 0 0 0 5 8.5v1.547a2.25 2.25 0 1 1-1.5 0V7.25a.75.75 0 0 1 0-1.5V5.047a2.25 2.25 0 1 1 1.5 0V5.75h4.5a.75.75 0 0 0 .75-.75v-.547zm-10.25.297a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0zM4.25 13a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5z"/></svg>
+                    <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor" className="opacity-60 shrink-0"><path d="M11.75 2.5a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0zm.75 2.453a2.25 2.25 0 1 1 0-4.906A2.25 2.25 0 0 1 12.5 4.953V5.5a2.25 2.25 0 0 1-2.25 2.25H5.75A.75.75 0 0 0 5 8.5v1.547a2.25 2.25 0 1 1-1.5 0V7.25a.75.75 0 0 1 0-1.5V5.047a2.25 2.25 0 1 1 1.5 0V5.75h4.5a.75.75 0 0 0 .75-.75v-.547zm-10.25.297a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0zM4.25 13a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5z" /></svg>
                     <span className="font-mono">{gitStatus.branch}</span>
                   </span>
-                  {gitStatus.files > 0 && (
-                    <>
+                  {gitStatus.files > 0 &&
+                      <>
                       <span className="text-muted-foreground/20">·</span>
                       <span>{gitStatus.files} file{gitStatus.files !== 1 ? "s" : ""} changed</span>
-                      {gitStatus.insertions > 0 && (
+                      {gitStatus.insertions > 0 &&
                         <span className="text-[hsl(var(--chart-2))]">+{gitStatus.insertions}</span>
-                      )}
-                      {gitStatus.deletions > 0 && (
+                        }
+                      {gitStatus.deletions > 0 &&
                         <span className="text-destructive/70">−{gitStatus.deletions}</span>
-                      )}
+                        }
                     </>
-                  )}
-                  {gitStatus.files === 0 && (
-                    <>
+                      }
+                  {gitStatus.files === 0 &&
+                      <>
                       <span className="text-muted-foreground/20">·</span>
                       <span className="text-muted-foreground/30">clean</span>
                     </>
-                  )}
+                      }
                   <button
-                    onClick={() => { gitFetchedForRef.current = null; setGitRefreshTick(t => t + 1); }}
-                    className="ml-auto opacity-40 hover:opacity-80 transition-opacity"
-                    title="Refresh git status"
-                  >
-                    <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor"><path d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2z"/><path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/></svg>
+                        onClick={() => {gitFetchedForRef.current = null;setGitRefreshTick((t) => t + 1);}}
+                        className="ml-auto opacity-40 hover:opacity-80 transition-opacity"
+                        title="Refresh git status">
+                        
+                    <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor"><path d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2z" /><path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z" /></svg>
                   </button>
                 </div>
-              )}
-              {gitStatus === "loading" && (
-                <div className="flex items-center gap-1.5 px-1 pb-1.5 text-[11px] text-muted-foreground/30 select-none">
-                  <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor" className="animate-spin opacity-50"><path d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2z"/><path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/></svg>
+                    }
+              {gitStatus === "loading" &&
+                    <div className="flex items-center gap-1.5 px-1 pb-1.5 text-[11px] text-muted-foreground/30 select-none">
+                  <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor" className="animate-spin opacity-50"><path d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2z" /><path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z" /></svg>
                   <span>Fetching git status…</span>
                 </div>
-              )}
+                    }
               {/* Stop streaming button — now handled by composer send button */}
 
               {/* ── Approval prompt UI ── shown when a blocking PTY prompt is detected */}
-              {awaitingApproval && (
-                <div className="mb-2 rounded-lg border border-warning/30 bg-warning/5 px-3 py-2.5 flex flex-col gap-2">
+              {awaitingApproval &&
+                    <div className="mb-2 rounded-lg border border-warning/30 bg-warning/5 px-3 py-2.5 flex flex-col gap-2">
                   <div className="flex items-center gap-2 text-xs text-warning/80 font-medium">
                     <span className="inline-block w-1.5 h-1.5 rounded-full bg-warning animate-pulse" />
                     Agent is waiting for your input
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    {awaitingApproval.options.includes(ENTER_TO_CONFIRM_SENTINEL) ? (
-                      // Claude trust gate: "Enter to confirm · Esc to cancel"
-                      <>
+                    {awaitingApproval.options.includes(ENTER_TO_CONFIRM_SENTINEL) ?
+                        // Claude trust gate: "Enter to confirm · Esc to cancel"
+                        <>
                         <button
-                          onClick={() => handleApprovalChoice(ENTER_TO_CONFIRM_SENTINEL)}
-                          className="flex items-center gap-1.5 px-3 py-1 text-xs rounded-md border border-primary/40 bg-primary/10 text-primary hover:bg-primary/20 font-medium transition-colors"
-                        >
+                            onClick={() => handleApprovalChoice(ENTER_TO_CONFIRM_SENTINEL)}
+                            className="flex items-center gap-1.5 px-3 py-1 text-xs rounded-md border border-primary/40 bg-primary/10 text-primary hover:bg-primary/20 font-medium transition-colors">
+                            
                           <span>↵</span> Confirm (Enter)
                         </button>
                         <button
-                          onClick={() => { relay.sendRawStdin(awaitingApproval.sessionId, btoa("\x1b")); setAwaitingApproval(null); }}
-                          className="px-3 py-1 text-xs rounded-md border border-destructive/40 bg-destructive/10 text-destructive hover:bg-destructive/20 font-medium transition-colors"
-                        >
+                            onClick={() => {relay.sendRawStdin(awaitingApproval.sessionId, btoa("\x1b"));setAwaitingApproval(null);}}
+                            className="px-3 py-1 text-xs rounded-md border border-destructive/40 bg-destructive/10 text-destructive hover:bg-destructive/20 font-medium transition-colors">
+                            
                           Esc — Cancel
                         </button>
-                      </>
-                    ) : awaitingApproval.options.length > 0 ? (
-                      awaitingApproval.options.map((opt) => (
+                      </> :
+                        awaitingApproval.options.length > 0 ?
+                        awaitingApproval.options.map((opt) =>
                         <button
                           key={opt}
                           onClick={() => handleApprovalChoice(opt)}
                           className={cn(
                             "px-3 py-1 text-xs rounded-md border font-medium transition-colors",
-                            /yes|approve|allow|trust|continue|proceed/i.test(opt)
-                              ? "border-primary/40 bg-primary/10 text-primary hover:bg-primary/20"
-                              : "border-destructive/40 bg-destructive/10 text-destructive hover:bg-destructive/20"
-                          )}
-                        >
+                            /yes|approve|allow|trust|continue|proceed/i.test(opt) ?
+                            "border-primary/40 bg-primary/10 text-primary hover:bg-primary/20" :
+                            "border-destructive/40 bg-destructive/10 text-destructive hover:bg-destructive/20"
+                          )}>
+                          
                           {opt}
                         </button>
-                      ))
-                    ) : (
-                      <>
+                        ) :
+
+                        <>
                         <button onClick={() => handleApprovalChoice("Yes")} className="px-3 py-1 text-xs rounded-md border border-primary/40 bg-primary/10 text-primary hover:bg-primary/20 font-medium transition-colors">Yes</button>
                         <button onClick={() => handleApprovalChoice("No")} className="px-3 py-1 text-xs rounded-md border border-destructive/40 bg-destructive/10 text-destructive hover:bg-destructive/20 font-medium transition-colors">No</button>
                       </>
-                    )}
+                        }
                     <button
-                      onClick={() => setAwaitingApproval(null)}
-                      className="ml-auto px-2 py-1 text-xs rounded-md border border-border/50 text-muted-foreground hover:bg-muted/30 transition-colors"
-                      title="Dismiss"
-                    >
+                          onClick={() => setAwaitingApproval(null)}
+                          className="ml-auto px-2 py-1 text-xs rounded-md border border-border/50 text-muted-foreground hover:bg-muted/30 transition-colors"
+                          title="Dismiss">
+                          
                       Dismiss
                     </button>
                   </div>
                 </div>
-              )}
+                    }
 
               <ComposerBox
-                textareaRef={textareaRef}
-                fileInputRef={fileInputRef}
-                onPreview={() => showPreview ? (setShowPreview(false), setPreviewUrl("")) : handleOpenPreview()}
-                previewActive={showPreview}
-                isStreaming={!!(thinking || streamingMsgIndex !== null)}
-                onAbort={handleAbort}
-                input={input}
-                setInput={setInput}
-                onKeyDown={handleKeyDown}
-                onSend={handleSend}
-                disabled={!selectedDeviceId}
-                sendDisabled={!input.trim() && attachedFiles.length === 0}
-                placeholder={selectedDeviceId ? `Message ${agent === "openclaw" ? "OpenClaw" : agent === "codex" ? "Codex" : "Claude Code"}…` : "Select a device first…"}
-                attachedFiles={attachedFiles}
-                onRemoveFile={(i) => setAttachedFiles((prev) => prev.filter((_, idx) => idx !== i))}
-                onFileSelect={processFiles}
-                agent={agent}
-                model={model}
-                onSlashCommand={handleSlashCommand}
-                onAgentChange={handleAgentChange}
-                onModelChange={(m) => {
-                  setModel(m);
-                  if (activeConvId) {
-                    supabase.from("chat_conversations").update({ model: m }).eq("id", activeConvId);
-                    setConversations((prev) => prev.map((c) => c.id === activeConvId ? { ...c, model: m } : c));
-                  }
-                }}
-                deviceId={selectedDeviceId ?? null} />
+                      textareaRef={textareaRef}
+                      fileInputRef={fileInputRef}
+                      onPreview={() => showPreview ? (setShowPreview(false), setPreviewUrl("")) : handleOpenPreview()}
+                      previewActive={showPreview}
+                      isStreaming={!!(thinking || streamingMsgIndex !== null)}
+                      onAbort={handleAbort}
+                      input={input}
+                      setInput={setInput}
+                      onKeyDown={handleKeyDown}
+                      onSend={handleSend}
+                      disabled={!selectedDeviceId}
+                      sendDisabled={!input.trim() && attachedFiles.length === 0}
+                      placeholder={selectedDeviceId ? `Message ${agent === "openclaw" ? "OpenClaw" : agent === "codex" ? "Codex" : "Claude Code"}…` : "Select a device first…"}
+                      attachedFiles={attachedFiles}
+                      onRemoveFile={(i) => setAttachedFiles((prev) => prev.filter((_, idx) => idx !== i))}
+                      onFileSelect={processFiles}
+                      agent={agent}
+                      model={model}
+                      onSlashCommand={handleSlashCommand}
+                      onAgentChange={handleAgentChange}
+                      onModelChange={(m) => {
+                        setModel(m);
+                        if (activeConvId) {
+                          supabase.from("chat_conversations").update({ model: m }).eq("id", activeConvId);
+                          setConversations((prev) => prev.map((c) => c.id === activeConvId ? { ...c, model: m } : c));
+                        }
+                      }}
+                      deviceId={selectedDeviceId ?? null} />
 
               <p className="hidden sm:block text-center text-[10px] text-muted-foreground/40 mt-2 select-none whitespace-nowrap">
                 Enter to send · Shift+Enter for newline · <span className="font-mono">/</span> for commands
@@ -3365,72 +3365,72 @@ export default function Chat() {
             </div>
             </div>{/* end max-w centering wrapper */}
           </div>
-          )} {/* end agent !== terminal */}
+              } {/* end agent !== terminal */}
 
           {/* ── Bottom Terminal Drawer — in normal flow so composer stays visible ── */}
-          {showTerminalDrawer && selectedDeviceId && agent !== "terminal" && (
-            <div
-              className="relative shrink-0 flex flex-col border-t border-border/40 bg-background"
-              style={{ height: terminalDrawerHeight }}
-            >
+          {showTerminalDrawer && selectedDeviceId && agent !== "terminal" &&
+              <div
+                className="relative shrink-0 flex flex-col border-t border-border/40 bg-background"
+                style={{ height: terminalDrawerHeight }}>
+                
               {/* Drag handle + header */}
               <div
-                className="flex items-center justify-between px-4 py-2 cursor-ns-resize shrink-0 select-none border-b border-border/20"
-                onMouseDown={(e) => {
-                  terminalDragRef.current = { startY: e.clientY, startH: terminalDrawerHeight };
-                  const onMove = (mv: MouseEvent) => {
-                    if (!terminalDragRef.current) return;
-                    const delta = terminalDragRef.current.startY - mv.clientY;
-                    const newH = Math.max(160, Math.min(window.innerHeight * 0.75, terminalDragRef.current.startH + delta));
-                    setTerminalDrawerHeight(newH);
-                  };
-                  const onUp = () => {
-                    terminalDragRef.current = null;
-                    window.removeEventListener("mousemove", onMove);
-                    window.removeEventListener("mouseup", onUp);
-                  };
-                  window.addEventListener("mousemove", onMove);
-                  window.addEventListener("mouseup", onUp);
-                }}
-                onTouchStart={(e) => {
-                  const touch = e.touches[0];
-                  terminalDragRef.current = { startY: touch.clientY, startH: terminalDrawerHeight };
-                  const onMove = (mv: TouchEvent) => {
-                    if (!terminalDragRef.current) return;
-                    const delta = terminalDragRef.current.startY - mv.touches[0].clientY;
-                    const newH = Math.max(160, Math.min(window.innerHeight * 0.75, terminalDragRef.current.startH + delta));
-                    setTerminalDrawerHeight(newH);
-                  };
-                  const onUp = () => {
-                    terminalDragRef.current = null;
-                    window.removeEventListener("touchmove", onMove);
-                    window.removeEventListener("touchend", onUp);
-                  };
-                  window.addEventListener("touchmove", onMove);
-                  window.addEventListener("touchend", onUp);
-                }}
-              >
+                  className="flex items-center justify-between px-4 py-2 cursor-ns-resize shrink-0 select-none border-b border-border/20"
+                  onMouseDown={(e) => {
+                    terminalDragRef.current = { startY: e.clientY, startH: terminalDrawerHeight };
+                    const onMove = (mv: MouseEvent) => {
+                      if (!terminalDragRef.current) return;
+                      const delta = terminalDragRef.current.startY - mv.clientY;
+                      const newH = Math.max(160, Math.min(window.innerHeight * 0.75, terminalDragRef.current.startH + delta));
+                      setTerminalDrawerHeight(newH);
+                    };
+                    const onUp = () => {
+                      terminalDragRef.current = null;
+                      window.removeEventListener("mousemove", onMove);
+                      window.removeEventListener("mouseup", onUp);
+                    };
+                    window.addEventListener("mousemove", onMove);
+                    window.addEventListener("mouseup", onUp);
+                  }}
+                  onTouchStart={(e) => {
+                    const touch = e.touches[0];
+                    terminalDragRef.current = { startY: touch.clientY, startH: terminalDrawerHeight };
+                    const onMove = (mv: TouchEvent) => {
+                      if (!terminalDragRef.current) return;
+                      const delta = terminalDragRef.current.startY - mv.touches[0].clientY;
+                      const newH = Math.max(160, Math.min(window.innerHeight * 0.75, terminalDragRef.current.startH + delta));
+                      setTerminalDrawerHeight(newH);
+                    };
+                    const onUp = () => {
+                      terminalDragRef.current = null;
+                      window.removeEventListener("touchmove", onMove);
+                      window.removeEventListener("touchend", onUp);
+                    };
+                    window.addEventListener("touchmove", onMove);
+                    window.addEventListener("touchend", onUp);
+                  }}>
+                  
                 {/* Drag pill */}
                 <div className="absolute left-1/2 top-2 -translate-x-1/2 w-10 h-1 rounded-full bg-border/60" />
                 <div className="flex items-center gap-2 mt-1">
                   <Terminal className="h-3.5 w-3.5 text-muted-foreground" />
                   <span className="text-xs font-medium text-muted-foreground">Terminal</span>
-                  {ptySessionId && (
+                  {ptySessionId &&
                     <button
-                      onClick={() => { navigator.clipboard?.writeText(ptySessionId); }}
+                      onClick={() => {navigator.clipboard?.writeText(ptySessionId);}}
                       title="Copy session ID"
-                      className="flex items-center gap-1 px-1.5 py-0.5 rounded font-mono text-[10px] text-[hsl(var(--status-online)/0.7)] bg-[hsl(var(--status-online)/0.08)] border border-[hsl(var(--status-online)/0.2)] hover:bg-[hsl(var(--status-online)/0.15)] transition-colors"
-                    >
+                      className="flex items-center gap-1 px-1.5 py-0.5 rounded font-mono text-[10px] text-[hsl(var(--status-online)/0.7)] bg-[hsl(var(--status-online)/0.08)] border border-[hsl(var(--status-online)/0.2)] hover:bg-[hsl(var(--status-online)/0.15)] transition-colors">
+                      
                       <span className="w-1.5 h-1.5 rounded-full bg-[hsl(var(--status-online))] animate-pulse shrink-0" />
                       {ptySessionId.slice(0, 8)}…
                     </button>
-                  )}
+                    }
                 </div>
                 <button
-                  onClick={() => setShowTerminalDrawer(false)}
-                  className="mt-1 flex items-center justify-center w-6 h-6 rounded-full hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
-                  title="Close terminal"
-                >
+                    onClick={() => setShowTerminalDrawer(false)}
+                    className="mt-1 flex items-center justify-center w-6 h-6 rounded-full hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+                    title="Close terminal">
+                    
                   <ChevronDown className="h-4 w-4" />
                 </button>
               </div>
@@ -3438,53 +3438,53 @@ export default function Chat() {
               {/* Terminal itself */}
               <div className="flex-1 min-h-0 overflow-hidden">
                 <EmbeddedTerminal
-                  ref={drawerTerminalRef}
-                  deviceId={selectedDeviceId}
-                  convId={activeConvId}
-                  onConnectorDisconnected={() => setConnectorOffline(true)}
-                  onConnectorReconnected={() => setConnectorOffline(false)}
-                />
+                    ref={drawerTerminalRef}
+                    deviceId={selectedDeviceId}
+                    convId={activeConvId}
+                    onConnectorDisconnected={() => setConnectorOffline(true)}
+                    onConnectorReconnected={() => setConnectorOffline(false)} />
+                  
               </div>
             </div>
-          )}
+              }
 
         </div>
           </ResizablePanel>
-          {showPreview && !isMobile && (
-            <>
+          {showPreview && !isMobile &&
+          <>
               <ResizableHandle withHandle />
               <ResizablePanel defaultSize={50} minSize={25}>
                 <PreviewPanel
-                  deviceId={selectedDeviceId}
-                  deviceName={devices.find(d => d.id === selectedDeviceId)?.name}
-                  initialUrl={previewUrl}
-                  onClose={() => { setShowPreview(false); setPreviewUrl(""); }}
-                  activeTab="preview"
-                  onSwitchToChat={() => setShowPreview(false)}
-                  onTabChange={(tab) => { if (tab === "chat") setShowPreview(false); }}
-                />
+                deviceId={selectedDeviceId}
+                deviceName={devices.find((d) => d.id === selectedDeviceId)?.name}
+                initialUrl={previewUrl}
+                onClose={() => {setShowPreview(false);setPreviewUrl("");}}
+                activeTab="preview"
+                onSwitchToChat={() => setShowPreview(false)}
+                onTabChange={(tab) => {if (tab === "chat") setShowPreview(false);}} />
+              
               </ResizablePanel>
             </>
-          )}
+          }
         </ResizablePanelGroup>
 
         {/* Mobile full-screen preview overlay */}
-        {showPreview && isMobile && (
-          <div className={cn(
-            "absolute inset-0 z-30 flex flex-col",
-            previewTab === "chat" ? "pointer-events-none" : ""
-          )}>
+        {showPreview && isMobile &&
+        <div className={cn(
+          "absolute inset-0 z-30 flex flex-col",
+          previewTab === "chat" ? "pointer-events-none" : ""
+        )}>
             <PreviewPanel
-              deviceId={selectedDeviceId}
-              deviceName={devices.find(d => d.id === selectedDeviceId)?.name}
-              initialUrl={previewUrl}
-              onClose={() => { setShowPreview(false); setPreviewUrl(""); setPreviewTab("preview"); }}
-              activeTab={previewTab}
-              onSwitchToChat={() => setPreviewTab("chat")}
-              onTabChange={(tab) => setPreviewTab(tab)}
-            />
+            deviceId={selectedDeviceId}
+            deviceName={devices.find((d) => d.id === selectedDeviceId)?.name}
+            initialUrl={previewUrl}
+            onClose={() => {setShowPreview(false);setPreviewUrl("");setPreviewTab("preview");}}
+            activeTab={previewTab}
+            onSwitchToChat={() => setPreviewTab("chat")}
+            onTabChange={(tab) => setPreviewTab(tab)} />
+          
           </div>
-        )}
+        }
       </div>
 
         {/* Agent switch confirmation */}
@@ -3501,14 +3501,14 @@ export default function Chat() {
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
               <AlertDialogAction onClick={() => {
-                setAgent(agentSwitchPending!);
-                setModel("auto");
-                setAgentSwitchPending(null);
-                setActiveConvId(null);
-                handleNew();
-                // Pre-warm PTY for this new chat immediately
-                if (selectedDeviceId) relay.prewarmSession(selectedDeviceId, null);
-              }}>
+              setAgent(agentSwitchPending!);
+              setModel("auto");
+              setAgentSwitchPending(null);
+              setActiveConvId(null);
+              handleNew();
+              // Pre-warm PTY for this new chat immediately
+              if (selectedDeviceId) relay.prewarmSession(selectedDeviceId, null);
+            }}>
                 Start New Chat
               </AlertDialogAction>
             </AlertDialogFooter>
@@ -3530,56 +3530,56 @@ export default function Chat() {
               <div className="mb-1">
                 <p className="text-xs font-medium text-muted-foreground mb-1.5 px-1">Recent</p>
                 <div className="space-y-0.5">
-                  {recents.map((p) => (
-                    <button
-                      key={p}
-                      onClick={() => handleOpenProject(p)}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm text-left hover:bg-accent transition-colors group"
-                    >
+                  {recents.map((p) =>
+                  <button
+                    key={p}
+                    onClick={() => handleOpenProject(p)}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm text-left hover:bg-accent transition-colors group">
+                    
                       <FolderOpen size={14} className="text-primary/60 shrink-0" />
                       <span className="font-mono truncate flex-1">{p}</span>
                       <ChevronRight size={12} className="ml-auto text-muted-foreground/40 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
                     </button>
-                  ))}
+                  )}
                 </div>
                 <div className="border-t border-border/30 mt-2 mb-2" />
-              </div>
-            );
+              </div>);
+
           })()}
 
           <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-accent/30 border border-border/30 text-xs text-muted-foreground font-mono overflow-x-auto whitespace-nowrap mb-2">
             <button onClick={() => browseFolderViaRelay("~")} className="hover:text-foreground transition-colors"><Home size={12} /></button>
-            {folderPath.split("/").filter(Boolean).map((part, i, arr) => (
-              <span key={i} className="flex items-center gap-1">
+            {folderPath.split("/").filter(Boolean).map((part, i, arr) =>
+            <span key={i} className="flex items-center gap-1">
                 <ChevronRight size={10} className="opacity-40" />
                 <button
-                  onClick={() => browseFolderViaRelay("/" + arr.slice(0, i + 1).join("/"))}
-                  className="hover:text-foreground transition-colors"
-                >{part}</button>
+                onClick={() => browseFolderViaRelay("/" + arr.slice(0, i + 1).join("/"))}
+                className="hover:text-foreground transition-colors">
+                {part}</button>
               </span>
-            ))}
+            )}
           </div>
           <div className="flex-1 overflow-y-auto space-y-0.5 min-h-0 max-h-[280px]">
-            {folderLoading ? (
-              <div className="flex items-center justify-center py-10 text-muted-foreground"><Loader2 size={18} className="animate-spin mr-2" /> Listing folders…</div>
-            ) : folderItems.length === 0 ? (
-              <div className="py-10 text-center text-sm text-muted-foreground">Empty directory</div>
-            ) : folderItems.map(({ name, isDir }) => (
-              <button
-                key={name}
-                onClick={() => isDir ? browseFolderViaRelay(`${folderPath}/${name}`) : undefined}
-                onDoubleClick={() => isDir && handleOpenProject(`${folderPath}/${name}`)}
-                disabled={!isDir}
-                className={cn(
-                  "w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm text-left transition-colors",
-                  isDir ? "hover:bg-accent cursor-pointer" : "opacity-40 cursor-default"
-                )}
-              >
+            {folderLoading ?
+            <div className="flex items-center justify-center py-10 text-muted-foreground"><Loader2 size={18} className="animate-spin mr-2" /> Listing folders…</div> :
+            folderItems.length === 0 ?
+            <div className="py-10 text-center text-sm text-muted-foreground">Empty directory</div> :
+            folderItems.map(({ name, isDir }) =>
+            <button
+              key={name}
+              onClick={() => isDir ? browseFolderViaRelay(`${folderPath}/${name}`) : undefined}
+              onDoubleClick={() => isDir && handleOpenProject(`${folderPath}/${name}`)}
+              disabled={!isDir}
+              className={cn(
+                "w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm text-left transition-colors",
+                isDir ? "hover:bg-accent cursor-pointer" : "opacity-40 cursor-default"
+              )}>
+              
                 {isDir ? <FolderOpen size={14} className="text-primary/60 shrink-0" /> : <FileText size={14} className="text-muted-foreground/50 shrink-0" />}
                 <span className="truncate font-mono">{name}</span>
                 {isDir && <ChevronRight size={12} className="ml-auto text-muted-foreground/40 shrink-0" />}
               </button>
-            ))}
+            )}
           </div>
           <div className="flex gap-2 pt-3 border-t border-border/30">
             <Button variant="outline" size="sm" onClick={() => setOpenProjectOpen(false)} className="flex-1">Cancel</Button>
@@ -3604,8 +3604,8 @@ export default function Chat() {
                 value={cloneUrl}
                 onChange={(e) => setCloneUrl(e.target.value)}
                 autoFocus
-                onKeyDown={(e) => e.key === "Enter" && !cloning && cloneUrl.trim() && handleCloneRepo()}
-              />
+                onKeyDown={(e) => e.key === "Enter" && !cloning && cloneUrl.trim() && handleCloneRepo()} />
+              
             </div>
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-foreground">Destination folder <span className="text-muted-foreground font-normal">(optional)</span></label>
@@ -3613,8 +3613,8 @@ export default function Chat() {
                 placeholder="my-project (leave blank for default)"
                 value={cloneDir}
                 onChange={(e) => setCloneDir(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && !cloning && cloneUrl.trim() && handleCloneRepo()}
-              />
+                onKeyDown={(e) => e.key === "Enter" && !cloning && cloneUrl.trim() && handleCloneRepo()} />
+              
             </div>
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
@@ -3622,18 +3622,18 @@ export default function Chat() {
                   <KeyRound size={13} className="text-muted-foreground" />
                   GitHub token <span className="text-muted-foreground font-normal">(for private repos)</span>
                 </label>
-                {cloneToken && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCloneToken("");
-                      try { localStorage.removeItem("gh-clone-token"); } catch {/* */}
-                    }}
-                    className="text-xs text-destructive hover:text-destructive/80 transition-colors"
-                  >
+                {cloneToken &&
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCloneToken("");
+                    try {localStorage.removeItem("gh-clone-token");} catch {/* */}
+                  }}
+                  className="text-xs text-destructive hover:text-destructive/80 transition-colors">
+                  
                     Clear token
                   </button>
-                )}
+                }
               </div>
               <div className="relative">
                 <Input
@@ -3642,14 +3642,14 @@ export default function Chat() {
                   value={cloneToken}
                   onChange={(e) => setCloneToken(e.target.value)}
                   className="pr-9 font-mono text-xs"
-                  onKeyDown={(e) => e.key === "Enter" && !cloning && cloneUrl.trim() && handleCloneRepo()}
-                />
+                  onKeyDown={(e) => e.key === "Enter" && !cloning && cloneUrl.trim() && handleCloneRepo()} />
+                
                 <button
                   type="button"
                   onClick={() => setShowCloneToken((v) => !v)}
                   className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                  tabIndex={-1}
-                >
+                  tabIndex={-1}>
+                  
                   {showCloneToken ? <EyeOff size={14} /> : <Eye size={14} />}
                 </button>
               </div>
@@ -3701,7 +3701,7 @@ export default function Chat() {
         onClose={() => setDevicePanelOpen(false)}
         devices={devices}
         selectedDeviceId={selectedDeviceId}
-        onSelectDevice={(id) => { setSelectedDeviceId(id); }}
+        onSelectDevice={(id) => {setSelectedDeviceId(id);}}
         userId={user?.id ?? ""}
         projectId={projectId || undefined}
         onDeviceAdded={(d) => {
@@ -3718,8 +3718,8 @@ export default function Chat() {
             const next = remaining.find((d) => d.status === "online") ?? remaining[0];
             if (next) setSelectedDeviceId(next.id);
           }
-        }}
-      />
+        }} />
+      
     </AppLayout>);
 
 }
