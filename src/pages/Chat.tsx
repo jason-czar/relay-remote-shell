@@ -3450,6 +3450,26 @@ export default function Chat() {
             </div>
               }
 
+          {/* Chat/Terminal inline view — shown above composer when terminal tab active */}
+          {agent !== "terminal" && chatView === "terminal" && selectedDeviceId && (() => {
+            const tmuxName = conversations.find(c => c.id === activeConvId)?.tmux_session_name;
+            const agentBin = agent === "codex" ? "codex" : "claude";
+            const initCmd = tmuxName
+              ? `tmux new-session -d -s ${tmuxName} ${agentBin} 2>/dev/null; tmux send-keys -t ${tmuxName} '' Enter; tmux attach -t ${tmuxName}`
+              : `tmux new-session -d -s chat-${activeConvId?.slice(0,8) ?? "new"} ${agentBin} && sleep 1 && tmux send-keys -t chat-${activeConvId?.slice(0,8) ?? "new"} '' Enter && tmux attach -t chat-${activeConvId?.slice(0,8) ?? "new"}`;
+            return (
+              <div className="flex-1 min-h-0 overflow-hidden border-t border-border/20">
+                <EmbeddedTerminal
+                  ref={chatTerminalRef}
+                  deviceId={selectedDeviceId}
+                  convId={activeConvId ? `${activeConvId}-chatterminal` : null}
+                  initialCommand={initCmd}
+                  onConnectorDisconnected={() => setConnectorOffline(true)}
+                  onConnectorReconnected={() => setConnectorOffline(false)} />
+              </div>
+            );
+          })()}
+
           {/* Floating composer — hidden in terminal mode */}
           {agent !== "terminal" &&
               <div className="sticky bottom-0 z-20 shrink-0 pt-2 backdrop-blur-md bg-background/80 border-t border-border/10" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 1rem)' }}>
