@@ -147,13 +147,14 @@ export function usePersistentRelaySession() {
 
   // ── Ensure we have a session ID for this device ──────────────────────────
   const ensureSessionId = useCallback(async (deviceId: string): Promise<string | null> => {
-    // Deduplicate concurrent calls for the same device
-    const inflight = inflightSessions.get(deviceId);
+    // Deduplicate concurrent calls for the same device+conv
+    const inflightKey = convIdRef.current ? `${deviceId}-${convIdRef.current}` : deviceId;
+    const inflight = inflightSessions.get(inflightKey);
     if (inflight) return inflight;
 
     const promise = (async (): Promise<string | null> => {
       try {
-        // Reuse existing session for same device
+        // Reuse existing in-memory session — only if it's for the same device AND same conv
         if (sessionIdRef.current && deviceIdRef.current === deviceId) {
           const { data } = await supabase.from("sessions").select("id, status")
             .eq("id", sessionIdRef.current).single();
@@ -165,7 +166,39 @@ export function usePersistentRelaySession() {
           sessionIdRef.current = null;
         }
 
-        // Try any active session for this device (don't filter by user_id — it may be null for older rows)
+        // If scoped to a conversation, try to resume the session stored for that conv.
+        // Do NOT fall back to "any active session on the device" — that would leak
+        // PTY sessions across conversations.
+        if (convIdRef.current) {
+          const convKey = sessionKey(deviceId, convIdRef.current);
+          const storedId = sessionStorage.getItem(convKey) ?? localStorage.getItem(convKey);
+          if (storedId) {
+            // Verify this session is still active in the DB
+            const { data } = await supabase.from("sessions").select("id, status")
+              .eq("id", storedId).single();
+            if (data?.status === "active") {
+              sessionIdRef.current = storedId;
+              deviceIdRef.current = deviceId;
+              lastSessionCreatedRef.current = false;
+              return storedId;
+            }
+            // Stale stored session — remove it
+            sessionStorage.removeItem(convKey);
+            localStorage.removeItem(convKey);
+          }
+          // No valid stored session for this conv — create a fresh one
+          const { data: sesData, error } = await supabase.functions.invoke("start-session", {
+            body: { device_id: deviceId },
+          });
+          if (error || !sesData?.session_id) return null;
+          sessionIdRef.current = sesData.session_id;
+          deviceIdRef.current = deviceId;
+          lastSessionCreatedRef.current = true;
+          mirrorSessionId(deviceId, sesData.session_id, convIdRef.current);
+          return sesData.session_id;
+        }
+
+        // No conversation scope — try any active session for this device (legacy / terminal agent)
         const { data: active } = await supabase.from("sessions").select("id")
           .eq("device_id", deviceId).eq("status", "active")
           .order("started_at", { ascending: false }).limit(1);
@@ -173,7 +206,7 @@ export function usePersistentRelaySession() {
           sessionIdRef.current = active[0].id;
           deviceIdRef.current = deviceId;
           lastSessionCreatedRef.current = false;
-          mirrorSessionId(deviceId, active[0].id, convIdRef.current);
+          mirrorSessionId(deviceId, active[0].id, null);
           return active[0].id;
         }
 
@@ -185,14 +218,14 @@ export function usePersistentRelaySession() {
         sessionIdRef.current = sesData.session_id;
         deviceIdRef.current = deviceId;
         lastSessionCreatedRef.current = true;
-        mirrorSessionId(deviceId, sesData.session_id, convIdRef.current);
+        mirrorSessionId(deviceId, sesData.session_id, null);
         return sesData.session_id;
       } finally {
-        inflightSessions.delete(deviceId);
+        inflightSessions.delete(inflightKey);
       }
     })();
 
-    inflightSessions.set(deviceId, promise);
+    inflightSessions.set(inflightKey, promise);
     return promise;
   }, []);
 
