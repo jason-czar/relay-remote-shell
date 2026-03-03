@@ -745,6 +745,7 @@ export default function Chat() {
   const [drawerInitCmd, setDrawerInitCmd] = useState<string | null>(null);
   const terminalDragRef = useRef<{startY: number;startH: number;} | null>(null);
   const drawerTerminalRef = useRef<EmbeddedTerminalHandle>(null);
+  const agentTerminalRef = useRef<EmbeddedTerminalHandle>(null);
   const [connectorOffline, setConnectorOffline] = useState(false);
   const [expandedScrollback, setExpandedScrollback] = useState<Set<number>>(new Set());
   const [showWizard, setShowWizard] = useState(false);
