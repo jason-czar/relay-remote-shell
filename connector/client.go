@@ -795,6 +795,8 @@ func (c *RelayClient) sendMessage(msgType string, data json.RawMessage) {
 	msg := Message{Type: msgType, Data: data}
 	raw, _ := json.Marshal(msg)
 
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	if c.conn != nil {
 		if err := c.conn.WriteMessage(websocket.TextMessage, raw); err != nil {
 			log.Printf("Write error: %v", err)
