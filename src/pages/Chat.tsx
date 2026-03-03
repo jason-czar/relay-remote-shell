@@ -2595,7 +2595,7 @@ export default function Chat() {
   }, [messages, selectedDeviceId, activeConvId, agent, model, buildCommand, sendViaRelay, addJob, removeJob]);
 
 
-  const handleNew = useCallback(() => {
+  const handleNew = useCallback((overrideAgent?: "openclaw" | "claude" | "codex" | "terminal") => {
     // Reset all per-conversation UI state so the new blank conversation is clean.
     // Any running background job for the previous conversation continues unaffected —
     // it checks activeConvIdRef.current === jobConvId before touching UI state.
@@ -2615,7 +2615,12 @@ export default function Chat() {
     if (selectedDeviceId) {
       relay.prewarmSession(selectedDeviceId, null);
     }
-  }, [stopActivity, selectedDeviceId, relay]);
+    // Auto-spawn the agent tmux session in the Shell panel for Claude / Codex
+    const effectiveAgent = overrideAgent ?? agent;
+    if (selectedDeviceId && (effectiveAgent === "claude" || effectiveAgent === "codex")) {
+      spawnAgentInShell(effectiveAgent);
+    }
+  }, [stopActivity, selectedDeviceId, relay, agent, spawnAgentInShell]);
 
   // Register handleNew with context so sidebar "New" button triggers it
   useEffect(() => {
@@ -2638,6 +2643,10 @@ export default function Chat() {
       if (activeConvId) {
         supabase.from("chat_conversations").update({ agent: newAgent }).eq("id", activeConvId);
         setConversations((prev) => prev.map((c) => c.id === activeConvId ? { ...c, agent: newAgent } : c));
+      }
+      // Spawn agent in Shell panel immediately when switching to claude/codex on empty chat
+      if (!activeConvId && selectedDeviceId && (newAgent === "claude" || newAgent === "codex")) {
+        spawnAgentInShell(newAgent);
       }
     }
   };
