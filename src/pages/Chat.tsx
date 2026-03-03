@@ -1529,20 +1529,34 @@ export default function Chat() {
     if (conv.agent === "claude") {
       const modelPart = modelFlag ? ` ${modelFlag}` : "";
       const resumeFlag = conv.claude_session_id ? ` --resume ${conv.claude_session_id}` : "";
+      const tmuxName = await ensureClaudeTmuxSession(convId);
+      const tmuxCheck = `command -v tmux >/dev/null 2>&1 || { echo 'TMUX_NOT_FOUND'; exit 1; }`;
+
       if (!sessionId) {
         // No PTY yet — defer first message (agent stored to avoid stale state race)
         deferredFirstMsgRef.current = { agent: "claude", text };
-        if (conv.claude_session_id) console.log("[REPL] Spawning Claude with --resume (deferred)", conv.claude_session_id);else
-        console.log("[REPL] Spawning Claude fresh (no session ID yet, deferred)");
-        return `claude${resumeFlag}${modelPart}\n`;
+
+        if (conv.tmux_session_name) {
+          // Resume path — probe liveness, attach if alive, spawn fresh if dead.
+          // attachingToTmuxRef enables fast-path ready in onChunkActivity on live attach.
+          // If tmux is dead and the fallback spawns fresh, the flag being true is still
+          // safe: the first message sits in PTY stdin buffer and is read when Claude's
+          // REPL reaches its input prompt.
+          attachingToTmuxRef.current = true;
+          const spawnFresh = `tmux new-session -d -s ${tmuxName} -x 220 -y 50 && tmux send-keys -t ${tmuxName} 'claude${resumeFlag}${modelPart}' Enter && tmux attach -t ${tmuxName}`;
+          console.log("[REPL] Resuming Claude tmux session:", tmuxName);
+          return `${tmuxCheck} && (tmux has-session -t ${tmuxName} 2>/dev/null && tmux send-keys -t ${tmuxName} '' Enter && tmux attach -t ${tmuxName} || (${spawnFresh}))\n`;
+        } else {
+          // First-time path — fresh spawn, no flag. Banner detection handles readiness.
+          console.log("[REPL] Spawning Claude in new tmux session:", tmuxName);
+          return `${tmuxCheck} && tmux new-session -d -s ${tmuxName} -x 220 -y 50 && tmux send-keys -t ${tmuxName} 'claude${modelPart}' Enter && tmux attach -t ${tmuxName}\n`;
+        }
       }
       const state = runtimeAgentsRef.current[sessionId];
       if (!state) {
-        // First message on this PTY — register, queue first message, and spawn
+        // PTY exists but no runtime state yet — first message on this PTY
         runtimeAgentsRef.current[sessionId] = { agent: "claude", ready: false };
         pendingQueueRef.current[sessionId] = [text];
-        if (conv.claude_session_id) console.log("[REPL] Spawning Claude with --resume", conv.claude_session_id, "pty:", sessionId);else
-        console.log("[REPL] Spawning Claude fresh (no session ID) pty:", sessionId);
         // Boot timeout parity with Codex — flush queue if banner never arrives
         setTimeout(() => {
           const s = runtimeAgentsRef.current[sessionId];
