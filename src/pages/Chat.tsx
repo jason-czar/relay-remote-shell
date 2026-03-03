@@ -1308,6 +1308,24 @@ export default function Chat() {
           setAwaitingApproval({ sessionId: sid, options });
         },
         onSessionReset: handleSessionReset,
+        onScrollback: (scrollbackText: string) => {
+          // Strip ANSI and inject a system message showing what happened during the disconnect
+          const stripped = scrollbackText
+            .replace(/\x1b\[\d*[JKH]/g, "")
+            .replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, "")
+            .replace(/\x1b\[(\d+)C/g, (_, n) => " ".repeat(Math.min(Number(n), 4)))
+            .replace(/\x1b\[[\x30-\x3f]*[\x20-\x2f]*[\x40-\x7e]/g, "")
+            .replace(/\x1b[^[\]]/g, "")
+            .replace(/\x1b/g, "")
+            .trim();
+          if (!stripped) return;
+          const resumeMsg: Message = {
+            role: "assistant",
+            content: `**Session resumed** — output since last disconnect:\n\`\`\`\n${stripped}\n\`\`\``,
+            type: "scrollback_replay",
+          };
+          setMessages((prev) => [...prev, resumeMsg]);
+        },
       });
       setRelayStatus("idle");
       return result;
@@ -2987,6 +3005,17 @@ export default function Chat() {
               <div className="space-y-1">
                 {messages.map((msg, i) =>
                 <div key={msg.id ?? i} className="animate-fade-in">
+                    {msg.type === "scrollback_replay" ? (
+                      <div className="max-w-[900px] mx-auto px-3 sm:px-6 py-2">
+                        <div className="rounded-lg border border-border/30 bg-muted/30 px-4 py-3 text-xs">
+                          <div className="flex items-center gap-2 mb-2 text-muted-foreground/70 font-medium">
+                            <RefreshCw className="h-3 w-3" />
+                            <span>Session resumed — output since last disconnect:</span>
+                          </div>
+                          <pre className="whitespace-pre-wrap font-mono text-[11px] text-muted-foreground/60 max-h-[200px] overflow-y-auto">{msg.content.replace(/^\*\*Session resumed\*\*.*?```\n?/s, "").replace(/\n?```$/, "")}</pre>
+                        </div>
+                      </div>
+                    ) : (
                     <ChatMessage
                     role={msg.role}
                     content={msg.content}
