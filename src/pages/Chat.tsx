@@ -2853,13 +2853,11 @@ export default function Chat() {
                       });
                     }}
                     className={cn(
-                      "hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium transition-colors",
+                      "hidden sm:flex items-center justify-center w-8 h-8 rounded-full text-xs font-medium transition-colors",
                       showTerminalDrawer ? "bg-primary/10 text-primary" : "text-foreground/50 hover:text-foreground hover:bg-accent"
                     )}
                     title="Toggle terminal">
-                    
                   <Terminal className="h-3.5 w-3.5" />
-                  <span>Terminal</span>
                 </button>
                   }
 
