@@ -71,3 +71,40 @@ Yes, you can!
 To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
 
 Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+
+## How to run Codex as a real "chat with memory" session in terminal
+
+If you want an ongoing conversation (instead of one-off prompts), run Codex in an interactive shell session and keep that same PTY alive.
+
+### In PrivaClaw (recommended)
+
+1. Pair/select a device.
+2. Open **Chat** and choose **Codex**.
+3. Send your first message — PrivaClaw starts a Codex REPL in the shared PTY.
+4. Keep chatting in the same conversation.
+
+PrivaClaw reuses the same relay `session_id` for each message in a conversation, which preserves shell state and conversational context between messages.
+
+If you need to manually restore the latest Codex session, use the slash command:
+
+```text
+/codex-resume
+```
+
+### Direct CLI pattern (outside PrivaClaw)
+
+Use one of these patterns:
+
+```bash
+# Long-lived interactive session (best for chat-like memory)
+codex
+
+# Resume last session in non-interactive mode
+codex exec --resume
+```
+
+Tips:
+
+- Don't spawn a new `codex` process for every message.
+- Keep the same shell process/session alive.
+- If your terminal disconnects, reconnect and resume (`codex exec --resume`).

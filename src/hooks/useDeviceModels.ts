@@ -4,13 +4,13 @@ import type { AgentModel } from "@/pages/Chat";
 
 // Commands that list available models for each agent CLI
 const LIST_COMMANDS: Record<string, string> = {
-  codex: "codex models\n",
+  codex: "codex models 2>/dev/null || codex --list-models 2>/dev/null\n",
   claude: "claude models --json 2>/dev/null || claude --list-models 2>/dev/null\n",
   openclaw: "openclaw models 2>/dev/null || openclaw --list-models 2>/dev/null\n",
 };
 
 // Per-agent parsers — return [] if nothing useful found
-function parseModels(agent: string, raw: string): AgentModel[] {
+export function parseModels(agent: string, raw: string): AgentModel[] {
   // Strip ANSI escape sequences
   const clean = raw.replace(/\x1b\[[0-9;?]*[a-zA-Z]/g, "").replace(/\x1b\][^\x07]*\x07/g, "");
 
@@ -140,51 +140,83 @@ export function useDeviceModels(): UseDeviceModelsResult {
         let buf = "";
         let done = false;
         let silenceTimer: ReturnType<typeof setTimeout> | null = null;
+        let hardTimeout: ReturnType<typeof setTimeout> | null = null;
         let promptSent = false;
+        const promptRe = /(?:[%$#➜❯>]\s*$)|(?:\$\s+$)/m;
 
-        const finish = (val: string) => {
+        const finish = (val: string | Error) => {
           if (done) return;
           done = true;
           if (silenceTimer) clearTimeout(silenceTimer);
+          if (hardTimeout) clearTimeout(hardTimeout);
           if (ws.readyState === WebSocket.OPEN) {
             ws.send(JSON.stringify({ type: "session_end", data: { session_id: sessionId, reason: "done" } }));
             ws.close();
           }
           supabase.functions.invoke("end-session", { body: { session_id: sessionId } }).catch(() => {});
-          resolve(val);
+          if (val instanceof Error) reject(val);
+          else resolve(val);
         };
 
         const resetSilence = () => {
           if (silenceTimer) clearTimeout(silenceTimer);
-          silenceTimer = setTimeout(() => finish(buf), 4000);
+          silenceTimer = setTimeout(() => finish(buf), 3000);
         };
+
+        hardTimeout = setTimeout(() => finish(new Error("Timed out waiting for model list")), 20000);
 
         ws.onopen = () => {
-          ws.send(JSON.stringify({ type: "session_start", data: { session_id: sessionId, token: jwt } }));
+          ws.send(JSON.stringify({ type: "auth", data: { token: jwt, session_id: sessionId, device_id: deviceId } }));
         };
 
-        ws.onerror = () => reject(new Error("WebSocket error"));
+        ws.onerror = () => finish(new Error("WebSocket error"));
         ws.onclose = () => { if (!done) finish(buf); };
 
         ws.onmessage = (ev) => {
           try {
             const msg = JSON.parse(String(ev.data));
-            if (msg.type === "stdout") {
-              buf += msg.data ?? "";
-              resetSilence();
-              // Wait for a shell prompt before sending command
-              if (!promptSent && /[%$#>→➜❯]\s*$/.test(buf.trimEnd())) {
+            if (msg.type === "auth_ok") {
+              ws.send(JSON.stringify({ type: "session_start", data: { session_id: sessionId, cols: 200, rows: 24 } }));
+              return;
+            }
+
+            if (msg.type === "session_started") {
+              if (!promptSent) {
                 promptSent = true;
-                buf = ""; // clear init noise
-                ws.send(JSON.stringify({ type: "stdin", data: { session_id: sessionId, data: cmd } }));
+                ws.send(JSON.stringify({ type: "stdin", data: { session_id: sessionId, data_b64: btoa(cmd) } }));
                 resetSilence();
               }
+              return;
             }
-          } catch { /* ignore */ }
-        };
 
-        // Timeout after 15s
-        setTimeout(() => { if (!done) reject(new Error("Timed out waiting for model list")); }, 15000);
+            if (msg.type === "stdout") {
+              const { data_b64 } = (msg.data ?? {}) as { data_b64?: string };
+              if (data_b64) {
+                try { buf += decodeURIComponent(escape(atob(data_b64))); } catch { buf += atob(data_b64); }
+              }
+
+              if (!promptSent && promptRe.test(buf)) {
+                promptSent = true;
+                buf = "";
+                ws.send(JSON.stringify({ type: "stdin", data: { session_id: sessionId, data_b64: btoa(cmd) } }));
+              }
+              resetSilence();
+              return;
+            }
+
+            if (msg.type === "error") {
+              const { message } = (msg.data ?? {}) as { message?: string };
+              finish(new Error(message ?? "Relay error"));
+              return;
+            }
+
+            if (msg.type === "session_end") {
+              finish(buf);
+            }
+          } catch {
+            // ignore malformed frames
+          }
+        };
       });
 
       // 3. Parse
