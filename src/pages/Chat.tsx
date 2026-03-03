@@ -954,21 +954,42 @@ export default function Chat() {
     // If buildCommand ran before the PTY existed, it stored the first message
     // in deferredFirstMsgRef. Once sessionId appears, register runtime state
     // and queue the message — then apply the same 20s boot-timeout guard.
+    // ── TMUX_NOT_FOUND sentinel ───────────────────────────────────────────
+    if (chunk.includes("TMUX_NOT_FOUND")) {
+      toast({ title: "tmux not found", description: "tmux is not installed on this device. Please install tmux to use Claude Code sessions.", variant: "destructive" });
+    }
+
+    // ── Deferred first-message migration ─────────────────────────────────
+    // If buildCommand ran before the PTY existed, it stored the first message
+    // in deferredFirstMsgRef. Once sessionId appears, register runtime state
+    // and either fast-path ready (tmux attach) or apply 20s boot-timeout guard.
     if (sessionId && deferredFirstMsgRef.current && !runtimeAgentsRef.current[sessionId]) {
       const { agent: deferredAgent, text: deferredText } = deferredFirstMsgRef.current;
       deferredFirstMsgRef.current = null;
       runtimeAgentsRef.current[sessionId] = { agent: deferredAgent, ready: false };
-      pendingQueueRef.current[sessionId] = [deferredText];
-      setTimeout(() => {
-        const s = runtimeAgentsRef.current[sessionId];
-        if (s && !s.ready) {
-          console.warn("[REPL] Deferred boot timeout — forcing ready for session", sessionId);
-          s.ready = true;
-          const queue = pendingQueueRef.current[sessionId] ?? [];
-          delete pendingQueueRef.current[sessionId];
-          for (const q of queue) relay.sendRawStdin(sessionId, btoa(q + "\n"));
-        }
-      }, 20_000);
+
+      if (attachingToTmuxRef.current) {
+        // Attaching to a live tmux session — Claude's REPL is already running.
+        // Mark ready immediately and flush the deferred message.
+        // If the tmux session was dead and the fallback spawned fresh, the flag
+        // being true is still safe: the message sits in PTY stdin buffer and is
+        // read by Claude when its REPL reaches the input prompt (PTY buffering).
+        attachingToTmuxRef.current = false;
+        runtimeAgentsRef.current[sessionId].ready = true;
+        relay.sendRawStdin(sessionId, btoa(deferredText + "\n"));
+      } else {
+        pendingQueueRef.current[sessionId] = [deferredText];
+        setTimeout(() => {
+          const s = runtimeAgentsRef.current[sessionId];
+          if (s && !s.ready) {
+            console.warn("[REPL] Deferred boot timeout — forcing ready for session", sessionId);
+            s.ready = true;
+            const queue = pendingQueueRef.current[sessionId] ?? [];
+            delete pendingQueueRef.current[sessionId];
+            for (const q of queue) relay.sendRawStdin(sessionId, btoa(q + "\n"));
+          }
+        }, 20_000);
+      }
     }
 
     if (sessionId) {
