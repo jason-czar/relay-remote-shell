@@ -968,15 +968,20 @@ export default function Chat() {
       deferredFirstMsgRef.current = null;
       runtimeAgentsRef.current[sessionId] = { agent: deferredAgent, ready: false };
 
+      const tmuxName = conversations.find(c => c.id === activeConvIdRef.current)?.tmux_session_name;
+      const sendKeysFlush = (name: string, msg: string) =>
+        `tmux send-keys -t ${name} '${msg.replace(/'/g, `'\\''`)}' && sleep 1 && tmux send-keys -t ${name} '' Enter\n`;
+
       if (attachingToTmuxRef.current) {
-        // Attaching to a live tmux session — Claude's REPL is already running.
-        // Mark ready immediately and flush the deferred message.
-        // If the tmux session was dead and the fallback spawned fresh, the flag
-        // being true is still safe: the message sits in PTY stdin buffer and is
-        // read by Claude when its REPL reaches the input prompt (PTY buffering).
+        // Attaching to a live tmux session — agent is already running.
+        // Mark ready immediately and flush via send-keys.
         attachingToTmuxRef.current = false;
         runtimeAgentsRef.current[sessionId].ready = true;
-        relay.sendRawStdin(sessionId, btoa(deferredText + "\n"));
+        if (tmuxName) {
+          relay.sendRawStdin(sessionId, btoa(sendKeysFlush(tmuxName, deferredText)));
+        } else {
+          relay.sendRawStdin(sessionId, btoa(deferredText + "\n"));
+        }
       } else {
         pendingQueueRef.current[sessionId] = [deferredText];
         setTimeout(() => {
@@ -986,7 +991,11 @@ export default function Chat() {
             s.ready = true;
             const queue = pendingQueueRef.current[sessionId] ?? [];
             delete pendingQueueRef.current[sessionId];
-            for (const q of queue) relay.sendRawStdin(sessionId, btoa(q + "\n"));
+            const name = conversations.find(c => c.id === activeConvIdRef.current)?.tmux_session_name;
+            for (const q of queue) {
+              if (name) relay.sendRawStdin(sessionId, btoa(sendKeysFlush(name, q)));
+              else relay.sendRawStdin(sessionId, btoa(q + "\n"));
+            }
           }
         }, 20_000);
       }
