@@ -812,7 +812,7 @@ export function ChatMessage({ role, content, thinking, streaming, activityStatus
         {/* Text content bubble */}
         {textContent && (
           <div
-            className="max-w-[88%] sm:max-w-[72%] rounded-[22px] px-4 py-2 text-[18px] leading-[1.35] break-words bg-[hsl(0,0%,14%)] text-foreground"
+            className="max-w-[88%] sm:max-w-[72%] rounded-[22px] px-4 py-2 text-[15px] leading-[1.4] break-words bg-[hsl(0,0%,14%)] text-foreground"
           >
             {textContent}
           </div>
@@ -852,7 +852,7 @@ export function ChatMessage({ role, content, thinking, streaming, activityStatus
           hasOptions && "pl-3 border-l-2 border-primary/50"
         )}
       >
-        <div className="text-[18px] md:text-[19px] leading-[1.45] text-foreground break-words pt-0.5">
+        <div className="text-[15px] md:text-[16px] leading-[1.55] text-foreground break-words pt-0.5">
           {/* Reasoning / thinking collapsible — Codex (with duration) and Claude Code (without) */}
           {thinkingPanelEnabled && thinkingContent && (() => {
             const firstLine = thinkingContent.split("\n").find((l) => l.trim()) ?? "";
