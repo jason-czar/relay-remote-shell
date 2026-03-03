@@ -699,17 +699,20 @@ export default function Chat() {
     relay.setConvId(activeConvId);
   }, [activeConvId, relay]);
 
-  // ── Global PTY stdout listener — catches trust gates after REPL is live ──
-  // onChunkRef is null once sendCommand resolves; this fires for ALL stdout.
+  // ── Global PTY stdout listener — backup trust gate detection ──────────
+  // Fires for ALL stdout chunks; the primary detection is in onChunkActivity
+  // which uses the accumulated buffer. This catches any edge cases.
   useEffect(() => {
     relay.setGlobalChunkListener((chunk: string) => {
-      const stripped = chunk.replace(/\x1b\[[^m]*m/g, "").replace(/\x1b\][^\x07]*\x07/g, "");
+      const stripped = chunk.replace(/\x1b\[[^a-zA-Z]*[a-zA-Z]/g, "").replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, "");
       if (!/Enter to confirm/i.test(stripped)) return;
       const sid = relay.getSessionId();
       if (!sid) return;
+      if (trustGateHandledRef.current === sid) return; // already handled
+      trustGateHandledRef.current = sid;
       const autoTrusted = selectedDeviceId && localStorage.getItem(`agent-trust-${selectedDeviceId}`) === "true";
       if (autoTrusted) {
-        console.log("[REPL] Auto-trust: sending \\r to bypass trust gate");
+        console.log("[REPL] Auto-trust (global listener): sending \\r to bypass trust gate");
         relay.sendRawStdin(sid, btoa("\r"));
       } else {
         console.log("[REPL] Trust gate detected via global listener — showing approval UI");
@@ -731,6 +734,8 @@ export default function Chat() {
   const liveLogAccRef = useRef<string>("");
   // Blocking PTY prompt awaiting user choice (trust gate, [Y/n], etc.)
   const [awaitingApproval, setAwaitingApproval] = useState<{ sessionId: string; options: string[] } | null>(null);
+  // Ref to guard against duplicate trust-gate triggers within same session
+  const trustGateHandledRef = useRef<string | null>(null); // stores sessionId when handled
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
   const [showTerminalDrawer, setShowTerminalDrawer] = useState(false);
@@ -984,16 +989,23 @@ export default function Chat() {
       }
 
       // ── Trust gate detection in REPL mode ──────────────────────────────
-      // Claude's trust gate arrives mid-stream after REPL is already live.
-      // onAwaitingInput only fires during sendCommand; we must detect it here.
-      const strippedChunk = chunk.replace(/\x1b\[[^m]*m/g, "").replace(/\x1b\][^\x07]*\x07/g, "");
-      if (/Enter to confirm/i.test(strippedChunk)) {
+      // Claude's trust gate is a TUI screen with ANSI positioning codes —
+      // the text may be fragmented across chunks. Test the accumulated buffer
+      // after stripping ALL ANSI escape sequences (SGR, OSC, CSI positioning).
+      const stripAllAnsi = (s: string) =>
+        s.replace(/\x1b\[[^a-zA-Z]*[a-zA-Z]/g, "")  // CSI sequences (colors, cursor, erase)
+         .replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, "")  // OSC sequences
+         .replace(/\x1b[^[\]]/g, "");  // other 2-char escapes
+      const accStripped = stripAllAnsi(liveLogAccRef.current);
+      console.debug("[REPL][TrustGate] sessionId:", sessionId, "accLen:", liveLogAccRef.current.length, "hasEnterToConfirm:", /Enter to confirm/i.test(accStripped), "handled:", trustGateHandledRef.current);
+      if (/Enter to confirm/i.test(accStripped) && trustGateHandledRef.current !== sessionId) {
+        trustGateHandledRef.current = sessionId;
         const autoTrusted = selectedDeviceId && localStorage.getItem(`agent-trust-${selectedDeviceId}`) === "true";
         if (autoTrusted) {
           console.log("[REPL] Auto-trust: sending \\r to bypass trust gate");
           relay.sendRawStdin(sessionId, btoa("\r"));
         } else {
-          console.log("[REPL] Trust gate detected in REPL stream — showing approval UI");
+          console.log("[REPL] Trust gate detected in accumulated buffer — showing approval UI");
           setAwaitingApproval({ sessionId, options: [ENTER_TO_CONFIRM_SENTINEL] });
         }
       }
@@ -1612,6 +1624,7 @@ export default function Chat() {
     startActivity();
     setLiveLog([]);
     liveLogAccRef.current = "";
+    trustGateHandledRef.current = null;
 
     let convId = activeConvId;
     if (!convId) {
@@ -2197,6 +2210,7 @@ export default function Chat() {
       startActivity();
       setLiveLog([]);
       liveLogAccRef.current = "";
+      trustGateHandledRef.current = null;
     } else {
       // Fallback: no active session (agent already finished), start a new message
       setInput(opt);
@@ -2232,6 +2246,7 @@ export default function Chat() {
     startActivity();
     setLiveLog([]);
     liveLogAccRef.current = "";
+    trustGateHandledRef.current = null;
   }, [awaitingApproval, selectedDeviceId, relay, startActivity]);
 
   // ── Regenerate ─────────────────────────────────────────────────────────
@@ -2401,6 +2416,7 @@ export default function Chat() {
     stopActivity();
     setLiveLog([]);
     liveLogAccRef.current = "";
+    trustGateHandledRef.current = null;
     setAwaitingApproval(null);
     setStreamingMsgIndex(null);
     setAgentSwitchPending(null);
