@@ -1454,13 +1454,27 @@ export default function Chat() {
 
 
   // ── Parse Claude/Claude Code session id from stdout ─────────────────
-  // Claude with --output-format stream-json emits a final line:
-  //   {"type":"result","session_id":"<id>",...}
-  // Also handle legacy "Session ID: <id>" text format as fallback.
+  // Claude emits the session ID in several formats depending on mode:
+  //   Interactive REPL first launch : "Session ID: <uuid>" or standalone UUID line
+  //   Interactive REPL resume       : "Restored session: <id>"
+  //   stream-json mode              : {"type":"result","session_id":"<id>",...}
+  // UUID regex: standard 8-4-4-4-12 hex format.
+  const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
   const extractClaudeSessionId = (stdout: string): string | null => {
-    // 0. REPL interactive banner: "Restored session: abc123-def456-..."
-    const replBanner = stdout.match(/Restored session:\s*([a-z0-9-]+)/i);
-    if (replBanner) return replBanner[1];
+    // 0a. REPL resume banner: "Restored session: <uuid-or-id>"
+    const restored = stdout.match(/Restored session:\s*([a-z0-9-]+)/i);
+    if (restored) return restored[1];
+
+    // 0b. First-launch banner variants:
+    //   "Session ID: <uuid>"  /  "session: <uuid>"  /  "New session: <uuid>"
+    const sessionLabel = stdout.match(/(?:New session|Session(?:\s+ID)?)\s*:\s*([a-z0-9-]+)/i);
+    if (sessionLabel) return sessionLabel[1];
+
+    // 0c. Bare UUID on its own line (Claude sometimes prints just the UUID)
+    for (const line of stdout.split("\n")) {
+      const t = line.trim();
+      if (UUID_RE.test(t) && t.replace(UUID_RE, "").trim() === "") return t;
+    }
 
     // 1. JSONL result line (stream-json mode) — most reliable
     for (const line of stdout.split("\n")) {
@@ -1473,8 +1487,8 @@ export default function Chat() {
         }
       } catch { /* skip */ }
     }
-    // 2. Legacy text format or any session_id field in JSON
-    const match = stdout.match(/Session ID:\s*(\S+)/i) ?? stdout.match(/"session_id"\s*:\s*"([^"]+)"/);
+    // 2. Any session_id field in JSON
+    const match = stdout.match(/"session_id"\s*:\s*"([^"]+)"/);
     return match ? match[1] : null;
   };
 
