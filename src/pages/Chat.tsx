@@ -3039,7 +3039,7 @@ export default function Chat() {
                     }
                     onOptionSelect={msg.role === "assistant" && !answeredMsgIndices.has(i) ? (opt) => handleOptionSelect(opt, i) : undefined}
                     />
-
+                    )}
                   </div>
                 )}
                 {thinking &&
