@@ -1530,7 +1530,7 @@ export default function Chat() {
     }
 
     // Fallback (should not reach here for known agents)
-    return `${conv.agent} "${escaped}"\n`;
+    return `${conv.agent} ${shellEscape(text)}\n`;
   }, [relay]);
 
 
