@@ -363,15 +363,16 @@ export const EmbeddedTerminal = forwardRef<EmbeddedTerminalHandle, Props>(functi
 
     init();
 
+    // Don't tear down the WS on tab hide — the relay has a 30-minute grace period
+    // so the PTY stays alive. Reconnect if the WS was lost while hidden.
     const handleVisibility = () => {
       if (document.hidden) {
         isHiddenRef.current = true;
-        intentionalCloseRef.current = true;
-        if (pingTimerRef.current) { clearInterval(pingTimerRef.current); pingTimerRef.current = null; }
-        if (wsRef.current) { wsRef.current.close(); wsRef.current = null; }
+        // Keep WS open; just mark hidden so the close handler won't retry
       } else {
         isHiddenRef.current = false;
-        if (termRef.current && sessionIdRef.current) {
+        // If the WS dropped while we were hidden, resume now
+        if (termRef.current && sessionIdRef.current && (!wsRef.current || wsRef.current.readyState > WebSocket.OPEN)) {
           setBgReconnecting(true);
           intentionalCloseRef.current = false;
           connectWebSocket(termRef.current, devRef.current, sessionIdRef.current, true);

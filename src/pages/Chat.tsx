@@ -740,7 +740,7 @@ export default function Chat() {
   const trustGateHandledRef = useRef<string | null>(null); // stores sessionId when handled
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
-  const [showTerminalDrawer, setShowTerminalDrawer] = useState(false);
+  const [showTerminalDrawer, setShowTerminalDrawer] = useState(true);
   const [terminalDrawerHeight, setTerminalDrawerHeight] = useState(380);
   const [drawerInitCmd, setDrawerInitCmd] = useState<string | null>(null);
   const [shellInitCmd, setShellInitCmd] = useState<string | null>(null);
@@ -3599,13 +3599,13 @@ export default function Chat() {
           </div>
               } {/* end agent !== terminal */}
 
-          {/* ── Bottom Terminal Drawer — in normal flow so composer stays visible ── */}
-          {showTerminalDrawer && selectedDeviceId && agent !== "terminal" && (() => {
+          {/* ── Bottom Terminal Drawer — always mounted when device is selected so PTY persists ── */}
+          {selectedDeviceId && agent !== "terminal" && (() => {
             const activeConvTmuxName = conversations.find(c => c.id === activeConvId)?.tmux_session_name ?? null;
             return (
               <div
                 className="relative shrink-0 flex flex-col border-t border-border/40 bg-background"
-                style={{ height: terminalDrawerHeight }}>
+                style={{ height: showTerminalDrawer ? terminalDrawerHeight : 0, overflow: "hidden" }}>
                 
               {/* Drag handle + header */}
               <div
