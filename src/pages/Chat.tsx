@@ -968,15 +968,20 @@ export default function Chat() {
       deferredFirstMsgRef.current = null;
       runtimeAgentsRef.current[sessionId] = { agent: deferredAgent, ready: false };
 
+      const tmuxName = conversations.find(c => c.id === activeConvIdRef.current)?.tmux_session_name;
+      const sendKeysFlush = (name: string, msg: string) =>
+        `tmux send-keys -t ${name} '${msg.replace(/'/g, `'\\''`)}' && sleep 1 && tmux send-keys -t ${name} '' Enter\n`;
+
       if (attachingToTmuxRef.current) {
-        // Attaching to a live tmux session — Claude's REPL is already running.
-        // Mark ready immediately and flush the deferred message.
-        // If the tmux session was dead and the fallback spawned fresh, the flag
-        // being true is still safe: the message sits in PTY stdin buffer and is
-        // read by Claude when its REPL reaches the input prompt (PTY buffering).
+        // Attaching to a live tmux session — agent is already running.
+        // Mark ready immediately and flush via send-keys.
         attachingToTmuxRef.current = false;
         runtimeAgentsRef.current[sessionId].ready = true;
-        relay.sendRawStdin(sessionId, btoa(deferredText + "\n"));
+        if (tmuxName) {
+          relay.sendRawStdin(sessionId, btoa(sendKeysFlush(tmuxName, deferredText)));
+        } else {
+          relay.sendRawStdin(sessionId, btoa(deferredText + "\n"));
+        }
       } else {
         pendingQueueRef.current[sessionId] = [deferredText];
         setTimeout(() => {
@@ -986,7 +991,11 @@ export default function Chat() {
             s.ready = true;
             const queue = pendingQueueRef.current[sessionId] ?? [];
             delete pendingQueueRef.current[sessionId];
-            for (const q of queue) relay.sendRawStdin(sessionId, btoa(q + "\n"));
+            const name = conversations.find(c => c.id === activeConvIdRef.current)?.tmux_session_name;
+            for (const q of queue) {
+              if (name) relay.sendRawStdin(sessionId, btoa(sendKeysFlush(name, q)));
+              else relay.sendRawStdin(sessionId, btoa(q + "\n"));
+            }
           }
         }, 20_000);
       }
@@ -1423,8 +1432,8 @@ export default function Chat() {
     }
   }, [selectedDeviceId, relay]);
 
-  // ── Race-safe tmux session name allocator for Claude ─────────────────────
-  const ensureClaudeTmuxSession = useCallback(async (convId: string): Promise<string> => {
+  // ── Race-safe tmux session name allocator (Claude: cc-, Codex: cx-) ────────
+  const ensureTmuxSession = useCallback(async (convId: string, prefix: string): Promise<string> => {
     const { data: row } = await supabase
       .from("chat_conversations")
       .select("tmux_session_name")
@@ -1432,7 +1441,7 @@ export default function Chat() {
       .single();
     if (row?.tmux_session_name) return row.tmux_session_name;
 
-    const name = `cc-${convId.replace(/-/g, "").substring(0, 8)}`;
+    const name = `${prefix}${convId.replace(/-/g, "").substring(0, 8)}`;
     const { data: updated } = await supabase
       .from("chat_conversations")
       .update({ tmux_session_name: name })
@@ -1505,25 +1514,30 @@ export default function Chat() {
     }
 
     // ── REPL spawn model for Codex + Claude ──────────────────────────────
-    // The PTY is the session. We spawn the REPL once; subsequent messages
-    // are sent as raw stdin after the readiness banner is detected.
+    // The PTY is the command channel. We spawn the REPL once via tmux; subsequent
+    // messages are delivered via tmux send-keys on that same PTY.
     const sessionId = relay.getSessionId();
+    const tmuxCheck = `command -v tmux >/dev/null 2>&1 || { echo 'TMUX_NOT_FOUND'; exit 1; }`;
+
+    // Helper: build the send-keys command for a message
+    const sendKeysCmd = (name: string, msg: string) =>
+      `tmux send-keys -t ${name} ${shellEscape(msg)} && sleep 1 && tmux send-keys -t ${name} '' Enter`;
 
     if (conv.agent === "codex") {
       const modelPart = modelFlag ? ` --model ${selectedModel}` : "";
-      const codexBase = `codex --skip-git-repo-check${modelPart}`;
+      const tmuxName = await ensureTmuxSession(convId, "cx-");
+
       if (!sessionId) {
-        // No PTY yet — store the first message so onChunkActivity can queue it
-        // once the sessionId is established (structured ref avoids stale state).
+        // No PTY yet — store the first message so onChunkActivity can flush it
         deferredFirstMsgRef.current = { agent: "codex", text };
-        return `${codexBase}\n`;
+        console.log("[REPL] Spawning Codex in new tmux session:", tmuxName);
+        return `${tmuxCheck} && tmux new-session -d -s ${tmuxName} codex${modelPart} && sleep 1 && tmux send-keys -t ${tmuxName} Enter ""\n`;
       }
       const state = runtimeAgentsRef.current[sessionId];
       if (!state) {
-        // First message on this PTY — register, queue first message, and spawn
+        // First message on this PTY — register, queue, start tmux session
         runtimeAgentsRef.current[sessionId] = { agent: "codex", ready: false };
         pendingQueueRef.current[sessionId] = [text];
-        // Fallback: if readiness banner never arrives within 20s, force-flush pending queue
         setTimeout(() => {
           const s = runtimeAgentsRef.current[sessionId];
           if (s && !s.ready) {
@@ -1532,45 +1546,40 @@ export default function Chat() {
             const queue = pendingQueueRef.current[sessionId] ?? [];
             delete pendingQueueRef.current[sessionId];
             for (const queuedText of queue) {
-              relay.sendRawStdin(sessionId, btoa(queuedText + "\n"));
+              relay.sendRawStdin(sessionId, btoa(sendKeysCmd(tmuxName, queuedText) + "\n"));
             }
           }
         }, 20_000);
-        return `${codexBase}\n`;
+        console.log("[REPL] Spawning Codex in new tmux session (PTY exists):", tmuxName);
+        return `${tmuxCheck} && tmux new-session -d -s ${tmuxName} codex${modelPart} && sleep 1 && tmux send-keys -t ${tmuxName} Enter ""\n`;
       }
       if (!state.ready) {
-        // REPL booting — queue for flush on readiness
         pendingQueueRef.current[sessionId] = [...(pendingQueueRef.current[sessionId] ?? []), text];
         return "";
       }
-      // REPL ready — send as stdin
-      return text + "\n";
+      // REPL ready — deliver via send-keys
+      return sendKeysCmd(tmuxName, text) + "\n";
     }
 
     if (conv.agent === "claude") {
       const modelPart = modelFlag ? ` ${modelFlag}` : "";
       const resumeFlag = conv.claude_session_id ? ` --resume ${conv.claude_session_id}` : "";
-      const tmuxName = await ensureClaudeTmuxSession(convId);
-      const tmuxCheck = `command -v tmux >/dev/null 2>&1 || { echo 'TMUX_NOT_FOUND'; exit 1; }`;
+      const tmuxName = await ensureTmuxSession(convId, "cc-");
 
       if (!sessionId) {
-        // No PTY yet — defer first message (agent stored to avoid stale state race)
+        // No PTY yet — defer first message
         deferredFirstMsgRef.current = { agent: "claude", text };
 
         if (conv.tmux_session_name) {
-          // Resume path — probe liveness, attach if alive, spawn fresh if dead.
-          // attachingToTmuxRef enables fast-path ready in onChunkActivity on live attach.
-          // If tmux is dead and the fallback spawns fresh, the flag being true is still
-          // safe: the first message sits in PTY stdin buffer and is read when Claude's
-          // REPL reaches its input prompt.
+          // Resume path — probe liveness, attach if alive, spawn fresh if dead
           attachingToTmuxRef.current = true;
-          const spawnFresh = `tmux new-session -d -s ${tmuxName} -x 220 -y 50 && tmux send-keys -t ${tmuxName} 'claude${resumeFlag}${modelPart}' Enter && tmux attach -t ${tmuxName}`;
+          const spawnFresh = `tmux new-session -d -s ${tmuxName} claude${resumeFlag}${modelPart} && sleep 1 && tmux send-keys -t ${tmuxName} Enter ""`;
           console.log("[REPL] Resuming Claude tmux session:", tmuxName);
           return `${tmuxCheck} && (tmux has-session -t ${tmuxName} 2>/dev/null && tmux send-keys -t ${tmuxName} '' Enter && tmux attach -t ${tmuxName} || (${spawnFresh}))\n`;
         } else {
-          // First-time path — fresh spawn, no flag. Banner detection handles readiness.
+          // First-time path — fresh spawn
           console.log("[REPL] Spawning Claude in new tmux session:", tmuxName);
-          return `${tmuxCheck} && tmux new-session -d -s ${tmuxName} -x 220 -y 50 && tmux send-keys -t ${tmuxName} 'claude${modelPart}' Enter && tmux attach -t ${tmuxName}\n`;
+          return `${tmuxCheck} && tmux new-session -d -s ${tmuxName} claude${modelPart} && sleep 1 && tmux send-keys -t ${tmuxName} Enter ""\n`;
         }
       }
       const state = runtimeAgentsRef.current[sessionId];
@@ -1578,7 +1587,6 @@ export default function Chat() {
         // PTY exists but no runtime state yet — first message on this PTY
         runtimeAgentsRef.current[sessionId] = { agent: "claude", ready: false };
         pendingQueueRef.current[sessionId] = [text];
-        // Boot timeout parity with Codex — flush queue if banner never arrives
         setTimeout(() => {
           const s = runtimeAgentsRef.current[sessionId];
           if (s && !s.ready) {
@@ -1587,22 +1595,24 @@ export default function Chat() {
             const queue = pendingQueueRef.current[sessionId] ?? [];
             delete pendingQueueRef.current[sessionId];
             for (const queuedText of queue) {
-              relay.sendRawStdin(sessionId, btoa(queuedText + "\n"));
+              relay.sendRawStdin(sessionId, btoa(sendKeysCmd(tmuxName, queuedText) + "\n"));
             }
           }
         }, 20_000);
-        return `claude${resumeFlag}${modelPart}\n`;
+        console.log("[REPL] Spawning Claude in new tmux session (PTY exists):", tmuxName);
+        return `${tmuxCheck} && tmux new-session -d -s ${tmuxName} claude${modelPart} && sleep 1 && tmux send-keys -t ${tmuxName} Enter ""\n`;
       }
       if (!state.ready) {
         pendingQueueRef.current[sessionId] = [...(pendingQueueRef.current[sessionId] ?? []), text];
         return "";
       }
-      return text + "\n";
+      // REPL ready — deliver via send-keys
+      return sendKeysCmd(tmuxName, text) + "\n";
     }
 
     // Fallback (should not reach here for known agents)
     return `${conv.agent} ${shellEscape(text)}\n`;
-  }, [relay]);
+  }, [relay, ensureTmuxSession]);
 
 
   // ── Parse Claude/Claude Code session id from stdout ─────────────────
