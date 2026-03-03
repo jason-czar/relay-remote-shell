@@ -16,7 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Send, ChevronDown, Paperclip, X, FileText, Image, Plus, Monitor, Terminal, Loader2, WifiOff, Square, Mic, ArrowUp, RefreshCw, SquarePen, FolderOpen, GitFork, ChevronRight, Home, Eye, EyeOff, KeyRound, Code2 } from "lucide-react";
+import { Send, ChevronDown, ChevronUp, Paperclip, X, FileText, Image, Plus, Monitor, Terminal, Loader2, WifiOff, Square, Mic, ArrowUp, RefreshCw, SquarePen, FolderOpen, GitFork, ChevronRight, Home, Eye, EyeOff, KeyRound, Code2 } from "lucide-react";
 import { PreviewPanel } from "@/components/PreviewPanel";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -718,6 +718,7 @@ export default function Chat() {
   const terminalDragRef = useRef<{ startY: number; startH: number } | null>(null);
   const drawerTerminalRef = useRef<EmbeddedTerminalHandle>(null);
   const [connectorOffline, setConnectorOffline] = useState(false);
+  const [expandedScrollback, setExpandedScrollback] = useState<Set<number>>(new Set());
   const [showWizard, setShowWizard] = useState(false);
   const [projectId, setProjectId] = useState<string>("");
   const [relayStatus, setRelayStatus] = useState<"idle" | "connecting" | "retrying" | "failed">("idle");
@@ -3020,17 +3021,46 @@ export default function Chat() {
               <div className="space-y-1">
                 {messages.map((msg, i) =>
                 <div key={msg.id ?? i} className="animate-fade-in">
-                    {msg.type === "scrollback_replay" ? (
-                      <div className="max-w-[900px] mx-auto px-3 sm:px-6 py-2">
-                        <div className="rounded-lg border border-border/30 bg-muted/30 px-4 py-3 text-xs">
-                          <div className="flex items-center gap-2 mb-2 text-muted-foreground/70 font-medium">
-                            <RefreshCw className="h-3 w-3" />
-                            <span>Session resumed — output since last disconnect:</span>
+                    {msg.type === "scrollback_replay" ? (() => {
+                      const rawText = msg.content.replace(/^\*\*Session resumed\*\*.*?```\n?/s, "").replace(/\n?```$/, "");
+                      const allLines = rawText.split("\n");
+                      const PREVIEW_LINES = 50;
+                      const isExpanded = expandedScrollback.has(i);
+                      const visibleLines = isExpanded ? allLines : allLines.slice(-PREVIEW_LINES);
+                      const truncated = !isExpanded && allLines.length > PREVIEW_LINES;
+                      return (
+                        <div className="max-w-[900px] mx-auto px-3 sm:px-6 py-2">
+                          <div className="rounded-lg border border-border/30 bg-muted/30 px-4 py-3 text-xs">
+                            <div className="flex items-center gap-2 mb-2 text-muted-foreground/70 font-medium">
+                              <RefreshCw className="h-3 w-3" />
+                              <span>Session resumed — output since last disconnect:</span>
+                              {truncated && (
+                                <span className="ml-auto text-muted-foreground/50 text-[10px]">{allLines.length - PREVIEW_LINES} lines hidden</span>
+                              )}
+                            </div>
+                            <pre className="whitespace-pre-wrap font-mono text-[11px] text-muted-foreground/60 max-h-[300px] overflow-y-auto">{visibleLines.join("\n")}</pre>
+                            {truncated && (
+                              <button
+                                onClick={() => setExpandedScrollback(prev => new Set([...prev, i]))}
+                                className="mt-2 flex items-center gap-1 text-[10px] text-muted-foreground/60 hover:text-foreground transition-colors"
+                              >
+                                <ChevronDown className="h-3 w-3" />
+                                Show full output ({allLines.length} lines)
+                              </button>
+                            )}
+                            {isExpanded && allLines.length > PREVIEW_LINES && (
+                              <button
+                                onClick={() => setExpandedScrollback(prev => { const n = new Set(prev); n.delete(i); return n; })}
+                                className="mt-2 flex items-center gap-1 text-[10px] text-muted-foreground/60 hover:text-foreground transition-colors"
+                              >
+                                <ChevronUp className="h-3 w-3" />
+                                Show less
+                              </button>
+                            )}
                           </div>
-                          <pre className="whitespace-pre-wrap font-mono text-[11px] text-muted-foreground/60 max-h-[200px] overflow-y-auto">{msg.content.replace(/^\*\*Session resumed\*\*.*?```\n?/s, "").replace(/\n?```$/, "")}</pre>
                         </div>
-                      </div>
-                    ) : (
+                      );
+                    })() : (
                     <ChatMessage
                     role={msg.role}
                     content={msg.content}
