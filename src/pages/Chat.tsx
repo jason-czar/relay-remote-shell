@@ -1536,6 +1536,8 @@ export default function Chat() {
       // Strip ANSI / terminal escape codes comprehensively
       const stripAnsi = (s: string) =>
       s.
+      // Clear-screen / erase-display sequences (ESC[2J, ESC[3J, ESC[H etc.) — strip wholesale
+      replace(/\x1b\[\d*[JKH]/g, "").
       // OSC sequences: ESC ] ... BEL or ESC \
       replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, "").
       // Cursor-forward (ESC [ n C) used by Claude Code as word spacing → replace with space
@@ -1781,6 +1783,8 @@ export default function Chat() {
               if (/^\?2004[hl]$/.test(t)) return false;
               // Skip raw JSON lines (stream-json noise if JSONL parser above missed them)
               if (t.startsWith("{") && t.endsWith("}")) return false;
+              // Skip lines that are purely Unicode block/box-drawing characters (Claude Code startup logo)
+              if (/^[\u2580-\u259F\u2500-\u257F\s]+$/.test(t)) return false;
               return true;
             }).
             join("\n").
@@ -2153,7 +2157,8 @@ export default function Chat() {
       addJob(jobConvId);
       (async () => {
         const stripAnsi = (s: string) =>
-        s.replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, "").
+        s.replace(/\x1b\[\d*[JKH]/g, "").
+        replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, "").
         replace(/\x1b\[(\d+)C/g, (_, n) => " ".repeat(Math.min(Number(n), 4))).
         replace(/\x1b\[[\x30-\x3f]*[\x20-\x2f]*[\x40-\x7e]/g, "").
         replace(/\x1b[PX^_].*?\x1b\\/g, "").
