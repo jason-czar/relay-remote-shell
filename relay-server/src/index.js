@@ -668,14 +668,9 @@ browserWSS.on("connection", (ws) => {
         sessionGraceTimers.delete(sessionId);
         console.log(`[browser] session ${sessionId.slice(0, 8)} grace expired — ending`);
 
-        // Notify connector the session is over
-        const connectorWs = connectors.get(deviceId);
-        if (connectorWs?.readyState === 1) {
-          send(connectorWs, {
-            type: "session_end",
-            data: { session_id: sessionId, reason: "browser_disconnected" },
-          });
-        }
+        // NOTE: Do NOT send session_end to the connector on browser disconnect.
+        // The PTY should keep running so the user can resume after navigating away.
+        // The connector will clean up naturally if it restarts or the user explicitly exits.
 
         await saveRecording(sessionId);
 

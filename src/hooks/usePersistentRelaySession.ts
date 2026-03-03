@@ -13,6 +13,10 @@
 import { useRef, useCallback, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
+// Module-level dedup map: prevents concurrent ensureSessionId calls for the same
+// device from all firing start-session simultaneously (e.g. multiple components mounting).
+const inflightSessions = new Map<string, Promise<string | null>>();
+
 const RELAY_URL = import.meta.env.VITE_RELAY_URL || "wss://relay.privaclaw.com";
 const SILENCE_MS = 8000;
 const RELAY_TIMEOUT_MS = 90000;
@@ -143,44 +147,53 @@ export function usePersistentRelaySession() {
 
   // ── Ensure we have a session ID for this device ──────────────────────────
   const ensureSessionId = useCallback(async (deviceId: string): Promise<string | null> => {
-    // Reuse existing session for same device
-    if (sessionIdRef.current && deviceIdRef.current === deviceId) {
-      // Verify it's still active in DB
-      const { data } = await supabase.from("sessions").select("id, status")
-        .eq("id", sessionIdRef.current).single();
-      if (data?.status === "active") {
-        lastSessionCreatedRef.current = false;
-        return sessionIdRef.current;
-      }
-      // Session ended — fall through to find/create a new one
-      sessionIdRef.current = null;
-    }
+    // Deduplicate concurrent calls for the same device
+    const inflight = inflightSessions.get(deviceId);
+    if (inflight) return inflight;
 
-    // Try any active session for this device
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      const { data: active } = await supabase.from("sessions").select("id")
-        .eq("device_id", deviceId).eq("user_id", user.id).eq("status", "active")
-        .order("started_at", { ascending: false }).limit(1);
-      if (active?.length) {
-        sessionIdRef.current = active[0].id;
+    const promise = (async (): Promise<string | null> => {
+      try {
+        // Reuse existing session for same device
+        if (sessionIdRef.current && deviceIdRef.current === deviceId) {
+          const { data } = await supabase.from("sessions").select("id, status")
+            .eq("id", sessionIdRef.current).single();
+          if (data?.status === "active") {
+            lastSessionCreatedRef.current = false;
+            return sessionIdRef.current;
+          }
+          // Session ended — fall through to find/create a new one
+          sessionIdRef.current = null;
+        }
+
+        // Try any active session for this device (don't filter by user_id — it may be null for older rows)
+        const { data: active } = await supabase.from("sessions").select("id")
+          .eq("device_id", deviceId).eq("status", "active")
+          .order("started_at", { ascending: false }).limit(1);
+        if (active?.length) {
+          sessionIdRef.current = active[0].id;
+          deviceIdRef.current = deviceId;
+          lastSessionCreatedRef.current = false;
+          mirrorSessionId(deviceId, active[0].id, convIdRef.current);
+          return active[0].id;
+        }
+
+        // Create a fresh session
+        const { data: sesData, error } = await supabase.functions.invoke("start-session", {
+          body: { device_id: deviceId },
+        });
+        if (error || !sesData?.session_id) return null;
+        sessionIdRef.current = sesData.session_id;
         deviceIdRef.current = deviceId;
-        lastSessionCreatedRef.current = false;
-        mirrorSessionId(deviceId, active[0].id, convIdRef.current);
-        return active[0].id;
+        lastSessionCreatedRef.current = true;
+        mirrorSessionId(deviceId, sesData.session_id, convIdRef.current);
+        return sesData.session_id;
+      } finally {
+        inflightSessions.delete(deviceId);
       }
-    }
+    })();
 
-    // Create a fresh session
-    const { data: sesData, error } = await supabase.functions.invoke("start-session", {
-      body: { device_id: deviceId },
-    });
-    if (error || !sesData?.session_id) return null;
-    sessionIdRef.current = sesData.session_id;
-    deviceIdRef.current = deviceId;
-    lastSessionCreatedRef.current = true;
-    mirrorSessionId(deviceId, sesData.session_id, convIdRef.current);
-    return sesData.session_id;
+    inflightSessions.set(deviceId, promise);
+    return promise;
   }, []);
 
   // ── Run one command over a fresh WS, resuming the existing PTY ───────────
