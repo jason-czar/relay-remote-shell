@@ -2584,7 +2584,7 @@ export default function Chat() {
 
           {/* Top header bar */}
           <div
-                className="sticky top-0 z-20 shrink-0 border-b border-border/10 flex items-center px-5 relative backdrop-blur-md bg-background/80"
+                className="absolute top-0 left-0 right-0 z-20 border-b border-border/10 flex items-center px-5 relative backdrop-blur-md bg-background/80"
                 style={{ paddingTop: 'env(safe-area-inset-top, 0px)', minHeight: 'calc(env(safe-area-inset-top, 0px) + 64px)' }}>
 
             {/* Left — sidebar trigger */}
@@ -3028,7 +3028,7 @@ export default function Chat() {
               </button>
             </div>
                 }
-          <div ref={scrollRef} onScroll={handleScroll} className={`flex-1 overflow-y-auto ${messages.length === 0 && !thinking ? "flex items-center justify-center" : "py-8 sm:py-10"}`}>
+          <div ref={scrollRef} onScroll={handleScroll} className={`flex-1 overflow-y-auto ${messages.length === 0 && !thinking ? "flex items-center justify-center pt-16" : "pt-20 pb-8 sm:pb-10"}`}>
             <div key={activeConvId ?? "new"} className="max-w-[900px] mx-auto px-4 sm:px-8 animate-fade-in">
               {messages.length === 0 && !thinking &&
                     <div className="flex flex-col items-center justify-center min-h-[70vh] sm:min-h-[80vh] text-center">
