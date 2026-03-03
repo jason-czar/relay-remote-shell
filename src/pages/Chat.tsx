@@ -2867,15 +2867,13 @@ export default function Chat() {
                   <PopoverTrigger asChild>
                     <button
                         className={cn(
-                          "hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium transition-colors",
+                          "hidden sm:flex items-center justify-center w-8 h-8 rounded-full text-xs font-medium transition-colors",
                           showPreview ? "bg-primary/10 text-primary" : "text-foreground/50 hover:text-foreground hover:bg-accent"
                         )}
-                        title="Live preview">
-                        
+                        title={showPreview ? `Live preview · :${previewInputPort}` : "Live preview"}>
                       {previewAutoDetecting ?
                         <Loader2 className="h-3.5 w-3.5 animate-spin" /> :
                         <Monitor className="h-3.5 w-3.5" />}
-                      <span>{showPreview ? `Preview · :${previewInputPort}` : "Preview"}</span>
                     </button>
                   </PopoverTrigger>
                   <PopoverContent side="bottom" align="end" className="w-64 p-3">
