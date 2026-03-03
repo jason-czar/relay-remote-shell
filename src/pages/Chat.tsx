@@ -741,6 +741,8 @@ export default function Chat() {
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
   const [showTerminalDrawer, setShowTerminalDrawer] = useState(true);
+  const [chatView, setChatView] = useState<"chat" | "terminal">("chat");
+  const chatTerminalRef = useRef<EmbeddedTerminalHandle>(null);
   const [terminalDrawerHeight, setTerminalDrawerHeight] = useState(380);
   const [drawerInitCmd, setDrawerInitCmd] = useState<string | null>(null);
   const [shellInitCmd, setShellInitCmd] = useState<string | null>(null);
@@ -3448,6 +3450,26 @@ export default function Chat() {
             </div>
               }
 
+          {/* Chat/Terminal inline view — shown above composer when terminal tab active */}
+          {agent !== "terminal" && chatView === "terminal" && selectedDeviceId && (() => {
+            const tmuxName = conversations.find(c => c.id === activeConvId)?.tmux_session_name;
+            const agentBin = agent === "codex" ? "codex" : "claude";
+            const initCmd = tmuxName
+              ? `tmux new-session -d -s ${tmuxName} ${agentBin} 2>/dev/null; tmux send-keys -t ${tmuxName} '' Enter; tmux attach -t ${tmuxName}`
+              : `tmux new-session -d -s chat-${activeConvId?.slice(0,8) ?? "new"} ${agentBin} && sleep 1 && tmux send-keys -t chat-${activeConvId?.slice(0,8) ?? "new"} '' Enter && tmux attach -t chat-${activeConvId?.slice(0,8) ?? "new"}`;
+            return (
+              <div className="flex-1 min-h-0 overflow-hidden border-t border-border/20">
+                <EmbeddedTerminal
+                  ref={chatTerminalRef}
+                  deviceId={selectedDeviceId}
+                  convId={activeConvId ? `${activeConvId}-chatterminal` : null}
+                  initialCommand={initCmd}
+                  onConnectorDisconnected={() => setConnectorOffline(true)}
+                  onConnectorReconnected={() => setConnectorOffline(false)} />
+              </div>
+            );
+          })()}
+
           {/* Floating composer — hidden in terminal mode */}
           {agent !== "terminal" &&
               <div className="sticky bottom-0 z-20 shrink-0 pt-2 backdrop-blur-md bg-background/80 border-t border-border/10" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 1rem)' }}>
@@ -3561,7 +3583,35 @@ export default function Chat() {
                 </div>
                     }
 
-              <ComposerBox
+              {/* Chat / Terminal view toggle */}
+              <div className="flex items-center gap-1 mb-3">
+                <button
+                  onClick={() => setChatView("chat")}
+                  className={cn(
+                    "flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium transition-colors",
+                    chatView === "chat"
+                      ? "bg-foreground text-background"
+                      : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                  )}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                  Chat
+                </button>
+                <button
+                  onClick={() => setChatView("terminal")}
+                  className={cn(
+                    "flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium transition-colors",
+                    chatView === "terminal"
+                      ? "bg-foreground text-background"
+                      : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                  )}>
+                  <Terminal size={13} />
+                  Terminal
+                </button>
+              </div>
+
+              {chatView === "chat" ? (
+                <>
+                  <ComposerBox
                       textareaRef={textareaRef}
                       fileInputRef={fileInputRef}
                       onPreview={() => showPreview ? (setShowPreview(false), setPreviewUrl("")) : handleOpenPreview()}
@@ -3590,10 +3640,11 @@ export default function Chat() {
                         }
                       }}
                       deviceId={selectedDeviceId ?? null} />
-
-              <p className="hidden sm:block text-center text-[10px] text-muted-foreground/40 mt-2 select-none whitespace-nowrap">
-                Enter to send · Shift+Enter for newline · <span className="font-mono">/</span> for commands
-              </p>
+                  <p className="hidden sm:block text-center text-[10px] text-muted-foreground/40 mt-2 select-none whitespace-nowrap">
+                    Enter to send · Shift+Enter for newline · <span className="font-mono">/</span> for commands
+                  </p>
+                </>
+              ) : null}
             </div>
             </div>{/* end max-w centering wrapper */}
           </div>
