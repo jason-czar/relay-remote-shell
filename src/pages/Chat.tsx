@@ -3609,7 +3609,9 @@ export default function Chat() {
                 </button>
               </div>
 
-              {chatView === "chat" && <ComposerBox
+              {chatView === "chat" ? (
+                <>
+                  <ComposerBox
                       textareaRef={textareaRef}
                       fileInputRef={fileInputRef}
                       onPreview={() => showPreview ? (setShowPreview(false), setPreviewUrl("")) : handleOpenPreview()}
@@ -3638,10 +3640,11 @@ export default function Chat() {
                         }
                       }}
                       deviceId={selectedDeviceId ?? null} />
-
-              <p className="hidden sm:block text-center text-[10px] text-muted-foreground/40 mt-2 select-none whitespace-nowrap">
-                Enter to send · Shift+Enter for newline · <span className="font-mono">/</span> for commands
-              </p>
+                  <p className="hidden sm:block text-center text-[10px] text-muted-foreground/40 mt-2 select-none whitespace-nowrap">
+                    Enter to send · Shift+Enter for newline · <span className="font-mono">/</span> for commands
+                  </p>
+                </>
+              ) : null}
             </div>
             </div>{/* end max-w centering wrapper */}
           </div>
