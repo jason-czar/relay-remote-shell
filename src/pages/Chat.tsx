@@ -1608,25 +1608,34 @@ export default function Chat() {
   // ── Parse Claude/Claude Code session id from stdout ─────────────────
   // Claude emits the session ID in several formats depending on mode:
   //   Interactive REPL first launch : "Session ID: <uuid>" or standalone UUID line
-  //   Interactive REPL resume       : "Restored session: <id>"
+  //   Interactive REPL resume       : "Restored session: <id>"  (most reliable)
   //   stream-json mode              : {"type":"result","session_id":"<id>",...}
+  //   Post-response prompt noise    : "> <uuid>" or ANSI-wrapped UUID line
   // UUID regex: standard 8-4-4-4-12 hex format.
   const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+  // Strip ANSI/OSC escape sequences for clean line matching
+  const stripAnsiForSession = (s: string) =>
+    s.replace(/\x1b\[[0-9;?<>!]*[a-zA-Z]/g, "")
+     .replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, "")
+     .replace(/\x1b[()][A-Z0-9]/g, "")
+     .replace(/[\x00-\x08\x0b-\x0c\x0e-\x1f\x7f]/g, "");
   const extractClaudeSessionId = (stdout: string): string | null => {
     // 0a. REPL resume banner: "Restored session: <uuid-or-id>"
     const restored = stdout.match(/Restored session:\s*([a-z0-9-]+)/i);
     if (restored) {console.log("[REPL] Claude session ID captured (resume banner):", restored[1]);return restored[1];}
 
-    // 0b. First-launch banner variants:
+    // 0b. First-launch and context-window banner variants:
     //   "Session ID: <uuid>"  /  "session: <uuid>"  /  "New session: <uuid>"
-    const sessionLabel = stdout.match(/(?:New session|Session(?:\s+ID)?)\s*:\s*([a-z0-9-]+)/i);
+    //   "Context: <uuid>"  /  "context_id: <uuid>"
+    const sessionLabel = stdout.match(/(?:New session|Session(?:\s+ID)?|Context(?:\s+id)?|context_id)\s*:\s*([a-z0-9-]+)/i);
     if (sessionLabel) {console.log("[REPL] Claude session ID captured (session label):", sessionLabel[1]);return sessionLabel[1];}
 
-    // 0c. Bare UUID on its own line (Claude sometimes prints just the UUID)
+    // 0c. UUID on its own line, tolerating ANSI noise and leading prompt chars ("> <uuid>")
     for (const line of stdout.split("\n")) {
-      const t = line.trim();
+      // Strip ANSI then strip leading prompt chars: >, ✓, whitespace
+      const t = stripAnsiForSession(line).replace(/^[>\s✓•·]+/, "").trim();
       if (UUID_RE.test(t) && t.replace(UUID_RE, "").trim() === "") {
-        console.log("[REPL] Claude session ID captured (bare UUID line):", t);
+        console.log("[REPL] Claude session ID captured (ANSI-stripped UUID line):", t);
         return t;
       }
     }
