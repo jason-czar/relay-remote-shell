@@ -743,6 +743,9 @@ export default function Chat() {
   const [showTerminalDrawer, setShowTerminalDrawer] = useState(false);
   const [terminalDrawerHeight, setTerminalDrawerHeight] = useState(380);
   const [drawerInitCmd, setDrawerInitCmd] = useState<string | null>(null);
+  const [shellInitCmd, setShellInitCmd] = useState<string | null>(null);
+  // Pre-generated tmux session name for the upcoming new conversation
+  const pendingTmuxNameRef = useRef<string | null>(null);
   const terminalDragRef = useRef<{startY: number;startH: number;} | null>(null);
   const drawerTerminalRef = useRef<EmbeddedTerminalHandle>(null);
   const agentTerminalRef = useRef<EmbeddedTerminalHandle>(null);
