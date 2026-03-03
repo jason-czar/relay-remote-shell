@@ -745,6 +745,7 @@ export default function Chat() {
   const [drawerInitCmd, setDrawerInitCmd] = useState<string | null>(null);
   const terminalDragRef = useRef<{startY: number;startH: number;} | null>(null);
   const drawerTerminalRef = useRef<EmbeddedTerminalHandle>(null);
+  const agentTerminalRef = useRef<EmbeddedTerminalHandle>(null);
   const [connectorOffline, setConnectorOffline] = useState(false);
   const [expandedScrollback, setExpandedScrollback] = useState<Set<number>>(new Set());
   const [showWizard, setShowWizard] = useState(false);
@@ -3539,7 +3540,9 @@ export default function Chat() {
               } {/* end agent !== terminal */}
 
           {/* ── Bottom Terminal Drawer — in normal flow so composer stays visible ── */}
-          {showTerminalDrawer && selectedDeviceId && agent !== "terminal" &&
+          {showTerminalDrawer && selectedDeviceId && agent !== "terminal" && (() => {
+            const activeConvTmuxName = conversations.find(c => c.id === activeConvId)?.tmux_session_name ?? null;
+            return (
               <div
                 className="relative shrink-0 flex flex-col border-t border-border/40 bg-background"
                 style={{ height: terminalDrawerHeight }}>
@@ -3606,19 +3609,48 @@ export default function Chat() {
                 </button>
               </div>
 
-              {/* Terminal itself */}
-              <div className="flex-1 min-h-0 overflow-hidden">
-                <EmbeddedTerminal
-                    ref={drawerTerminalRef}
-                    deviceId={selectedDeviceId}
-                    convId={activeConvId}
-                    initialCommand={drawerInitCmd}
-                    onConnectorDisconnected={() => setConnectorOffline(true)}
-                    onConnectorReconnected={() => setConnectorOffline(false)} />
-                  
+              {/* Split terminal body — left: main PTY, right: agent tmux */}
+              <div className="flex-1 min-h-0 flex overflow-hidden">
+                {/* Left: main shell PTY */}
+                <div className="flex-1 min-w-0 flex flex-col overflow-hidden border-r border-border/30">
+                  <div className="flex items-center gap-1.5 px-3 py-1 shrink-0 border-b border-border/20 bg-background/60">
+                    <Terminal className="h-3 w-3 text-muted-foreground/60" />
+                    <span className="text-[10px] font-medium text-muted-foreground/60 uppercase tracking-wider">Shell</span>
+                  </div>
+                  <div className="flex-1 min-h-0 overflow-hidden">
+                    <EmbeddedTerminal
+                        ref={drawerTerminalRef}
+                        deviceId={selectedDeviceId}
+                        convId={activeConvId}
+                        onConnectorDisconnected={() => setConnectorOffline(true)}
+                        onConnectorReconnected={() => setConnectorOffline(false)} />
+                  </div>
+                </div>
+                {/* Right: agent tmux session */}
+                <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
+                  <div className="flex items-center gap-1.5 px-3 py-1 shrink-0 border-b border-border/20 bg-background/60">
+                    <Code2 className="h-3 w-3 text-muted-foreground/60" />
+                    <span className="text-[10px] font-medium text-muted-foreground/60 uppercase tracking-wider">Agent</span>
+                    {activeConvTmuxName && <span className="font-mono text-[9px] text-muted-foreground/40 ml-0.5">{activeConvTmuxName}</span>}
+                  </div>
+                  <div className="flex-1 min-h-0 overflow-hidden">
+                    {activeConvTmuxName && selectedDeviceId ? (
+                      <EmbeddedTerminal
+                          ref={agentTerminalRef}
+                          deviceId={selectedDeviceId}
+                          convId={activeConvId ? `${activeConvId}-agent` : null}
+                          initialCommand={`tmux attach -t ${activeConvTmuxName}`} />
+                    ) : (
+                      <div className="flex items-center justify-center h-full text-muted-foreground/30 text-xs">
+                        No agent session active
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
-              }
+            );
+          })()}
 
         </div>
           </ResizablePanel>
