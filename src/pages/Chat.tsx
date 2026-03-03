@@ -974,8 +974,18 @@ export default function Chat() {
       runtimeAgentsRef.current[sessionId] = { agent: deferredAgent, ready: false };
 
       const tmuxName = conversations.find(c => c.id === activeConvIdRef.current)?.tmux_session_name;
-      const sendKeysFlush = (name: string, msg: string) =>
-        `tmux send-keys -t ${name} '${msg.replace(/'/g, `'\\''`)}' && sleep 1 && tmux send-keys -t ${name} '' Enter\n`;
+
+      // Shell-escape a string for use as a single-quoted tmux send-keys argument.
+      // Single-quote the whole thing; replace embedded single-quotes with '\''
+      const shellEscape = (s: string) => `'${s.replace(/'/g, `'\\''`)}'`;
+
+      // Send a message to a running tmux agent session via the shell PTY.
+      // Uses `tmux send-keys ... C-m` so the shell parses/executes it at a clean
+      // prompt boundary rather than injecting raw bytes into PTY stdin.
+      const sendViaTmux = (name: string, msg: string) =>
+        relay.sendCommand(selectedDeviceId, `tmux send-keys -t ${name} ${shellEscape(msg)} C-m`, {
+          onChunk: onChunkActivity,
+        });
 
       if (attachingToTmuxRef.current) {
         // Attaching to a live tmux session — agent is already running.
@@ -983,7 +993,7 @@ export default function Chat() {
         attachingToTmuxRef.current = false;
         runtimeAgentsRef.current[sessionId].ready = true;
         if (tmuxName) {
-          relay.sendRawStdin(sessionId, btoa(sendKeysFlush(tmuxName, deferredText)));
+          sendViaTmux(tmuxName, deferredText).catch(() => {});
         } else {
           relay.sendRawStdin(sessionId, btoa(deferredText + "\n"));
         }
@@ -998,7 +1008,7 @@ export default function Chat() {
             delete pendingQueueRef.current[sessionId];
             const name = conversations.find(c => c.id === activeConvIdRef.current)?.tmux_session_name;
             for (const q of queue) {
-              if (name) relay.sendRawStdin(sessionId, btoa(sendKeysFlush(name, q)));
+              if (name) sendViaTmux(name, q).catch(() => {});
               else relay.sendRawStdin(sessionId, btoa(q + "\n"));
             }
           }
@@ -1016,11 +1026,19 @@ export default function Chat() {
         const buf = liveLogAccRef.current;
         if (AGENT_READY_RE[state.agent].test(chunk) && !TRUST_BLOCK_RE.test(buf)) {
           state.ready = true;
-          // Flush any queued messages
+          // Flush any queued messages via tmux send-keys for clean shell delivery
           const queue = pendingQueueRef.current[sessionId] ?? [];
           delete pendingQueueRef.current[sessionId];
+          const name = conversations.find(c => c.id === activeConvIdRef.current)?.tmux_session_name;
+          const shellEsc = (s: string) => `'${s.replace(/'/g, `'\\''`)}'`;
           for (const queuedText of queue) {
-            relay.sendRawStdin(sessionId, btoa(queuedText + "\n"));
+            if (name) {
+              relay.sendCommand(selectedDeviceId, `tmux send-keys -t ${name} ${shellEsc(queuedText)} C-m`, {
+                onChunk: onChunkActivity,
+              }).catch(() => {});
+            } else {
+              relay.sendRawStdin(sessionId, btoa(queuedText + "\n"));
+            }
           }
         }
       }
