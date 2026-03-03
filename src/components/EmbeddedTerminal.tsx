@@ -53,6 +53,8 @@ export const EmbeddedTerminal = forwardRef<EmbeddedTerminalHandle, Props>(functi
   const onConnectorReconnectedRef = useRef(onConnectorReconnected);
   useEffect(() => { onConnectorDisconnectedRef.current = onConnectorDisconnected; }, [onConnectorDisconnected]);
   useEffect(() => { onConnectorReconnectedRef.current = onConnectorReconnected; }, [onConnectorReconnected]);
+  const initialCommandRef = useRef(initialCommand);
+  useEffect(() => { initialCommandRef.current = initialCommand; }, [initialCommand]);
 
   const [status, setStatus] = useState<"connecting" | "online" | "offline">("connecting");
   const [latency, setLatency] = useState<number | null>(null);
