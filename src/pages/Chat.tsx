@@ -1402,6 +1402,40 @@ export default function Chat() {
     }
   }, [selectedDeviceId, relay]);
 
+  // ── Race-safe tmux session name allocator for Claude ─────────────────────
+  const ensureClaudeTmuxSession = useCallback(async (convId: string): Promise<string> => {
+    const { data: row } = await supabase
+      .from("chat_conversations")
+      .select("tmux_session_name")
+      .eq("id", convId)
+      .single();
+    if (row?.tmux_session_name) return row.tmux_session_name;
+
+    const name = `cc-${convId.replace(/-/g, "").substring(0, 8)}`;
+    const { data: updated } = await supabase
+      .from("chat_conversations")
+      .update({ tmux_session_name: name })
+      .eq("id", convId)
+      .is("tmux_session_name", null)
+      .select("tmux_session_name");
+
+    let resolved: string;
+    if (updated && updated.length > 0) {
+      resolved = updated[0].tmux_session_name!;
+    } else {
+      const { data: final } = await supabase
+        .from("chat_conversations")
+        .select("tmux_session_name")
+        .eq("id", convId)
+        .single();
+      resolved = final?.tmux_session_name ?? name;
+    }
+    setConversations(prev => prev.map(c =>
+      c.id === convId ? { ...c, tmux_session_name: resolved } : c
+    ));
+    return resolved;
+  }, []);
+
   // ── Build command string (REPL spawn model for Codex + Claude) ───────────
   const buildCommand = useCallback(async (text: string, convId: string, selectedModel: string): Promise<string> => {
     const { data: conv } = await supabase.
