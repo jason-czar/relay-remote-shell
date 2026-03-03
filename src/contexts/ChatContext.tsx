@@ -366,7 +366,7 @@ print(json.dumps({'claude':read_sessions(h('~/.claude/sessions')),'codex':read_s
       // Refresh sidebar
       const { data } = await supabase
         .from("chat_conversations")
-        .select("id, title, agent, model, created_at, updated_at, device_id, claude_session_id, openclaw_session_id, devices(workdir, status)")
+        .select("id, title, agent, model, created_at, updated_at, device_id, claude_session_id, openclaw_session_id, tmux_session_name, devices(workdir, status)")
         .eq("user_id", user.id)
         .order("updated_at", { ascending: false });
       if (data) {
