@@ -1333,10 +1333,38 @@ export default function Chat() {
   }, []);
 
   // ── New conversation ──────────────────────────────────────────────────
+  // ── Build tmux spawn command for Shell panel ─────────────────────────────
+  const buildSpawnCmd = useCallback((agentType: "claude" | "codex", sessionName: string): string => {
+    if (agentType === "codex") {
+      return `tmux new-session -d -s ${sessionName} codex && sleep 1 && tmux send-keys -t ${sessionName} Enter ""`;
+    }
+    return `tmux new-session -d -s ${sessionName} claude && sleep 1 && tmux send-keys -t ${sessionName} Enter ""`;
+  }, []);
+
+  // ── Fire spawn command in the Shell panel ────────────────────────────────
+  const spawnAgentInShell = useCallback((agentType: "claude" | "codex") => {
+    const seed = crypto.randomUUID();
+    const prefix = agentType === "codex" ? "cx-" : "cc-";
+    const sessionName = `${prefix}${seed.replace(/-/g, "").substring(0, 8)}`;
+    pendingTmuxNameRef.current = sessionName;
+    const cmd = buildSpawnCmd(agentType, sessionName);
+    setShellInitCmd(cmd);
+    setShowTerminalDrawer(true);
+    setTimeout(() => {
+      drawerTerminalRef.current?.focus();
+      // Clear after use so re-opening drawer doesn't re-run the command
+      setTimeout(() => setShellInitCmd(null), 3000);
+    }, 150);
+  }, [buildSpawnCmd]);
+
   const createConversation = useCallback(async (firstMessage: string, agentType: "openclaw" | "claude" | "codex"): Promise<string | null> => {
     if (!user) return null;
     const title = firstMessage.slice(0, 40) + (firstMessage.length > 40 ? "…" : "");
     const openclaw_session_id = agentType === "openclaw" ? crypto.randomUUID() : null;
+    // Use the pre-generated tmux session name if available (set by spawnAgentInShell)
+    const tmux_session_name = (agentType === "claude" || agentType === "codex")
+      ? (pendingTmuxNameRef.current ?? null)
+      : null;
 
     const { data, error } = await supabase.
     from("chat_conversations").
@@ -1346,7 +1374,8 @@ export default function Chat() {
       agent: agentType,
       model,
       title,
-      openclaw_session_id
+      openclaw_session_id,
+      ...(tmux_session_name ? { tmux_session_name } : {})
     }).
     select("id, title, agent, model, created_at").
     single();
@@ -1355,6 +1384,7 @@ export default function Chat() {
       toast({ title: "Error", description: error?.message, variant: "destructive" });
       return null;
     }
+    pendingTmuxNameRef.current = null;
     setConversations((prev) => [data as import("@/contexts/ChatContext").Conversation, ...prev]);
     setActiveConvId(data.id);
     return data.id;
