@@ -33,6 +33,7 @@ interface SendOptions {
   onChunk?: (chunk: string) => void;
   onAwaitingInput?: (options: string[]) => void;
   onSessionReset?: (sessionId: string) => void;
+  onScrollback?: (text: string) => void;
 }
 
 function sessionKey(deviceId: string, convId: string | null) {
@@ -85,6 +86,7 @@ export function usePersistentRelaySession() {
   const onChunkRef = useRef<((chunk: string) => void) | null>(null);
   const onAwaitingInputRef = useRef<((options: string[]) => void) | null>(null);
   const onSessionResetRef = useRef<((sessionId: string) => void) | null>(null);
+  const onScrollbackRef = useRef<((text: string) => void) | null>(null);
   const finishRef = useRef<((result: string | Error) => void) | null>(null);
 
   const resetSilence = useCallback(() => {
@@ -190,6 +192,7 @@ export function usePersistentRelaySession() {
       onChunkRef.current = opts.onChunk ?? null;
       onAwaitingInputRef.current = opts.onAwaitingInput ?? null;
       onSessionResetRef.current = opts.onSessionReset ?? null;
+      onScrollbackRef.current = opts.onScrollback ?? null;
       statusRef.current = "busy";
 
       let settled = false;
@@ -285,14 +288,18 @@ export function usePersistentRelaySession() {
             // Scrollback on resume — PTY is alive, mark ready and add to prompt buffer
             markPtyReady();
             const d = (msg.data ?? {}) as { data_b64?: string; frames?: { d: string }[] };
+            let scrollbackText = "";
             if (d.data_b64) {
-              try { promptBuffer += decodeURIComponent(escape(atob(d.data_b64))); } catch { promptBuffer += atob(d.data_b64 ?? ""); }
+              try { scrollbackText += decodeURIComponent(escape(atob(d.data_b64))); } catch { scrollbackText += atob(d.data_b64 ?? ""); }
             }
             if (Array.isArray(d.frames)) {
               for (const frame of d.frames) {
-                try { promptBuffer += decodeURIComponent(escape(atob(frame.d))); } catch { promptBuffer += atob(frame.d ?? ""); }
+                try { scrollbackText += decodeURIComponent(escape(atob(frame.d))); } catch { scrollbackText += atob(frame.d ?? ""); }
               }
             }
+            promptBuffer += scrollbackText;
+            // Fire onScrollback so the chat can surface what happened while disconnected
+            if (scrollbackText.trim()) onScrollbackRef.current?.(scrollbackText);
             tryPrompt();
           } else if (msg.type === "session_end") {
             const reason = (msg.data as { reason?: string } | undefined)?.reason ?? "";
