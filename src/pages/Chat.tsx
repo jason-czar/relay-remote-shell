@@ -3028,7 +3028,7 @@ export default function Chat() {
               </button>
             </div>
                 }
-          <div ref={scrollRef} onScroll={handleScroll} className={`flex-1 overflow-y-auto ${messages.length === 0 && !thinking ? "flex items-center justify-center" : "py-8 sm:py-10"}`}>
+          <div ref={scrollRef} onScroll={handleScroll} className={`flex-1 overflow-y-auto ${messages.length === 0 && !thinking ? "flex items-center justify-center pt-16" : "pt-20 pb-8 sm:pb-10"}`}>
             <div key={activeConvId ?? "new"} className="max-w-[900px] mx-auto px-4 sm:px-8 animate-fade-in">
               {messages.length === 0 && !thinking &&
                     <div className="flex flex-col items-center justify-center min-h-[70vh] sm:min-h-[80vh] text-center">
