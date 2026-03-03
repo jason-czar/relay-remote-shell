@@ -2548,6 +2548,11 @@ export default function Chat() {
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
+      // If trust gate is showing, Enter confirms it (matches the ↵ button)
+      if (awaitingApproval?.options.includes(ENTER_TO_CONFIRM_SENTINEL)) {
+        handleApprovalChoice(ENTER_TO_CONFIRM_SENTINEL);
+        return;
+      }
       handleSend();
     }
   };
