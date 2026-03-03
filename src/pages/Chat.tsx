@@ -1785,6 +1785,13 @@ export default function Chat() {
               if (t.startsWith("{") && t.endsWith("}")) return false;
               // Skip lines that are purely Unicode block/box-drawing characters (Claude Code startup logo)
               if (/^[\u2580-\u259F\u2500-\u257F\s]+$/.test(t)) return false;
+              // Skip Claude Code startup banner lines:
+              //   "Claude Code  v2.1.63", "Sonnet  4.6  ·  Claude Pro", cwd paths
+              if (/^claude\s+code\b/i.test(t)) return false;
+              if (/^claude\s+code\s+v\d/i.test(t)) return false;
+              if (/\bv\d+\.\d+\.\d+\b/.test(t) && !/\w{4,}/.test(t.replace(/v\d[\d.]+/, "").trim())) return false;
+              if (/\b(sonnet|haiku|opus|claude)\b.*\bpro\b/i.test(t) && t.length < 80) return false;
+              if (/^\/(?:Users|home|root|tmp|var|opt)\//i.test(t)) return false;
               return true;
             }).
             join("\n").
