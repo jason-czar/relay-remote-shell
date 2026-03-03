@@ -742,6 +742,7 @@ export default function Chat() {
   const [isDragOver, setIsDragOver] = useState(false);
   const [showTerminalDrawer, setShowTerminalDrawer] = useState(false);
   const [terminalDrawerHeight, setTerminalDrawerHeight] = useState(380);
+  const [drawerInitCmd, setDrawerInitCmd] = useState<string | null>(null);
   const terminalDragRef = useRef<{startY: number;startH: number;} | null>(null);
   const drawerTerminalRef = useRef<EmbeddedTerminalHandle>(null);
   const [connectorOffline, setConnectorOffline] = useState(false);
