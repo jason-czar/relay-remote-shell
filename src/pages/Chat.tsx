@@ -3607,16 +3607,44 @@ export default function Chat() {
                 </button>
               </div>
 
-              {/* Terminal itself */}
-              <div className="flex-1 min-h-0 overflow-hidden">
-                <EmbeddedTerminal
-                    ref={drawerTerminalRef}
-                    deviceId={selectedDeviceId}
-                    convId={activeConvId}
-                    initialCommand={drawerInitCmd}
-                    onConnectorDisconnected={() => setConnectorOffline(true)}
-                    onConnectorReconnected={() => setConnectorOffline(false)} />
-                  
+              {/* Split terminal body — left: main PTY, right: agent tmux */}
+              <div className="flex-1 min-h-0 flex overflow-hidden">
+                {/* Left: main shell PTY */}
+                <div className="flex-1 min-w-0 flex flex-col overflow-hidden border-r border-border/30">
+                  <div className="flex items-center gap-1.5 px-3 py-1 shrink-0 border-b border-border/20 bg-background/60">
+                    <Terminal className="h-3 w-3 text-muted-foreground/60" />
+                    <span className="text-[10px] font-medium text-muted-foreground/60 uppercase tracking-wider">Shell</span>
+                  </div>
+                  <div className="flex-1 min-h-0 overflow-hidden">
+                    <EmbeddedTerminal
+                        ref={drawerTerminalRef}
+                        deviceId={selectedDeviceId}
+                        convId={activeConvId}
+                        onConnectorDisconnected={() => setConnectorOffline(true)}
+                        onConnectorReconnected={() => setConnectorOffline(false)} />
+                  </div>
+                </div>
+                {/* Right: agent tmux session */}
+                <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
+                  <div className="flex items-center gap-1.5 px-3 py-1 shrink-0 border-b border-border/20 bg-background/60">
+                    <Code2 className="h-3 w-3 text-muted-foreground/60" />
+                    <span className="text-[10px] font-medium text-muted-foreground/60 uppercase tracking-wider">Agent</span>
+                    {tmuxName && <span className="font-mono text-[9px] text-muted-foreground/40 ml-0.5">{tmuxName}</span>}
+                  </div>
+                  <div className="flex-1 min-h-0 overflow-hidden">
+                    {tmuxName && selectedDeviceId ? (
+                      <EmbeddedTerminal
+                          ref={agentTerminalRef}
+                          deviceId={selectedDeviceId}
+                          convId={activeConvId ? `${activeConvId}-agent` : null}
+                          initialCommand={`tmux attach -t ${tmuxName}`} />
+                    ) : (
+                      <div className="flex items-center justify-center h-full text-muted-foreground/30 text-xs">
+                        No agent session active
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
               }
