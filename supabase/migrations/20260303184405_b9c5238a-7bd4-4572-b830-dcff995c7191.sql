@@ -1,0 +1,1 @@
+ALTER TABLE public.chat_conversations ADD COLUMN tmux_session_name text;
