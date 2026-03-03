@@ -1427,11 +1427,12 @@ export default function Chat() {
 
     if (conv.agent === "codex") {
       const modelPart = modelFlag ? ` --model ${selectedModel}` : "";
+      const codexBase = `codex --skip-git-repo-check${modelPart}`;
       if (!sessionId) {
         // No PTY yet — store the first message so onChunkActivity can queue it
         // once the sessionId is established (structured ref avoids stale state).
         deferredFirstMsgRef.current = { agent: "codex", text };
-        return `codex${modelPart}\n`;
+        return `${codexBase}\n`;
       }
       const state = runtimeAgentsRef.current[sessionId];
       if (!state) {
@@ -1451,7 +1452,7 @@ export default function Chat() {
             }
           }
         }, 20_000);
-        return `codex${modelPart}\n`;
+        return `${codexBase}\n`;
       }
       if (!state.ready) {
         // REPL booting — queue for flush on readiness
