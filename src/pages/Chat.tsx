@@ -1406,7 +1406,7 @@ export default function Chat() {
   const buildCommand = useCallback(async (text: string, convId: string, selectedModel: string): Promise<string> => {
     const { data: conv } = await supabase.
     from("chat_conversations").
-    select("agent, openclaw_session_id, claude_session_id").
+    select("agent, openclaw_session_id, claude_session_id, tmux_session_name").
     eq("id", convId).
     single();
     if (!conv) throw new Error("Conversation not found");
