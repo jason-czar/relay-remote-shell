@@ -1409,15 +1409,42 @@ export default function Chat() {
     single();
     if (!conv) throw new Error("Conversation not found");
 
-    const escaped = text.replace(/"/g, '\\"');
+    // Single-quote wrapping: safest POSIX shell escape (no interpolation possible)
+    const shellEscape = (s: string) => `'${s.replace(/'/g, `'\\''`)}'`;
     // "auto" = omit --model flag entirely, let the CLI use its configured default
     const modelFlag = selectedModel !== "auto" ? `--model ${selectedModel}` : "";
 
     if (conv.agent === "openclaw") {
-      // OpenClaw is stateless per-message — unchanged
-      const sid = conv.openclaw_session_id ?? crypto.randomUUID();
+      let sid = conv.openclaw_session_id;
+      if (!sid) {
+        const candidate = crypto.randomUUID();
+        const { data: updated } = await supabase
+          .from("chat_conversations")
+          .update({ openclaw_session_id: candidate })
+          .eq("id", convId)
+          .is("openclaw_session_id", null)
+          .select("openclaw_session_id");
+
+        if (updated && updated.length > 0) {
+          // We won the race
+          sid = updated[0].openclaw_session_id;
+        } else {
+          // We lost the race — re-read the winner's stored value
+          const { data: row } = await supabase
+            .from("chat_conversations")
+            .select("openclaw_session_id")
+            .eq("id", convId)
+            .single();
+          sid = row?.openclaw_session_id ?? candidate;
+        }
+
+        // Sync local state so subsequent messages in this render cycle reuse sid
+        setConversations(prev => prev.map(c =>
+          c.id === convId ? { ...c, openclaw_session_id: sid! } : c
+        ));
+      }
       const modelPart = modelFlag ? ` ${modelFlag}` : "";
-      return `openclaw agent --agent main --session-id ${sid}${modelPart} --message "${escaped}" --json --local\n`;
+      return `openclaw agent --agent main --session-id ${sid}${modelPart} --message ${shellEscape(text)} --json --local\n`;
     }
 
     // ── REPL spawn model for Codex + Claude ──────────────────────────────
