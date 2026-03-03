@@ -283,12 +283,8 @@ export function AppSidebar() {
                               </button>
                             </div>
 
-                            {activeJobs.has(conv.id) ? (
+                            {activeJobs.has(conv.id) && (
                               <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-foreground/40 animate-pulse" title="Running…" />
-                            ) : (
-                              <span className="shrink-0 label-xs text-muted-foreground/30 font-mono">
-                                {conv.agent === "openclaw" ? "OC" : conv.agent === "codex" ? "CX" : "CC"}
-                              </span>
                             )}
                           </>
                         )}
