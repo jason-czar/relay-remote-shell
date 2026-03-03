@@ -1,171 +1,78 @@
 
-## Plan: Fix First-Prompt Drop Bug in Chat.tsx + Auth Error Classification
+## Analysis
 
-### What to build
+The architecture is already a **persistent REPL model** — Claude and Codex both spawn once per PTY and receive subsequent messages as raw stdin. The ChatGPT suggestion is largely already implemented. However there are three concrete gaps causing inconsistent conversations:
 
-Four precise changes inside `src/pages/Chat.tsx` and one new pure helper file `src/lib/replClassifier.ts`.
+### Gap 1: `--resume` Not Used on Spawn (Most Critical)
 
----
+When Claude spawns a new REPL (lines 1421, 1441), it always runs `claude\n` regardless of whether a `claude_session_id` is already stored on the conversation. This means:
+- After a page reload (new PTY, same conversation), Claude starts fresh with no memory
+- The trust gate re-appears every time
+- Previous context is lost
 
-### 1. New file: `src/lib/replClassifier.ts`
+**Fix**: When spawning Claude and `conv.claude_session_id` exists, emit `claude --resume <id>\n` instead of `claude\n`.
 
-A tiny pure module (no React, no imports from Chat) with two exported functions:
+### Gap 2: Readiness Regex Too Narrow
 
-```ts
-// Classify stdout from a Codex/Claude REPL boot as an error type
-export type ReplStartupError =
-  | { kind: "auth"; agent: "codex" | "claude"; message: string }
-  | { kind: "not_found"; agent: "codex" | "claude"; message: string }
-  | null;
+Current: `/Type your message|Claude Code\s+\d/i`
 
-export function classifyReplStartupError(stdout: string, agent: "codex" | "claude"): ReplStartupError
+The image the user uploaded shows the trust gate screen — `> 1. Yes, I trust this folder` — which doesn't match either pattern. If the REPL boots and shows the trust prompt before the readiness banner, the 20-second fallback fires and sends the user message into the trust gate UI rather than to Claude.
 
-// Returns actionable user-facing string, or null if no error
-export function formatReplError(err: NonNullable<ReplStartupError>): string
-```
+Also, the `TRUST_BLOCK_RE` pattern `/Not inside a trusted directory|Working with untrusted/i` doesn't match Claude's actual text (`"Is this a project you created or one you trust?"`).
 
-Patterns to detect:
-- **Codex auth**: `/not logged in|please run.*codex login|authentication required/i`
-- **Claude auth**: `/not logged in|please run.*claude auth login|authentication required|no api key/i`
-- **Not found (both)**: `/command not found|no such file.*directory|enoent/i`
+**Fix**:
+- Broaden `AGENT_READY_RE.claude` to also match `> ` prompt patterns and `✓` confirmations Claude emits after trust acceptance
+- Update `TRUST_BLOCK_RE` to match Claude's actual trust-gate text: `"Is this a project you created"` and `"Quick safety check"`
 
-This is the only testable pure logic extracted per the user's instruction. Tests go in `src/test/replClassifier.test.ts`.
+### Gap 3: Session ID Not Captured in REPL Mode
 
----
+`extractClaudeSessionId` looks for `{"type":"result","session_id":"..."}` which Claude emits in `--output-format stream-json` mode. But in interactive REPL mode (no `--print`), Claude doesn't emit this JSON. The session ID is only available from `Restored session: <id>` or similar banner text.
 
-### 2. Add `deferredFirstMsgRef` to Chat.tsx
-
-New ref with structured type:
-```ts
-const deferredFirstMsgRef = useRef<{ agent: "codex" | "claude"; text: string } | null>(null);
-```
-
-This stores the user's first message when `buildCommand` is called before a `sessionId` exists, along with the agent type (read from the conversation's `agent` field at the time `buildCommand` runs — not from React state to avoid staleness).
+**Fix**: Add a REPL-specific session ID extractor that reads `Restored session:` lines or the session ID from Claude's interactive startup banner.
 
 ---
 
-### 3. Patch `buildCommand` — two drop points
+## Plan
 
-**Drop point 1 — `!sessionId` path (both agents):**
+### 1. Fix `--resume` spawn in `buildCommand` (Chat.tsx ~line 1416)
 
-```ts
-// BEFORE
-if (!sessionId) {
-  return "codex\n";
-}
-
-// AFTER
-if (!sessionId) {
-  deferredFirstMsgRef.current = { agent: "codex", text };
-  return `codex${modelPart}\n`;  // modelPart computed before the guard
-}
-```
-
-Same fix mirrored for the `claude` branch. Note: `modelPart` is computed from `selectedModel` which is available at this point — move it above the `!sessionId` guard.
-
-**Drop point 2 — `!state` path (both agents):**
-
-```ts
-// BEFORE (codex)
-runtimeAgentsRef.current[sessionId] = { agent: "codex", ready: false };
-// boot timeout...
-return `codex${modelPart}\n`;
-
-// AFTER
-runtimeAgentsRef.current[sessionId] = { agent: "codex", ready: false };
-pendingQueueRef.current[sessionId] = [text];   // ← queue the first message
-// boot timeout... (unchanged)
-return `codex${modelPart}\n`;
-```
-
-Same for `claude` `!state` branch.
-
----
-
-### 4. Patch `onChunkActivity` — migrate deferred message when session appears
-
-In the REPL readiness detection block (around line 918), add a block **before** the existing state check:
-
-```ts
-// Migrate deferred first message once sessionId is established
-if (sessionId && deferredFirstMsgRef.current && !runtimeAgentsRef.current[sessionId]) {
-  const { agent, text } = deferredFirstMsgRef.current;
-  deferredFirstMsgRef.current = null;
-  runtimeAgentsRef.current[sessionId] = { agent, ready: false };
-  pendingQueueRef.current[sessionId] = [text];
-  // Start boot timeout for this newly-registered session
-  setTimeout(() => {
-    const s = runtimeAgentsRef.current[sessionId];
-    if (s && !s.ready) {
-      s.ready = true;
-      const queue = pendingQueueRef.current[sessionId] ?? [];
-      delete pendingQueueRef.current[sessionId];
-      for (const q of queue) relay.sendRawStdin(sessionId, btoa(q + "\n"));
-    }
-  }, 20_000);
-}
-```
-
-This gives the deferred-session path the same boot-timeout protection as the `!state` path.
-
----
-
-### 5. Add Claude boot timeout (parity with Codex)
-
-In the `claude` `!state` branch (~line 1356), add the same 20s timeout guard that Codex already has. Currently the Claude branch has none — if the readiness banner never fires, the queue stalls forever.
-
----
-
-### 6. Auth error classification — run BEFORE empty-response retry
-
-At line ~1764, before the `if (!responseText.trim())` auto-retry block, insert:
-
-```ts
-// ── Auth/startup error classification ───────────────────────────────────
-if (!responseText.trim() && (convData?.agent === "codex" || convData?.agent === "claude")) {
-  const err = classifyReplStartupError(stdout, convData.agent);
-  if (err) {
-    responseText = formatReplError(err);
-    // Skip the auto-retry — retrying an auth failure just re-spawns and hides the error
+```typescript
+if (conv.agent === "claude") {
+  const resumeFlag = conv.claude_session_id ? ` --resume ${conv.claude_session_id}` : "";
+  if (!sessionId) {
+    deferredFirstMsgRef.current = { agent: "claude", text };
+    return `claude${resumeFlag}${modelPart}\n`;
   }
+  // ... rest unchanged, but use resumeFlag in spawn line too
+  return `claude${resumeFlag}${modelPart}\n`;
 }
 ```
 
-This runs **before** the retry block so auth failures produce actionable messages instead of triggering a pointless re-run.
+### 2. Tighten readiness & trust-block patterns (~line 660)
 
----
-
-### 7. Tests: `src/test/replClassifier.test.ts`
-
-Unit tests for the pure classifier only (aligned with Codex's guidance):
-- Codex auth error strings → `{ kind: "auth", agent: "codex" }`
-- Claude auth error strings → `{ kind: "auth", agent: "claude" }`
-- "command not found" → `{ kind: "not_found" }`
-- Clean stdout → `null`
-- `formatReplError` produces actionable strings with the right commands
-
----
-
-### 8. Validation step (documentation / comment in plan)
-
-**Not a code change** — a manual step the user must do on the connector host after the fix is deployed:
-
-```sh
-claude auth login        # Claude is currently logged out per auth status
-claude auth status       # Confirm logged in
-codex login status       # Confirm still logged in
+```typescript
+const AGENT_READY_RE = {
+  codex: /Approval mode:|Model:|workdir:|session id:|Session \w{4,}:|openai\/codex|codex\s+v\d/i,
+  claude: /Type your message|Claude Code\s+\d|>\s*$|✓|Restored session:/i,
+};
+const TRUST_BLOCK_RE = /Not inside a trusted directory|Working with untrusted|Is this a project you|Quick safety check/i;
 ```
 
-Claude will not work until host auth is fixed regardless of the frontend fix. This should be surfaced clearly in the assistant response after the code lands.
+### 3. Capture session ID from REPL banner (~line 1459)
+
+Add a new branch in `extractClaudeSessionId` to parse the interactive startup banner:
+```
+Restored session: abc123-def456-...
+```
+Regex: `/Restored session:\s*([a-z0-9-]+)/i`
+
+This makes the session ID persist correctly after the first conversation turn.
 
 ---
 
-### Files changed
+## Files to Edit
 
-| File | Change |
-|---|---|
-| `src/lib/replClassifier.ts` | New — pure classifier + formatter |
-| `src/test/replClassifier.test.ts` | New — unit tests for classifier |
-| `src/pages/Chat.tsx` | Add `deferredFirstMsgRef`; patch two `!sessionId` drop points; patch two `!state` drop points to queue first message; add deferred-session migration + timeout in `onChunkActivity`; add Claude boot timeout; insert auth error classification before retry |
-
-No backend changes. No plist changes. OpenClaw path untouched.
+- `src/pages/Chat.tsx` — three targeted edits:
+  1. `buildCommand` Claude branch: add `--resume <id>` when `conv.claude_session_id` exists
+  2. `AGENT_READY_RE` / `TRUST_BLOCK_RE`: broaden patterns
+  3. `extractClaudeSessionId`: add REPL banner regex as first check
