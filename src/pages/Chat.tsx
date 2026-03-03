@@ -1463,17 +1463,20 @@ export default function Chat() {
   const extractClaudeSessionId = (stdout: string): string | null => {
     // 0a. REPL resume banner: "Restored session: <uuid-or-id>"
     const restored = stdout.match(/Restored session:\s*([a-z0-9-]+)/i);
-    if (restored) return restored[1];
+    if (restored) { console.log("[REPL] Claude session ID captured (resume banner):", restored[1]); return restored[1]; }
 
     // 0b. First-launch banner variants:
     //   "Session ID: <uuid>"  /  "session: <uuid>"  /  "New session: <uuid>"
     const sessionLabel = stdout.match(/(?:New session|Session(?:\s+ID)?)\s*:\s*([a-z0-9-]+)/i);
-    if (sessionLabel) return sessionLabel[1];
+    if (sessionLabel) { console.log("[REPL] Claude session ID captured (session label):", sessionLabel[1]); return sessionLabel[1]; }
 
     // 0c. Bare UUID on its own line (Claude sometimes prints just the UUID)
     for (const line of stdout.split("\n")) {
       const t = line.trim();
-      if (UUID_RE.test(t) && t.replace(UUID_RE, "").trim() === "") return t;
+      if (UUID_RE.test(t) && t.replace(UUID_RE, "").trim() === "") {
+        console.log("[REPL] Claude session ID captured (bare UUID line):", t);
+        return t;
+      }
     }
 
     // 1. JSONL result line (stream-json mode) — most reliable
@@ -1860,11 +1863,11 @@ export default function Chat() {
             ? extractCodexSessionId(stdout)
             : extractClaudeSessionId(stdout);
           if (sessionId) {
-            console.log(`[Chat] Captured ${convData.agent} session ID:`, sessionId);
+            console.log(`[REPL] ${convData.agent} session ID stored → --resume ready:`, sessionId);
             await supabase.from("chat_conversations").update({ claude_session_id: sessionId }).eq("id", jobConvId);
             setConversations(prev => prev.map(c => c.id === jobConvId ? { ...c, claude_session_id: sessionId } : c));
           } else {
-            console.warn(`[Chat] No session ID found in ${convData.agent} stdout. Length: ${stdout.length}`);
+            console.warn(`[REPL] No session ID found in ${convData.agent} stdout (length: ${stdout.length}) — next spawn will not use --resume`);
           }
         }
 
@@ -2316,7 +2319,7 @@ export default function Chat() {
               ? extractCodexSessionId(stdout)
               : extractClaudeSessionId(stdout);
             if (sessionId) {
-              console.log(`[Chat] Regen: captured ${convData.agent} session ID:`, sessionId);
+              console.log(`[REPL] ${convData.agent} session ID stored (regen) → --resume ready:`, sessionId);
               await supabase.from("chat_conversations").update({ claude_session_id: sessionId }).eq("id", jobConvId);
               setConversations(prev => prev.map(c => c.id === jobConvId ? { ...c, claude_session_id: sessionId } : c));
             }
